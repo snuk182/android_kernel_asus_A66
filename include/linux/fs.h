@@ -2152,6 +2152,7 @@ extern struct file * dentry_open(struct dentry *, struct vfsmount *, int,
 extern int filp_close(struct file *, fl_owner_t id);
 
 extern struct filename *getname(const char __user *);
+
 enum {
 	FILE_CREATED = 1,
 	FILE_OPENED = 2
