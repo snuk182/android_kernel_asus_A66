@@ -1716,6 +1716,10 @@ static void rcu_idle_count_callbacks_posted(void)
 static DEFINE_PER_CPU(int, rcu_dyntick_drain);
 static DEFINE_PER_CPU(unsigned long, rcu_dyntick_holdoff);
 static DEFINE_PER_CPU(struct timer_list, rcu_idle_gp_timer);
+static DEFINE_PER_CPU(unsigned long, rcu_idle_gp_timer_expires);
+static DEFINE_PER_CPU(bool, rcu_idle_first_pass);
+static DEFINE_PER_CPU(unsigned long, rcu_nonlazy_posted);
+static DEFINE_PER_CPU(unsigned long, rcu_nonlazy_posted_snap);
 
 /*
  * Does the specified flavor of RCU have non-lazy callbacks pending on
@@ -1760,7 +1764,6 @@ static bool rcu_cpu_has_nonlazy_callbacks(int cpu)
 }
 
 /*
-<<<<<<< HEAD
  * Allow the CPU to enter dyntick-idle mode if either: (1) There are no
  * callbacks on this CPU, (2) this CPU has not yet attempted to enter
  * dyntick-idle mode, or (3) this CPU is in the process of attempting to
@@ -1874,6 +1877,26 @@ static void rcu_cleanup_after_idle(int cpu)
 static void rcu_prepare_for_idle(int cpu)
 {
 	/*
+	 * If this is an idle re-entry, for example, due to use of
+	 * RCU_NONIDLE() or the new idle-loop tracing API within the idle
+	 * loop, then don't take any state-machine actions, unless the
+	 * momentary exit from idle queued additional non-lazy callbacks.
+	 * Instead, repost the rcu_idle_gp_timer if this CPU has callbacks
+	 * pending.
+	 */
+	if (!per_cpu(rcu_idle_first_pass, cpu) &&
+	    (per_cpu(rcu_nonlazy_posted, cpu) ==
+	     per_cpu(rcu_nonlazy_posted_snap, cpu))) {
+		if (rcu_cpu_has_callbacks(cpu))
+			mod_timer(&per_cpu(rcu_idle_gp_timer, cpu),
+				  per_cpu(rcu_idle_gp_timer_expires, cpu));
+		return;
+	}
+	per_cpu(rcu_idle_first_pass, cpu) = 0;
+	per_cpu(rcu_nonlazy_posted_snap, cpu) =
+		per_cpu(rcu_nonlazy_posted, cpu) - 1;
+
+	/*
 	 * If there are no callbacks on this CPU, enter dyntick-idle mode.
 	 * Also reset state to avoid prejudicing later attempts.
 	 */
@@ -1905,11 +1928,15 @@ static void rcu_prepare_for_idle(int cpu)
 		per_cpu(rcu_dyntick_drain, cpu) = 0;
 		per_cpu(rcu_dyntick_holdoff, cpu) = jiffies;
 		if (rcu_cpu_has_nonlazy_callbacks(cpu))
-			mod_timer(&per_cpu(rcu_idle_gp_timer, cpu),
-					   jiffies + RCU_IDLE_GP_DELAY);
+			per_cpu(rcu_idle_gp_timer_expires, cpu) =
+					   jiffies + RCU_IDLE_GP_DELAY;
 		else
-			mod_timer(&per_cpu(rcu_idle_gp_timer, cpu),
-					   jiffies + RCU_IDLE_LAZY_GP_DELAY);
+			per_cpu(rcu_idle_gp_timer_expires, cpu) =
+					   jiffies + RCU_IDLE_LAZY_GP_DELAY;
+		mod_timer(&per_cpu(rcu_idle_gp_timer, cpu),
+			  per_cpu(rcu_idle_gp_timer_expires, cpu));
+		per_cpu(rcu_nonlazy_posted_snap, cpu) =
+			per_cpu(rcu_nonlazy_posted, cpu);
 		return; /* Nothing more to do immediately. */
 	} else if (--per_cpu(rcu_dyntick_drain, cpu) <= 0) {
 		/* We have hit the limit, so time to give up. */
