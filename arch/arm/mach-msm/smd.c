@@ -2417,22 +2417,6 @@ void *smem_alloc2(unsigned id, unsigned size_in)
 }
 EXPORT_SYMBOL(smem_alloc2);
 
-void debugg(void) {
-     int n;
-     struct smem_shared *shared = (void *) MSM_SHARED_RAM_BASE;
-	struct smem_heap_entry *toc = shared->heap_toc;
-
-        for (n = 0; n < SMEM_NUM_ITEMS; n++) {
-		if (toc[n].allocated == 0) {
-			pr_info("%04d unallocated\n", n);
-                } else {
-		pr_info("%04d: offset %08x size %08x\n",
-			       n, toc[n].offset, toc[n].size);
-                 }
-	}
-}
-EXPORT_SYMBOL(debugg);
-
 void *smem_get_entry(unsigned id, unsigned *size)
 {
 	struct smem_shared *shared = (void *) MSM_SHARED_RAM_BASE;
@@ -2440,8 +2424,6 @@ void *smem_get_entry(unsigned id, unsigned *size)
 	int use_spinlocks = spinlocks_initialized;
 	void *ret = 0;
 	unsigned long flags = 0;
-
-        //debugg();
 
 	if (id >= SMEM_NUM_ITEMS)
 		return ret;
@@ -2590,7 +2572,7 @@ static int smsm_init(void)
 	i = register_pm_notifier(&smsm_pm_nb);
 	if (i)
 		pr_err("%s: power state notif error %d\n", __func__, i);
-        pr_info("%s went well\n",__func__);
+
 	return 0;
 }
 
