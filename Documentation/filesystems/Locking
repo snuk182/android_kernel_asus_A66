@@ -92,9 +92,15 @@ listxattr:	no
 removexattr:	yes
 truncate_range:	yes
 fiemap:		no
+<<<<<<< HEAD
 update_time:	no
 atomic_open:	yes
 
+||||||| parent of 5d4a3e8df42... fs: introduce inode operation ->update_time
+=======
+update_time:	no
+
+>>>>>>> 5d4a3e8df42... fs: introduce inode operation ->update_time
 	Additionally, ->rmdir(), ->unlink() and ->rename() have ->i_mutex on
 victim.
 	cross-directory ->rename() has (per-superblock) ->s_vfs_rename_sem.
