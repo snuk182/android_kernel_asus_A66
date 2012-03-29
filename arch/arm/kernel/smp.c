@@ -260,7 +260,6 @@ void __ref cpu_die(void)
 
 	local_irq_disable();
 
-<<<<<<< HEAD
 	/*
 	 * Flush the data out of the L1 cache for this CPU.  This must be
 	 * before the completion to ensure that data is safely written out
