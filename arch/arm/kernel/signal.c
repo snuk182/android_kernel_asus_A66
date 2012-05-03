@@ -647,11 +647,9 @@ static void do_signal(struct pt_regs *regs, int syscall)
 		case -ERESTARTNOHAND:
 		case -ERESTARTSYS:
 		case -ERESTARTNOINTR:
+		case -ERESTART_RESTARTBLOCK:
 			regs->ARM_r0 = regs->ARM_ORIG_r0;
 			regs->ARM_pc = restart_addr;
-			break;
-		case -ERESTART_RESTARTBLOCK:
-			regs->ARM_r0 = -EINTR;
 			break;
 		}
 	}
@@ -673,12 +671,14 @@ static void do_signal(struct pt_regs *regs, int syscall)
 		 * debugger has chosen to restart at a different PC.
 		 */
 		if (regs->ARM_pc == restart_addr) {
-			if (retval == -ERESTARTNOHAND
+			if (retval == -ERESTARTNOHAND ||
+			    retval == -ERESTART_RESTARTBLOCK
 			    || (retval == -ERESTARTSYS
 				&& !(ka.sa.sa_flags & SA_RESTART))) {
 				regs->ARM_r0 = -EINTR;
 				regs->ARM_pc = continue_addr;
 			}
+			clear_thread_flag(TIF_SYSCALL_RESTARTSYS);
 		}
 
 		if (test_thread_flag(TIF_RESTORE_SIGMASK))
@@ -708,15 +708,13 @@ static void do_signal(struct pt_regs *regs, int syscall)
 		if (retval == -ERESTART_RESTARTBLOCK
 		    && regs->ARM_pc == restart_addr)
 			set_thread_flag(TIF_SYSCALL_RESTARTSYS);
-
-		/* If there's no signal to deliver, we just put the saved sigmask
-		 * back.
-		 */
-		if (test_thread_flag(TIF_RESTORE_SIGMASK)) {
-			clear_thread_flag(TIF_RESTORE_SIGMASK);
-			sigprocmask(SIG_SETMASK, &current->saved_sigmask, NULL);
-		}
 	}
+
+	/* If there's no signal to deliver, we just put the saved sigmask
+	 * back.
+	 */
+	if (test_and_clear_thread_flag(TIF_RESTORE_SIGMASK))
+		set_current_blocked(&current->saved_sigmask);
 }
 
 asmlinkage void
