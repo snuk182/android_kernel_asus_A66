@@ -8,7 +8,7 @@
  * This code is based on the analogous interface allowing user space to
  * manipulate wakelocks on Android.
  */
-
+//snuk182 !?
 #include <linux/ctype.h>
 #include <linux/device.h>
 #include <linux/err.h>
@@ -18,6 +18,7 @@
 #include <linux/slab.h>
 
 const char *active_wake_lock;   //Ledger
+
 static DEFINE_MUTEX(wakelocks_lock);
 
 struct wakelock {
@@ -163,7 +164,7 @@ static struct wakelock *wakelock_lookup_add(const char *name, size_t len,
 	if (!add_if_not_found)
 		return ERR_PTR(-EINVAL);
 
-	if (number_of_wakelocks > WL_NUMBER_LIMIT)
+	if (wakelocks_limit_exceeded())
 		return ERR_PTR(-ENOSPC);
 
 	/* Not found, we have to add a new one. */
