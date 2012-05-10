@@ -3413,6 +3413,16 @@ static void __init apq8064_cdp_init(void)
 		platform_device_register(&mpq8064_device_uartdm_gsbi6);
 	}
 
+	if (machine_is_mpq8064_hrd() || machine_is_mpq8064_dtv()) {
+#ifdef CONFIG_SERIAL_MSM_HS
+		/* GSBI6(2) - UARTDM_RX */
+		mpq8064_gsbi6_uartdm_pdata.wakeup_irq = gpio_to_irq(15);
+		mpq8064_device_uartdm_gsbi6.dev.platform_data =
+					&mpq8064_gsbi6_uartdm_pdata;
+#endif
+		platform_device_register(&mpq8064_device_uartdm_gsbi6);
+	}
+
 	if (machine_is_apq8064_cdp() || machine_is_apq8064_liquid())
 		platform_device_register(&cdp_kp_pdev);
 
