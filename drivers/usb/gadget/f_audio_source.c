@@ -543,6 +543,8 @@ static int audio_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 			audio->in_ep->name, ret);
 		return ret;
 	}
+
+	usb_ep_enable(audio->in_ep);
 	return 0;
 }
 
@@ -614,6 +616,9 @@ audio_bind(struct usb_configuration *c, struct usb_function *f)
 	if (gadget_is_dualspeed(c->cdev->gadget))
 		audio_hs_as_in_ep_desc.bEndpointAddress =
 			audio_fs_as_in_ep_desc.bEndpointAddress;
+
+	f->descriptors = fs_audio_desc;
+	f->hs_descriptors = hs_audio_desc;
 
 	for (i = 0, status = 0; i < IN_EP_REQ_COUNT && status == 0; i++) {
 		req = audio_request_new(ep, IN_EP_MAX_PACKET_SIZE);
