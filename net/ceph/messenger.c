@@ -739,7 +739,6 @@ static int prepare_write_connect(struct ceph_messenger *msgr,
 	con->out_connect.protocol_version = cpu_to_le32(proto);
 	con->out_connect.flags = 0;
 
-	ceph_con_out_kvec_reset(con);
 	if (include_banner)
 		prepare_write_banner(msgr, con);
 	ceph_con_out_kvec_add(con, sizeof (con->out_connect), &con->out_connect);
@@ -1406,6 +1405,7 @@ static int process_connect(struct ceph_connection *con)
 			return -1;
 		}
 		con->auth_retry = 1;
+		ceph_con_out_kvec_reset(con);
 		ret = prepare_write_connect(con->msgr, con, 0);
 		if (ret < 0)
 			return ret;
@@ -1426,6 +1426,7 @@ static int process_connect(struct ceph_connection *con)
 		       ENTITY_NAME(con->peer_name),
 		       ceph_pr_addr(&con->peer_addr.in_addr));
 		reset_connection(con);
+		ceph_con_out_kvec_reset(con);
 		prepare_write_connect(con->msgr, con, 0);
 		prepare_read_connect(con);
 
@@ -1449,6 +1450,7 @@ static int process_connect(struct ceph_connection *con)
 		     le32_to_cpu(con->out_connect.connect_seq),
 		     le32_to_cpu(con->in_connect.connect_seq));
 		con->connect_seq = le32_to_cpu(con->in_connect.connect_seq);
+		ceph_con_out_kvec_reset(con);
 		prepare_write_connect(con->msgr, con, 0);
 		prepare_read_connect(con);
 		break;
@@ -1463,6 +1465,7 @@ static int process_connect(struct ceph_connection *con)
 		     le32_to_cpu(con->in_connect.global_seq));
 		get_global_seq(con->msgr,
 			       le32_to_cpu(con->in_connect.global_seq));
+		ceph_con_out_kvec_reset(con);
 		prepare_write_connect(con->msgr, con, 0);
 		prepare_read_connect(con);
 		break;
@@ -1868,6 +1871,7 @@ more:
 
 	/* open the socket first? */
 	if (con->sock == NULL) {
+		ceph_con_out_kvec_reset(con);
 		prepare_write_connect(msgr, con, 1);
 		prepare_read_banner(con);
 		set_bit(CONNECTING, &con->state);
