@@ -710,6 +710,7 @@ static int prepare_write_connect(struct ceph_connection *con)
 {
 	unsigned global_seq = get_global_seq(con->msgr, 0);
 	int proto;
+
 	struct ceph_auth_handshake *auth;
 
 	switch (con->peer_name.type) {
