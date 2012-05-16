@@ -2090,6 +2090,7 @@ static struct ceph_auth_handshake *get_authorizer(struct ceph_connection *con,
 		ceph_auth_destroy_authorizer(ac, auth->authorizer);
 		auth->authorizer = NULL;
 	}
+<<<<<<< HEAD
 	if (!auth->authorizer) {
 		int ret = ceph_auth_create_authorizer(ac, CEPH_ENTITY_TYPE_OSD,
 						      auth);
@@ -2098,6 +2099,14 @@ static struct ceph_auth_handshake *get_authorizer(struct ceph_connection *con,
 	} else {
 		int ret = ceph_auth_update_authorizer(ac, CEPH_ENTITY_TYPE_OSD,
 						     auth);
+||||||| parent of 4f33c7ed379... ceph: have get_authorizer methods return pointers
+	if (!auth->authorizer && ac->ops && ac->ops->create_authorizer) {
+		ret = ac->ops->create_authorizer(ac, CEPH_ENTITY_TYPE_OSD, auth);
+=======
+	if (!auth->authorizer && ac->ops && ac->ops->create_authorizer) {
+		int ret = ac->ops->create_authorizer(ac, CEPH_ENTITY_TYPE_OSD,
+							auth);
+>>>>>>> 4f33c7ed379... ceph: have get_authorizer methods return pointers
 		if (ret)
 			return ERR_PTR(ret);
 	}
