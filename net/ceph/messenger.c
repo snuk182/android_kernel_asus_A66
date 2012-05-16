@@ -671,18 +671,20 @@ static struct ceph_auth_handshake *prepare_connect_authorizer(struct ceph_connec
 
 	mutex_unlock(&con->mutex);
 
-	auth_buf = NULL;
-	auth_len = 0;
 	auth_protocol = CEPH_AUTH_UNKNOWN;
-	auth = con->ops->get_authorizer(con, &auth_buf, &auth_len,
-				&auth_protocol, &con->auth_reply_buf,
-				&con->auth_reply_buf_len, con->auth_retry);
+	auth = con->ops->get_authorizer(con, &auth_protocol, con->auth_retry);
+
 	mutex_lock(&con->mutex);
 
 	if (IS_ERR(auth))
 		return auth;
 	if (test_bit(CLOSED, &con->state) || test_bit(OPENING, &con->state))
 		return ERR_PTR(-EAGAIN);
+
+	auth_buf = auth->authorizer_buf;
+	auth_len = auth->authorizer_buf_len;
+	con->auth_reply_buf = auth->authorizer_reply_buf;
+	con->auth_reply_buf_len = auth->authorizer_reply_buf_len;
 
 	con->out_connect.authorizer_protocol = cpu_to_le32(auth_protocol);
 	con->out_connect.authorizer_len = cpu_to_le32(auth_len);
