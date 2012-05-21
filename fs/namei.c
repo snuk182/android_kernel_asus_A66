@@ -2900,7 +2900,8 @@ finish_lookup:
 	error = -ENOTDIR;
 	if ((nd->flags & LOOKUP_DIRECTORY) && !can_lookup(nd->inode))
 		goto out;
-finish_open:
+	audit_inode(pathname, nd->path.dentry);
+ok:
 	if (!S_ISREG(nd->inode->i_mode))
 		will_truncate = false;
 
