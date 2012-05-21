@@ -907,6 +907,10 @@ struct ceph_osdmap *osdmap_apply_incremental(void **p, void *end,
 		if (pglen) {
 			ceph_decode_need(p, end, pglen*sizeof(u32), bad);
 
+			/* removing existing (if any) */
+			(void) __remove_pg_mapping(&map->pg_temp, pgid);
+
+			/* insert */
 			err = -EINVAL;
 			if (pglen > (UINT_MAX - sizeof(*pg)) / sizeof(u32))
 				goto bad;
