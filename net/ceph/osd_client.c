@@ -142,11 +142,10 @@ void ceph_osdc_release_request(struct kref *kref)
 	if (req->r_reply)
 		ceph_msg_put(req->r_reply);
 	if (req->r_con_filling_msg) {
-		dout("release_request revoking pages %p from con %p\n",
+		dout("%s revoking pages %p from con %p\n", __func__,
 		     req->r_pages, req->r_con_filling_msg);
-		ceph_con_revoke_message(req->r_con_filling_msg,
-				      req->r_reply);
-		ceph_con_put(req->r_con_filling_msg);
+		ceph_msg_revoke_incoming(req->r_reply);
+		req->r_con_filling_msg->ops->put(req->r_con_filling_msg);
 	}
 	if (req->r_own_pages)
 		ceph_release_page_vector(req->r_pages,
@@ -1980,10 +1979,10 @@ static struct ceph_msg *get_reply(struct ceph_connection *con,
 	}
 
 	if (req->r_con_filling_msg) {
-		dout("get_reply revoking msg %p from old con %p\n",
+		dout("%s revoking msg %p from old con %p\n", __func__,
 		     req->r_reply, req->r_con_filling_msg);
-		ceph_con_revoke_message(req->r_con_filling_msg, req->r_reply);
-		ceph_con_put(req->r_con_filling_msg);
+		ceph_msg_revoke_incoming(req->r_reply);
+		req->r_con_filling_msg->ops->put(req->r_con_filling_msg);
 		req->r_con_filling_msg = NULL;
 	}
 
@@ -2086,7 +2085,6 @@ static struct ceph_auth_handshake *get_authorizer(struct ceph_connection *con,
 		ceph_auth_destroy_authorizer(ac, auth->authorizer);
 		auth->authorizer = NULL;
 	}
-<<<<<<< HEAD
 	if (!auth->authorizer) {
 		int ret = ceph_auth_create_authorizer(ac, CEPH_ENTITY_TYPE_OSD,
 						      auth);
@@ -2095,14 +2093,6 @@ static struct ceph_auth_handshake *get_authorizer(struct ceph_connection *con,
 	} else {
 		int ret = ceph_auth_update_authorizer(ac, CEPH_ENTITY_TYPE_OSD,
 						     auth);
-||||||| parent of 4f33c7ed379... ceph: have get_authorizer methods return pointers
-	if (!auth->authorizer && ac->ops && ac->ops->create_authorizer) {
-		ret = ac->ops->create_authorizer(ac, CEPH_ENTITY_TYPE_OSD, auth);
-=======
-	if (!auth->authorizer && ac->ops && ac->ops->create_authorizer) {
-		int ret = ac->ops->create_authorizer(ac, CEPH_ENTITY_TYPE_OSD,
-							auth);
->>>>>>> 4f33c7ed379... ceph: have get_authorizer methods return pointers
 		if (ret)
 			return ERR_PTR(ret);
 	}
