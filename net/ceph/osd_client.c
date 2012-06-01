@@ -1189,7 +1189,7 @@ static void handle_reply(struct ceph_osd_client *osdc, struct ceph_msg *msg,
 	if (req->r_con_filling_msg == con && req->r_reply == msg) {
 		dout(" dropping con_filling_msg ref %p\n", con);
 		req->r_con_filling_msg = NULL;
-		ceph_con_put(con);
+		con->ops->put(con);
 	}
 
 	if (!req->r_got_reply) {
@@ -2041,8 +2041,16 @@ static struct ceph_msg *get_reply(struct ceph_connection *con,
 	if (req->r_con_filling_msg) {
 		dout("%s revoking msg %p from old con %p\n", __func__,
 		     req->r_reply, req->r_con_filling_msg);
+<<<<<<< HEAD
 		ceph_msg_revoke_incoming(req->r_reply);
 		req->r_con_filling_msg->ops->put(req->r_con_filling_msg);
+||||||| parent of acecca48781... libceph: use con get/put ops from osd_client
+		ceph_con_revoke_message(req->r_con_filling_msg, req->r_reply);
+		ceph_con_put(req->r_con_filling_msg);
+=======
+		ceph_con_revoke_message(req->r_con_filling_msg, req->r_reply);
+		req->r_con_filling_msg->ops->put(req->r_con_filling_msg);
+>>>>>>> acecca48781... libceph: use con get/put ops from osd_client
 		req->r_con_filling_msg = NULL;
 	}
 
@@ -2077,7 +2085,7 @@ static struct ceph_msg *get_reply(struct ceph_connection *con,
 #endif
 	}
 	*skip = 0;
-	req->r_con_filling_msg = ceph_con_get(con);
+	req->r_con_filling_msg = con->ops->get(con);
 	dout("get_reply tid %lld %p\n", tid, m);
 
 out:
