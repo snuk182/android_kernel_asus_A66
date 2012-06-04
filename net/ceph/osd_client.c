@@ -147,14 +147,14 @@ void ceph_osdc_release_request(struct kref *kref)
 
 	if (req->r_request)
 		ceph_msg_put(req->r_request);
-	if (req->r_reply)
-		ceph_msg_put(req->r_reply);
 	if (req->r_con_filling_msg) {
 		dout("%s revoking pages %p from con %p\n", __func__,
 		     req->r_pages, req->r_con_filling_msg);
 		ceph_msg_revoke_incoming(req->r_reply);
 		req->r_con_filling_msg->ops->put(req->r_con_filling_msg);
 	}
+	if (req->r_reply)
+		ceph_msg_put(req->r_reply);
 	if (req->r_own_pages)
 		ceph_release_page_vector(req->r_pages,
 					 req->r_num_pages);
