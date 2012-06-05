@@ -113,11 +113,9 @@ const struct inode_operations nfs3_dir_inode_operations = {
 
 static int nfs_atomic_open(struct inode *, struct dentry *,
 			   struct file *, unsigned, umode_t,
-				    int *);
-static int nfs4_create(struct inode *dir, struct dentry *dentry,
-		       umode_t mode, struct nameidata *nd);
+			   int *);
 const struct inode_operations nfs4_dir_inode_operations = {
-	.create		= nfs4_create,
+	.create		= nfs_create,
 	.lookup		= nfs_lookup,
 	.atomic_open	= nfs_atomic_open,
 	.link		= nfs_link,
@@ -1510,42 +1508,6 @@ no_open_dput:
 	dput(parent);
 no_open:
 	return nfs_lookup_revalidate(dentry, flags);
-}
-
-static int nfs4_create(struct inode *dir, struct dentry *dentry,
-		       umode_t mode, struct nameidata *nd)
-{
-	struct nfs_open_context *ctx = NULL;
-	struct iattr attr;
-	int error;
-	int open_flags = O_CREAT|O_EXCL;
-
-	dfprintk(VFS, "NFS: create(%s/%ld), %s\n",
-			dir->i_sb->s_id, dir->i_ino, dentry->d_name.name);
-
-	attr.ia_mode = mode;
-	attr.ia_valid = ATTR_MODE;
-
-	if (nd && !(nd->flags & LOOKUP_EXCL))
-		open_flags = O_CREAT;
-
-	ctx = create_nfs_open_context(dentry, open_flags);
-	error = PTR_ERR(ctx);
-	if (IS_ERR(ctx))
-		goto out_err_drop;
-
-	error = NFS_PROTO(dir)->create(dir, dentry, &attr, open_flags, ctx);
-	if (error != 0)
-		goto out_put_ctx;
-
-	put_nfs_open_context(ctx);
-
-	return 0;
-out_put_ctx:
-	put_nfs_open_context(ctx);
-out_err_drop:
-	d_drop(dentry);
-	return error;
 }
 
 #endif /* CONFIG_NFSV4 */
