@@ -731,36 +731,7 @@ power_attr(pm_trace_dev_match);
 
 #endif /* CONFIG_PM_TRACE */
 
-#ifdef CONFIG_USER_WAKELOCK
-power_attr(wake_lock);
-power_attr(wake_unlock);
-#endif
-
-#ifdef CONFIG_FREEZER
-static ssize_t pm_freeze_timeout_show(struct kobject *kobj,
-				      struct kobj_attribute *attr, char *buf)
-{
-	return sprintf(buf, "%u\n", freeze_timeout_msecs);
-}
-
-static ssize_t pm_freeze_timeout_store(struct kobject *kobj,
-				       struct kobj_attribute *attr,
-				       const char *buf, size_t n)
-{
-	unsigned long val;
-
-	if (kstrtoul(buf, 10, &val))
-		return -EINVAL;
-
-	freeze_timeout_msecs = val;
-	return n;
-}
-
-power_attr(pm_freeze_timeout);
-
-#endif	/* CONFIG_FREEZER*/
-
-static struct attribute *g[] = {
+static struct attribute * g[] = {
 	&state_attr.attr,
 #ifdef CONFIG_PM_TRACE
 	&pm_trace_attr.attr,
@@ -774,12 +745,10 @@ static struct attribute *g[] = {
 #ifdef CONFIG_PM_DEBUG
 	&pm_test_attr.attr,
 #endif
+
 #ifdef CONFIG_PM_AUTOSLEEP
 	&autosleep_attr.attr,
 #endif
-#ifdef CONFIG_USER_WAKELOCK
-	&wake_lock_attr.attr,
-	&wake_unlock_attr.attr,
 // ASUS_BSP+++ Victor "fast boot mode"
 #ifdef CONFIG_FASTBOOT
        &fastboot_wakeup_attr.attr,
@@ -790,7 +759,6 @@ static struct attribute *g[] = {
 //[CY][+++]Modify for wakelock workaround
 	&ispowermanagerlock_attr.attr,
 //[CY][---]Modify for wakelock workaround
-#endif
 #ifdef CONFIG_PM_DEBUG
 	&pm_test_attr.attr,
 	&pm_print_times_attr.attr,
