@@ -114,6 +114,19 @@ static struct usb_device_id blacklist_table[] = {
 
 	/* Atheros 3011 with sflash firmware */
 	{ USB_DEVICE(0x0cf3, 0x3002), .driver_info = BTUSB_IGNORE },
+<<<<<<< HEAD
+||||||| parent of 7f801fcbd4b... Bluetooth: Support AR3011 in Acer Iconia Tab W500
+	{ USB_DEVICE(0x13d3, 0x3304), .driver_info = BTUSB_IGNORE },
+	{ USB_DEVICE(0x0930, 0x0215), .driver_info = BTUSB_IGNORE },
+	{ USB_DEVICE(0x0489, 0xe03d), .driver_info = BTUSB_IGNORE },
+	{ USB_DEVICE(0x0489, 0xe027), .driver_info = BTUSB_IGNORE },
+=======
+	{ USB_DEVICE(0x0cf3, 0xe019), .driver_info = BTUSB_IGNORE },
+	{ USB_DEVICE(0x13d3, 0x3304), .driver_info = BTUSB_IGNORE },
+	{ USB_DEVICE(0x0930, 0x0215), .driver_info = BTUSB_IGNORE },
+	{ USB_DEVICE(0x0489, 0xe03d), .driver_info = BTUSB_IGNORE },
+	{ USB_DEVICE(0x0489, 0xe027), .driver_info = BTUSB_IGNORE },
+>>>>>>> 7f801fcbd4b... Bluetooth: Support AR3011 in Acer Iconia Tab W500
 
 	/* Atheros AR9285 Malbec with sflash firmware */
 	{ USB_DEVICE(0x03f0, 0x311d), .driver_info = BTUSB_IGNORE },
