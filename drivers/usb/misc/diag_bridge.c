@@ -518,6 +518,7 @@ static void diag_bridge_disconnect(struct usb_interface *ifc)
 
 	dev_dbg(&dev->ifc->dev, "%s:\n", __func__);
 
+	platform_device_unregister(dev->pdev);
 	mutex_lock(&dev->ifc_mutex);
 	dev->ifc = NULL;
 	mutex_unlock(&dev->ifc_mutex);
