@@ -744,6 +744,7 @@ static struct attribute * g[] = {
 	&touch_event_timer_attr.attr,
 #ifdef CONFIG_PM_DEBUG
 	&pm_test_attr.attr,
+	&pm_print_times_attr.attr,
 #endif
 
 #ifdef CONFIG_PM_AUTOSLEEP
