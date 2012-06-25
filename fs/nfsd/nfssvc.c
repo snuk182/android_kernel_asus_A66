@@ -221,7 +221,7 @@ static int nfsd_startup(unsigned short port, int nrservs)
 	ret = nfsd_init_socks(port, net);
 	if (ret)
 		goto out_racache;
-	ret = lockd_up();
+	ret = lockd_up(&init_net);
 	if (ret)
 		goto out_racache;
 	ret = nfs4_state_start();
@@ -230,7 +230,7 @@ static int nfsd_startup(unsigned short port, int nrservs)
 	nfsd_up = true;
 	return 0;
 out_lockd:
-	lockd_down();
+	lockd_down(&init_net);
 out_racache:
 	nfsd_racache_shutdown();
 	return ret;
@@ -247,7 +247,7 @@ static void nfsd_shutdown(void)
 	if (!nfsd_up)
 		return;
 	nfs4_state_shutdown();
-	lockd_down();
+	lockd_down(&init_net);
 	nfsd_racache_shutdown();
 	nfsd_up = false;
 }
