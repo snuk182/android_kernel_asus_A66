@@ -555,6 +555,9 @@ nfsd(void *vrqstp)
 	nfsdstats.th_cnt --;
 
 out:
+	if (rqstp->rq_server->sv_nrthreads == 1)
+		svc_shutdown_net(rqstp->rq_server, &init_net);
+
 	/* Release the thread */
 	svc_exit_thread(rqstp);
 

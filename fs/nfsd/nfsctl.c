@@ -671,15 +671,7 @@ static ssize_t __write_ports_addfd(char *buf, struct net *net)
 
 	err = svc_addsock(nfsd_serv, fd, buf, SIMPLE_TRANSACTION_LIMIT);
 	if (err < 0) {
-<<<<<<< HEAD
-		svc_destroy(nfsd_serv);
-||||||| parent of 6a4ebdb6be2... NFSd: introduce nfsd_destroy() helper
-		if (nfsd_serv->sv_nrthreads == 1)
-			svc_shutdown_net(nfsd_serv, net);
-		svc_destroy(nfsd_serv);
-=======
 		nfsd_destroy(net);
->>>>>>> 6a4ebdb6be2... NFSd: introduce nfsd_destroy() helper
 		return err;
 	}
 
@@ -727,12 +719,12 @@ static ssize_t __write_ports_addxprt(char *buf, struct net *net)
 	if (err != 0)
 		return err;
 
-	err = svc_create_xprt(nfsd_serv, transport, &init_net,
+	err = svc_create_xprt(nfsd_serv, transport, net,
 				PF_INET, port, SVC_SOCK_ANONYMOUS);
 	if (err < 0)
 		goto out_err;
 
-	err = svc_create_xprt(nfsd_serv, transport, &init_net,
+	err = svc_create_xprt(nfsd_serv, transport, net,
 				PF_INET6, port, SVC_SOCK_ANONYMOUS);
 	if (err < 0 && err != -EAFNOSUPPORT)
 		goto out_close;
@@ -741,21 +733,13 @@ static ssize_t __write_ports_addxprt(char *buf, struct net *net)
 	nfsd_serv->sv_nrthreads--;
 	return 0;
 out_close:
-	xprt = svc_find_xprt(nfsd_serv, transport, &init_net, PF_INET, port);
+	xprt = svc_find_xprt(nfsd_serv, transport, net, PF_INET, port);
 	if (xprt != NULL) {
 		svc_close_xprt(xprt);
 		svc_xprt_put(xprt);
 	}
 out_err:
-<<<<<<< HEAD
-	svc_destroy(nfsd_serv);
-||||||| parent of 6a4ebdb6be2... NFSd: introduce nfsd_destroy() helper
-	if (nfsd_serv->sv_nrthreads == 1)
-		svc_shutdown_net(nfsd_serv, net);
-	svc_destroy(nfsd_serv);
-=======
 	nfsd_destroy(net);
->>>>>>> 6a4ebdb6be2... NFSd: introduce nfsd_destroy() helper
 	return err;
 }
 
