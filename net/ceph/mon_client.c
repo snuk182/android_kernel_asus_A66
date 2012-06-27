@@ -122,7 +122,6 @@ static void __close_session(struct ceph_mon_client *monc)
 	ceph_msg_revoke(monc->m_subscribe);
 	ceph_msg_revoke_incoming(monc->m_subscribe_ack);
 	ceph_con_close(&monc->con);
-	monc->con.private = NULL;
 	monc->cur_mon = -1;
 	monc->pending_auth = 0;
 	ceph_auth_reset(monc->auth);
@@ -144,9 +143,6 @@ static int __open_session(struct ceph_mon_client *monc)
 		monc->sub_sent = 0;
 		monc->sub_renew_after = jiffies;  /* i.e., expired */
 		monc->want_next_osdmap = !!monc->want_next_osdmap;
-
-		ceph_con_init(&monc->con, monc, &mon_con_ops,
-			&monc->client->msgr);
 
 		dout("open_session mon%d opening\n", monc->cur_mon);
 		ceph_con_open(&monc->con,
@@ -825,6 +821,9 @@ int ceph_monc_init(struct ceph_mon_client *monc, struct ceph_client *cl)
 	monc->pending_auth = 0;
 	if (!monc->m_auth)
 		goto out_auth_reply;
+
+	ceph_con_init(&monc->con, monc, &mon_con_ops,
+		      &monc->client->msgr);
 
 	monc->cur_mon = -1;
 	monc->hunting = true;
