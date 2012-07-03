@@ -113,6 +113,8 @@ struct smb347_charger_platform_data {
 	bool		disable_automatic_recharge;
 	int		irq_gpio;
 	enum smb347_chg_enable enable_control;
+	char		**supplied_to;
+	size_t		num_supplicants;
 };
 
 #endif /* SMB347_CHARGER_H */
