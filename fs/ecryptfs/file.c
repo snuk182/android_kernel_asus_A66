@@ -135,16 +135,6 @@ out:
 	return rc;
 }
 
-static void ecryptfs_vma_close(struct vm_area_struct *vma)
-{
-	filemap_write_and_wait(vma->vm_file->f_mapping);
-}
-
-static const struct vm_operations_struct ecryptfs_file_vm_ops = {
-	.close		= ecryptfs_vma_close,
-	.fault		= filemap_fault,
-};
-
 struct kmem_cache *ecryptfs_file_info_cache;
 
 static int read_or_initialize_metadata(struct dentry *dentry)
@@ -304,15 +294,7 @@ static int ecryptfs_release(struct inode *inode, struct file *file)
 static int
 ecryptfs_fsync(struct file *file, loff_t start, loff_t end, int datasync)
 {
-	int rc = 0;
-
-	rc = generic_file_fsync(file, start, end, datasync);
-	if (rc)
-		goto out;
-	rc = vfs_fsync_range(ecryptfs_file_to_lower(file), start, end,
-			     datasync);
-out:
-	return rc;
+	return vfs_fsync(ecryptfs_file_to_lower(file), datasync);
 }
 
 static int ecryptfs_fasync(int fd, struct file *file, int flag)
