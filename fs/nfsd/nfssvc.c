@@ -424,8 +424,18 @@ int nfsd_set_nrthreads(int n, int *nthreads, struct net *net)
 		if (err)
 			break;
 	}
+<<<<<<< HEAD
 	svc_destroy(nfsd_serv);
 
+||||||| parent of 6a4ebdb6be2... NFSd: introduce nfsd_destroy() helper
+
+	if (nfsd_serv->sv_nrthreads == 1)
+		svc_shutdown_net(nfsd_serv, net);
+	svc_destroy(nfsd_serv);
+
+=======
+	nfsd_destroy(net);
+>>>>>>> 6a4ebdb6be2... NFSd: introduce nfsd_destroy() helper
 	return err;
 }
 
@@ -471,7 +481,15 @@ out_shutdown:
 	if (error < 0 && !nfsd_up_before)
 		nfsd_shutdown(net);
 out_destroy:
+<<<<<<< HEAD
 	svc_destroy(nfsd_serv);		/* Release server */
+||||||| parent of 6a4ebdb6be2... NFSd: introduce nfsd_destroy() helper
+	if (nfsd_serv->sv_nrthreads == 1)
+		svc_shutdown_net(nfsd_serv, net);
+	svc_destroy(nfsd_serv);		/* Release server */
+=======
+	nfsd_destroy(net);		/* Release server */
+>>>>>>> 6a4ebdb6be2... NFSd: introduce nfsd_destroy() helper
 out:
 	mutex_unlock(&nfsd_mutex);
 	return error;
@@ -668,7 +686,15 @@ int nfsd_pool_stats_release(struct inode *inode, struct file *file)
 	int ret = seq_release(inode, file);
 	mutex_lock(&nfsd_mutex);
 	/* this function really, really should have been called svc_put() */
+<<<<<<< HEAD
 	svc_destroy(nfsd_serv);
+||||||| parent of 6a4ebdb6be2... NFSd: introduce nfsd_destroy() helper
+	if (nfsd_serv->sv_nrthreads == 1)
+		svc_shutdown_net(nfsd_serv, net);
+	svc_destroy(nfsd_serv);
+=======
+	nfsd_destroy(net);
+>>>>>>> 6a4ebdb6be2... NFSd: introduce nfsd_destroy() helper
 	mutex_unlock(&nfsd_mutex);
 	return ret;
 }

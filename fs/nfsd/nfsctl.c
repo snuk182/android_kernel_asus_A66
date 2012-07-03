@@ -665,7 +665,15 @@ static ssize_t __write_ports_addfd(char *buf, struct net *net)
 
 	err = svc_addsock(nfsd_serv, fd, buf, SIMPLE_TRANSACTION_LIMIT);
 	if (err < 0) {
+<<<<<<< HEAD
 		svc_destroy(nfsd_serv);
+||||||| parent of 6a4ebdb6be2... NFSd: introduce nfsd_destroy() helper
+		if (nfsd_serv->sv_nrthreads == 1)
+			svc_shutdown_net(nfsd_serv, net);
+		svc_destroy(nfsd_serv);
+=======
+		nfsd_destroy(net);
+>>>>>>> 6a4ebdb6be2... NFSd: introduce nfsd_destroy() helper
 		return err;
 	}
 
@@ -733,7 +741,15 @@ out_close:
 		svc_xprt_put(xprt);
 	}
 out_err:
+<<<<<<< HEAD
 	svc_destroy(nfsd_serv);
+||||||| parent of 6a4ebdb6be2... NFSd: introduce nfsd_destroy() helper
+	if (nfsd_serv->sv_nrthreads == 1)
+		svc_shutdown_net(nfsd_serv, net);
+	svc_destroy(nfsd_serv);
+=======
+	nfsd_destroy(net);
+>>>>>>> 6a4ebdb6be2... NFSd: introduce nfsd_destroy() helper
 	return err;
 }
 
