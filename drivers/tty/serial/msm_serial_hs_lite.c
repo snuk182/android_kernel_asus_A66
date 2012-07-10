@@ -47,7 +47,7 @@
 #include <mach/msm_serial_hs_lite.h>
 #include <asm/mach-types.h>
 #include "msm_serial_hs_hwreg.h"
-
+extern int g_bDebugMode;
 #ifdef CONFIG_MACH_APQ8064_MAKO
 /* HACK: earjack noise due to HW flaw. disable console to avoid this issue */
 extern int mako_console_stopped(void);

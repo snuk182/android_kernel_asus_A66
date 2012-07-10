@@ -60,7 +60,6 @@ int pas_init_image(enum pas_id id, const u8 *metadata, size_t size)
 
         dma_free_attrs(NULL, size, mdata_buf, mdata_phys, &attrs);
 
-	pr_info(" ==> PAS 0x%x %d %d\n", request.image_addr, id, ret);
 	if (ret)
 		return ret;
 	return scm_ret;
