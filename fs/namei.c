@@ -3165,10 +3165,11 @@ struct dentry *kern_path_create(int dfd, const char *pathname, struct path *path
 	mutex_lock_nested(&nd.path.dentry->d_inode->i_mutex, I_MUTEX_PARENT);
 	dentry = lookup_hash(&nd);
 	if (IS_ERR(dentry))
-		goto fail;
+		goto unlock;
 
+	error = -EEXIST;
 	if (dentry->d_inode)
-		goto eexist;
+		goto fail;
 	/*
 	 * Special case - lookup gave negative, but... we had foo/bar/
 	 * From the vfs_mknod() POV we just have a negative dentry -
@@ -3176,8 +3177,7 @@ struct dentry *kern_path_create(int dfd, const char *pathname, struct path *path
 	 * been asking for (non-existent) directory. -ENOENT for you.
 	 */
 	if (unlikely(!is_dir && nd.last.name[nd.last.len])) {
-		dput(dentry);
-		dentry = ERR_PTR(-ENOENT);
+		error = -ENOENT;
 		goto fail;
 	}
 	if (unlikely(err2)) {
@@ -3186,10 +3186,10 @@ struct dentry *kern_path_create(int dfd, const char *pathname, struct path *path
 	}
 	*path = nd.path;
 	return dentry;
-eexist:
-	dput(dentry);
-	dentry = ERR_PTR(-EEXIST);
 fail:
+	dput(dentry);
+	dentry = ERR_PTR(error);
+unlock:
 	mutex_unlock(&nd.path.dentry->d_inode->i_mutex);
 	if (!err2)
 		mnt_drop_write(nd.path.mnt);
@@ -3198,6 +3198,15 @@ out:
 	return dentry;
 }
 EXPORT_SYMBOL(kern_path_create);
+
+void done_path_create(struct path *path, struct dentry *dentry)
+{
+	dput(dentry);
+	mutex_unlock(&path->dentry->d_inode->i_mutex);
+	mnt_drop_write(path->mnt);
+	path_put(path);
+}
+EXPORT_SYMBOL(done_path_create);
 
 struct dentry *user_path_create(int dfd, const char __user *pathname, struct path *path, int is_dir)
 {
@@ -3269,8 +3278,9 @@ SYSCALL_DEFINE4(mknodat, int, dfd, const char __user *, filename, umode_t, mode,
 	struct path path;
 	int error;
 
-	if (S_ISDIR(mode))
-		return -EPERM;
+	error = may_mknod(mode);
+	if (error)
+		return error;
 
 	dentry = user_path_create(dfd, filename, &path, 0);
 	if (IS_ERR(dentry))
@@ -3278,15 +3288,9 @@ SYSCALL_DEFINE4(mknodat, int, dfd, const char __user *, filename, umode_t, mode,
 
 	if (!IS_POSIXACL(path.dentry->d_inode))
 		mode &= ~current_umask();
-	error = may_mknod(mode);
-	if (error)
-		goto out_dput;
-	error = mnt_want_write(path.mnt);
-	if (error)
-		goto out_dput;
 	error = security_path_mknod(&path, dentry, mode, dev);
 	if (error)
-		goto out_drop_write;
+		goto out;
 	switch (mode & S_IFMT) {
 		case 0: case S_IFREG:
 			error = vfs_create2(path.mnt, path.dentry->d_inode,dentry,mode,true);
@@ -3299,12 +3303,8 @@ SYSCALL_DEFINE4(mknodat, int, dfd, const char __user *, filename, umode_t, mode,
 			error = vfs_mknod(path.dentry->d_inode,dentry,mode,0);
 			break;
 	}
-out_drop_write:
-	mnt_drop_write(path.mnt);
-out_dput:
-	dput(dentry);
-	mutex_unlock(&path.dentry->d_inode->i_mutex);
-	path_put(&path);
+out:
+	done_path_create(&path, dentry);
 
 	return error;
 }
@@ -3358,19 +3358,10 @@ SYSCALL_DEFINE3(mkdirat, int, dfd, const char __user *, pathname, umode_t, mode)
 
 	if (!IS_POSIXACL(path.dentry->d_inode))
 		mode &= ~current_umask();
-	error = mnt_want_write(path.mnt);
-	if (error)
-		goto out_dput;
 	error = security_path_mkdir(&path, dentry, mode);
-	if (error)
-		goto out_drop_write;
-	error = vfs_mkdir2(path.mnt, path.dentry->d_inode, dentry, mode);
-out_drop_write:
-	mnt_drop_write(path.mnt);
-out_dput:
-	dput(dentry);
-	mutex_unlock(&path.dentry->d_inode->i_mutex);
-	path_put(&path);
+	if (!error)
+		error = vfs_mkdir2(path.mnt, path.dentry->d_inode, dentry, mode);
+	done_path_create(&path, dentry);
 	return error;
 }
 
@@ -3663,19 +3654,10 @@ SYSCALL_DEFINE3(symlinkat, const char __user *, oldname,
 	if (IS_ERR(dentry))
 		goto out_putname;
 
-	error = mnt_want_write(path.mnt);
-	if (error)
-		goto out_dput;
 	error = security_path_symlink(&path, dentry, from->name);
-	if (error)
-		goto out_drop_write;
-	error = vfs_symlink2(path.mnt, path.dentry->d_inode, dentry, from->name);
-out_drop_write:
-	mnt_drop_write(path.mnt);
-out_dput:
-	dput(dentry);
-	mutex_unlock(&path.dentry->d_inode->i_mutex);
-	path_put(&path);
+	if (!error)
+		error = vfs_symlink2(path.mnt, path.dentry->d_inode, dentry, from->name);
+	done_path_create(&path, dentry);
 out_putname:
 	putname(from);
 	return error;
@@ -3791,15 +3773,10 @@ SYSCALL_DEFINE5(linkat, int, olddfd, const char __user *, oldname,
 	error = may_linkat(&old_path);
 	if (unlikely(error))
 		goto out_dput;
-	error = mnt_want_write(new_path.mnt);
-	if (error)
-		goto out_dput;
 	error = security_path_link(old_path.dentry, &new_path, new_dentry);
 	if (error)
-		goto out_drop_write;
+		goto out_dput;
 	error = vfs_link2(old_path.mnt, old_path.dentry, new_path.dentry->d_inode, new_dentry);
-out_drop_write:
-	mnt_drop_write(new_path.mnt);
 out_dput:
 	dput(new_dentry);
 	mutex_unlock(&new_path.dentry->d_inode->i_mutex);
