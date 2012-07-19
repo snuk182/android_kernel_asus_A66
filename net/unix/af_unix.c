@@ -883,8 +883,9 @@ static int unix_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
 out_mknod_drop_write:
 		if (err)
 			goto out_mknod_dput;
-		mutex_unlock(&path.dentry->d_inode->i_mutex);
-		dput(path.dentry);
+		mntget(path.mnt);
+		dget(dentry);
+		done_path_create(&path, dentry);
 		path.dentry = dentry;
 
 		addr->hash = UNIX_HASH_SIZE;
@@ -919,9 +920,7 @@ out:
 	return err;
 
 out_mknod_dput:
-	dput(dentry);
-	mutex_unlock(&path.dentry->d_inode->i_mutex);
-	path_put(&path);
+	done_path_create(&path, dentry);
 out_mknod_parent:
 	if (err == -EEXIST)
 		err = -EADDRINUSE;

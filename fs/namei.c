@@ -668,8 +668,6 @@ void nd_jump_link(struct nameidata *nd, struct path *path)
 	nd->path = *path;
 	nd->inode = nd->path.dentry->d_inode;
 	nd->flags |= LOOKUP_JUMPED;
-
-	BUG_ON(nd->inode->i_op->follow_link);
 }
 
 static inline void put_link(struct nameidata *nd, struct path *link, void *cookie)
@@ -3778,9 +3776,7 @@ SYSCALL_DEFINE5(linkat, int, olddfd, const char __user *, oldname,
 		goto out_dput;
 	error = vfs_link2(old_path.mnt, old_path.dentry, new_path.dentry->d_inode, new_dentry);
 out_dput:
-	dput(new_dentry);
-	mutex_unlock(&new_path.dentry->d_inode->i_mutex);
-	path_put(&new_path);
+	done_path_create(&new_path, new_dentry);
 out:
 	path_put(&old_path);
 
