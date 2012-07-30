@@ -2531,6 +2531,7 @@ static void send_mds_reconnect(struct ceph_mds_client *mdsc,
 	session->s_state = CEPH_MDS_SESSION_RECONNECTING;
 	session->s_seq = 0;
 
+	ceph_con_close(&session->s_con);
 	ceph_con_open(&session->s_con,
 		      ceph_mdsmap_get_addr(mdsc->mdsmap, mds));
 
