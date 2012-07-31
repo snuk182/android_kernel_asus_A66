@@ -144,8 +144,7 @@ static struct platform_device msm_fm_platform_init = {
 
 #define KS8851_RST_GPIO		89
 #define KS8851_IRQ_GPIO		90
-#define HAP_SHIFT_LVL_OE_GPIO	47
-#define HAP_SHIFT_LVL_OE_GPIO_SGLTE	89
+
 #define MHL_GPIO_INT            4
 #define MHL_GPIO_RESET          15
 
@@ -1850,7 +1849,8 @@ reg_put:
 }
 //ASUS_BSP lenter---
 
-
+#define HAP_SHIFT_LVL_OE_GPIO		47
+#define HAP_SHIFT_LVL_OE_GPIO_SGLTE	89
 #define PM_HAP_EN_GPIO		PM8921_GPIO_PM_TO_SYS(33)
 #define PM_HAP_LEN_GPIO		PM8921_GPIO_PM_TO_SYS(20)
 
@@ -3692,11 +3692,16 @@ static DEFINE_MUTEX(hsic_status_lock);
 
 void peripheral_connect()
 {
+	int rc = 0;
 	mutex_lock(&hsic_status_lock);
 	if (hsic_peripheral_status)
 		goto out;
-	platform_device_add(&msm_device_hsic_host);
-	hsic_peripheral_status = 1;
+	rc = platform_device_add(&msm_device_hsic_host);
+	if (rc)
+		pr_err("%s: failed to add a platform device, rc=%d\n",
+			__func__, rc);
+	else
+		hsic_peripheral_status = 1;
 out:
 	mutex_unlock(&hsic_status_lock);
 }
