@@ -2270,6 +2270,9 @@ static int msm_fb_pan_display_sub(struct fb_var_screeninfo *var,
 		schedule_delayed_work(&mfd->backlight_worker,
 					backlight_duration);
 
+	if (info->node == 0 && (mfd->cont_splash_done)) /* primary */
+		mdp_free_splash_buffer(mfd);
+
 	++mfd->panel_info.frame_count;
 	
 	//Mickey+++
@@ -3549,6 +3552,9 @@ static int msmfb_overlay_play(struct fb_info *info, unsigned long *argp)
 
 	ret = mdp4_overlay_play(info, &req);
     up(&msm_fb_suspend_sem);//Mickey+++
+
+	if (info->node == 0 && (mfd->cont_splash_done)) /* primary */
+		mdp_free_splash_buffer(mfd);
 
 	return ret;
 }
