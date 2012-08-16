@@ -76,3 +76,4 @@ obj-$(CONFIG_BATTERY_ASUS_SERVICE)      += service/
 #ASUS_BSP --- Eason_Chang "Battery gauge porting"
 #snuk182 !!
 
+obj-$(CONFIG_BATTERY_BCL)	+= battery_current_limit.o
