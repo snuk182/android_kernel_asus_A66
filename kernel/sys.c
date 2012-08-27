@@ -1785,16 +1785,9 @@ static int prctl_set_mm_exe_file(struct mm_struct *mm, unsigned int fd)
 {
 	struct file *exe_file;
 	struct dentry *dentry;
-	int err;
+	int err, fput_needed;
 
-	/*
-	 * Setting new mm::exe_file is only allowed when no VM_EXECUTABLE vma's
-	 * remain. So perform a quick test first.
-	 */
-	if (mm->num_exe_file_vmas)
-		return -EBUSY;
-
-	exe_file = fget(fd);
+	exe_file = fget_light(fd, &fput_needed);
 	if (!exe_file)
 		return -EBADF;
 
@@ -1846,7 +1839,7 @@ exit_unlock:
 	up_write(&mm->mmap_sem);
 
 exit:
-	fput(exe_file);
+	fput_light(exe_file, fput_needed);
 	return err;
 }
 
