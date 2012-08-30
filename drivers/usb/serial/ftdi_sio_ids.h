@@ -88,6 +88,9 @@
 #define FTDI_OPENDCC_GBM_PID	0xBFDC
 #define FTDI_OPENDCC_GBM_BOOST_PID	0xBFDD
 
+/* NZR SEM 16+ USB (http://www.nzr.de) */
+#define FTDI_NZR_SEM_USB_PID	0xC1E0	/* NZR SEM-LOG16+ */
+
 /*
  * RR-CirKits LocoBuffer USB (http://www.rr-cirkits.com)
  */
