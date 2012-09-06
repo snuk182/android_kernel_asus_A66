@@ -2558,7 +2558,7 @@ int mpol_to_str(char *buffer, int maxlen, struct mempolicy *pol, int unused)
 		break;
 
 	default:
-		BUG();
+		return -EINVAL;
 	}
 
 	l = strlen(policy_modes[mode]);
