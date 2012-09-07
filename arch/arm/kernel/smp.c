@@ -43,9 +43,6 @@
 #include <asm/ptrace.h>
 #include <asm/localtimer.h>
 #include <asm/smp_plat.h>
-#ifdef CONFIG_CRASH_NOTES
-#include <asm/crash_notes.h>
-#endif
 #include <asm/mach/arch.h>
 
 /*
@@ -348,8 +345,6 @@ asmlinkage void __cpuinit secondary_start_kernel(void)
 	atomic_inc(&mm->mm_count);
 	current->active_mm = mm;
 	cpumask_set_cpu(cpu, mm_cpumask(mm));
-
-	printk("CPU%u: Booted secondary processor\n", cpu);
 
 	cpu_init();
 
