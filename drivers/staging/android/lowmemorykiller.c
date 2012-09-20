@@ -46,9 +46,10 @@
 #include <linux/swap.h>
 #include <linux/fs.h>
 #include <linux/cpuset.h>
+#include <linux/zcache.h>
+#include <linux/cpuset.h>
 #include <linux/show_mem_notifier.h>
 #include <linux/vmpressure.h>
-#include <linux/zcache.h>
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/almk.h>
@@ -405,7 +406,7 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 						total_swapcache_pages();
 	else
 		other_file = 0;
-
+    
 	tune_lmk_param(&other_free, &other_file, sc);
 
 	if (lowmem_adj_size < array_size)
@@ -424,10 +425,11 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 
 	if (nr_to_scan > 0) {
 		ret = adjust_minadj(&min_score_adj);
-		lowmem_print(3, "lowmem_shrink %lu, %x, ofree %d %d, ma %hd\n",
+		lowmem_print(3, "lowmem_shrink %lu, %x, ofree %d %d, ma %d\n",
 				nr_to_scan, sc->gfp_mask, other_free,
 				other_file, min_score_adj);
 	}
+
 	rem = global_page_state(NR_ACTIVE_ANON) +
 		global_page_state(NR_ACTIVE_FILE) +
 		global_page_state(NR_INACTIVE_ANON) +
@@ -436,12 +438,12 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 		lowmem_print(5, "lowmem_shrink %lu, %x, return %d\n",
 			     nr_to_scan, sc->gfp_mask, rem);
 
-		if (nr_to_scan > 0)
-			mutex_unlock(&scan_mutex);
-
 		if ((min_score_adj == OOM_SCORE_ADJ_MAX + 1) &&
 				(nr_to_scan > 0))
 			trace_almk_shrink(0, ret, other_free, other_file, 0);
+
+		if (nr_to_scan > 0)
+			mutex_unlock(&scan_mutex);
 
 		return rem;
 	}
@@ -560,7 +562,7 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 	}
 
 	lowmem_print(4, "lowmem_shrink %lu, %x, return %d\n",
-		     sc->nr_to_scan, sc->gfp_mask, rem);
+		     nr_to_scan, sc->gfp_mask, rem);
 	mutex_unlock(&scan_mutex);
 	return rem;
 }
