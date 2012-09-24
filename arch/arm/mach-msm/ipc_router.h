@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -154,6 +154,10 @@ int msm_ipc_router_unregister_server(struct msm_ipc_port *server_port);
 
 int msm_ipc_router_init_sockets(void);
 void msm_ipc_router_exit_sockets(void);
+
+void msm_ipc_sync_sec_rule(uint32_t service, uint32_t instance, void *rule);
+
+void msm_ipc_sync_default_sec_rule(void *rule);
 
 #if defined CONFIG_MSM_IPC_ROUTER_SMD_XPRT
 extern void *msm_ipc_load_default_node(void);
