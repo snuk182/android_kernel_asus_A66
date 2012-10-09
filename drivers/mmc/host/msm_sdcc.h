@@ -400,6 +400,7 @@ struct msmsdcc_host {
 	bool tuning_in_progress;
 	bool tuning_needed;
 	bool en_auto_cmd19;
+	bool tuning_done;
 	bool sdio_gpio_lpm;
 	bool irq_wake_enabled;
 	struct pm_qos_request pm_qos_req_dma;
