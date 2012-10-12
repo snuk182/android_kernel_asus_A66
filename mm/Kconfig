@@ -380,17 +380,16 @@ config CLEANCACHE
 
 	  If unsure, say Y to enable cleancache
 
-config ZSMALLOC
-	bool "Memory allocator for compressed pages"
+config USE_USER_ACCESSIBLE_TIMERS
+	bool "Enables timers accessible from userspace"
 	depends on MMU
-	default n
 	help
-	  zsmalloc is a slab-based memory allocator designed to store
-	  compressed RAM pages.  zsmalloc uses virtual memory mapping
-	  in order to reduce fragmentation.  However, this results in a
-	  non-standard allocator interface where a handle, not a pointer, is
-	  returned by an alloc().  This handle must be mapped in order to
-	  access the allocated space.
+	  User-accessible timers allow the kernel to map kernel timer
+	  registers to a userspace accessible page, to allow faster
+	  access to time information.  This flag will enable the
+	  interface code in the main kernel.  However, there are
+	  architecture-specific code that will need to be enabled
+	  separately.
 
 config PGTABLE_MAPPING
 	bool "Use page table mapping to access object in zsmalloc"
@@ -421,6 +420,18 @@ config ZBUD
 	  page.  While this design limits storage density, it has simple and
 	  deterministic reclaim properties that make it preferable to a higher
 	  density approach when reclaim will be used.
+
+config ZSMALLOC
+	tristate "Memory allocator for compressed pages"
+	depends on MMU
+	default n
+	help
+	  zsmalloc is a slab-based memory allocator designed to store
+	  compressed RAM pages.  zsmalloc uses virtual memory mapping
+	  in order to reduce fragmentation.  However, this results in a
+	  non-standard allocator interface where a handle, not a pointer, is
+	  returned by an alloc().  This handle must be mapped in order to
+	  access the allocated space.
 
 config ZSMALLOC_STAT
 	bool "Export zsmalloc statistics"
