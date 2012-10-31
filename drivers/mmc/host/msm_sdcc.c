@@ -6152,6 +6152,17 @@ msmsdcc_probe(struct platform_device *pdev)
 
 	mmc_add_host(mmc);
 
+	mmc->clk_scaling.up_threshold = 35;
+	mmc->clk_scaling.down_threshold = 5;
+	mmc->clk_scaling.polling_delay_ms = 100;
+	mmc->caps2 |= MMC_CAP2_CLK_SCALE;
+
+#ifdef CONFIG_HAS_EARLYSUSPEND
+	host->early_suspend.suspend = msmsdcc_early_suspend;
+	host->early_suspend.resume  = msmsdcc_late_resume;
+	host->early_suspend.level   = EARLY_SUSPEND_LEVEL_DISABLE_FB;
+	register_early_suspend(&host->early_suspend);
+#endif
 	pr_info("%s: Qualcomm MSM SDCC-core at 0x%016llx irq %d,%d dma %d"
 		" dmacrcri %d\n", mmc_hostname(mmc),
 		(unsigned long long)core_memres->start,
