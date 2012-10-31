@@ -922,7 +922,6 @@ static int msm_ipc_router_send_server_list(uint32_t node_id,
 
 	ctl.cmd = IPC_ROUTER_CTRL_CMD_NEW_SERVER;
 
-	mutex_lock(&server_list_lock);
 	for (i = 0; i < SRV_HASH_SIZE; i++) {
 		list_for_each_entry(server, &server_list[i], list) {
 			ctl.srv.service = server->name.service;
@@ -942,7 +941,6 @@ static int msm_ipc_router_send_server_list(uint32_t node_id,
 			}
 		}
 	}
-	mutex_unlock(&server_list_lock);
 
 	return 0;
 }
@@ -1424,6 +1422,7 @@ static int process_hello_msg(struct msm_ipc_router_xprt_info *xprt_info,
 	 * Send list of servers from the local node and from nodes
 	 * outside the mesh network in which this XPRT is part of.
 	 */
+	mutex_lock(&server_list_lock);
 	mutex_lock(&routing_table_lock);
 	for (i = 0; i < RT_HASH_SIZE; i++) {
 		list_for_each_entry(rt_entry, &routing_table[i], list) {
@@ -1435,11 +1434,13 @@ static int process_hello_msg(struct msm_ipc_router_xprt_info *xprt_info,
 							     xprt_info);
 			if (rc < 0) {
 				mutex_unlock(&routing_table_lock);
+				mutex_unlock(&server_list_lock);
 				return rc;
 			}
 		}
 	}
 	mutex_unlock(&routing_table_lock);
+	mutex_unlock(&server_list_lock);
 	RR("HELLO message processed\n");
 	return rc;
 }
