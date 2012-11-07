@@ -373,8 +373,14 @@ static int snd_usb_hw_params(struct snd_pcm_substream *substream,
 	changed = subs->cur_audiofmt != fmt ||
 		subs->period_bytes != params_period_bytes(hw_params) ||
 		subs->cur_rate != rate;
+
+	down_read(&subs->stream->chip->shutdown_rwsem);
+	if (subs->stream->chip->shutdown) {
+		ret = -ENODEV;
+		goto unlock;
+	}
 	if ((ret = set_format(subs, fmt)) < 0)
-		return ret;
+		goto unlock;
 
 	if (subs->cur_rate != rate) {
 		struct usb_host_interface *alts;
@@ -383,12 +389,11 @@ static int snd_usb_hw_params(struct snd_pcm_substream *substream,
 		alts = &iface->altsetting[fmt->altset_idx];
 		ret = snd_usb_init_sample_rate(subs->stream->chip, subs->interface, alts, fmt, rate);
 		if (ret < 0)
-			return ret;
+			goto unlock;
 		subs->cur_rate = rate;
 	}
 
 	if (changed) {
-		mutex_lock(&subs->stream->chip->shutdown_mutex);
 		/* format changed */
 		snd_usb_release_substream_urbs(subs, 0);
 		/* influenced: period_bytes, channels, rate, format, */
@@ -396,9 +401,10 @@ static int snd_usb_hw_params(struct snd_pcm_substream *substream,
 						  params_rate(hw_params),
 						  snd_pcm_format_physical_width(params_format(hw_params)) *
 							params_channels(hw_params));
-		mutex_unlock(&subs->stream->chip->shutdown_mutex);
 	}
 
+unlock:
+	up_read(&subs->stream->chip->shutdown_rwsem);
 	return ret;
 }
 
@@ -414,9 +420,9 @@ static int snd_usb_hw_free(struct snd_pcm_substream *substream)
 	subs->cur_audiofmt = NULL;
 	subs->cur_rate = 0;
 	subs->period_bytes = 0;
-	mutex_lock(&subs->stream->chip->shutdown_mutex);
+	down_read(&subs->stream->chip->shutdown_rwsem);
 	snd_usb_release_substream_urbs(subs, 0);
-	mutex_unlock(&subs->stream->chip->shutdown_mutex);
+	up_read(&subs->stream->chip->shutdown_rwsem);
 	return snd_pcm_lib_free_vmalloc_buffer(substream);
 }
 
@@ -429,12 +435,18 @@ static int snd_usb_pcm_prepare(struct snd_pcm_substream *substream)
 {
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct snd_usb_substream *subs = runtime->private_data;
+	int ret = 0;
 
 	if (! subs->cur_audiofmt) {
 		snd_printk(KERN_ERR "usbaudio: no format is specified!\n");
 		return -ENXIO;
 	}
 
+	down_read(&subs->stream->chip->shutdown_rwsem);
+	if (subs->stream->chip->shutdown) {
+		ret = -ENODEV;
+		goto unlock;
+	}
 	/* some unit conversions in runtime */
 	subs->maxframesize = bytes_to_frames(runtime, subs->maxpacksize);
 	subs->curframesize = bytes_to_frames(runtime, subs->curpacksize);
@@ -447,7 +459,10 @@ static int snd_usb_pcm_prepare(struct snd_pcm_substream *substream)
 	subs->last_frame_number = 0;
 	runtime->delay = 0;
 
-	return snd_usb_substream_prepare(subs, runtime);
+	ret = snd_usb_substream_prepare(subs, runtime);
+ unlock:
+	up_read(&subs->stream->chip->shutdown_rwsem);
+	return ret;
 }
 
 static struct snd_pcm_hardware snd_usb_hardware =
