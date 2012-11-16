@@ -1060,21 +1060,11 @@ static void msm_hs_start_rx_locked(struct uart_port *uport)
 	if (buffer_pending && hs_serial_debug_mask)
 		printk(KERN_ERR "Error: rx started in buffer state = %x",
 		       buffer_pending);
-<<<<<<< HEAD
-
-||||||| parent of ae75190e14f... msm_serial_hs: Increase rx buffer size to 1024bytes
-	/*
-	 * Zeroed out UART RX software buffer which would help to
-	 * check how much data is copied if there is any RX stall.
-	 */
-	memset(msm_uport->rx.buffer, 0x00, UARTDM_RX_BUF_SIZE);
-=======
 	/*
 	 * Zeroed out UART RX software buffer which would help to
 	 * check how much data is copied if there is any RX stall.
 	 */
 	memset(msm_uport->rx.buffer, 0x00, msm_uport->rx_buf_size);
->>>>>>> ae75190e14f... msm_serial_hs: Increase rx buffer size to 1024bytes
 	msm_hs_write(uport, UARTDM_CR_ADDR, RESET_STALE_INT);
 	msm_hs_write(uport, UARTDM_DMRX_ADDR, msm_uport->rx_buf_size);
 	msm_hs_write(uport, UARTDM_CR_ADDR, STALE_EVENT_ENABLE);
