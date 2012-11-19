@@ -499,7 +499,6 @@ static void axi_enable_wm_irq(struct vfe_share_ctrl_t *share_ctrl)
 		irq_mask |= VFE_IRQ_STATUS0_IMAGE_COMPOSIT_DONE2_MASK;
 	}
 
-
 	msm_camera_io_w(irq_mask, share_ctrl->vfebase +
 			VFE_IRQ_MASK_0);
 	if (vfe_output_mode || rdi_comp_select)
@@ -578,7 +577,7 @@ static void axi_disable_wm_irq(struct vfe_share_ctrl_t *share_ctrl,
 		irq_comp_mask &= ~(
 		0x1 << (share_ctrl->outpath.out2.ch0 + 16) |
 		0x1 << (share_ctrl->outpath.out3.ch0 + 16));
-		irq_mask |= ~VFE_IRQ_STATUS0_IMAGE_COMPOSIT_DONE2_MASK;
+		irq_mask &= ~VFE_IRQ_STATUS0_IMAGE_COMPOSIT_DONE2_MASK;
 	}
 	msm_camera_io_w(irq_mask, share_ctrl->vfebase + VFE_IRQ_MASK_0);
 	if (vfe_output_mode || vfe_output_mode1)
@@ -636,6 +635,25 @@ static void axi_enable_irq(struct vfe_share_ctrl_t *share_ctrl)
 		atomic_set(&share_ctrl->vstate, 1);
 	}
 	atomic_set(&share_ctrl->handle_common_irq, 1);
+}
+
+static void axi_clear_all_interrupts(struct vfe_share_ctrl_t *share_ctrl)
+{
+	atomic_set(&share_ctrl->handle_common_irq, 0);
+	msm_camera_io_w(VFE_DISABLE_ALL_IRQS,
+		share_ctrl->vfebase + VFE_IRQ_MASK_0);
+	msm_camera_io_w(VFE_DISABLE_ALL_IRQS,
+		share_ctrl->vfebase + VFE_IRQ_MASK_1);
+
+	/* clear all pending interrupts*/
+	msm_camera_io_w(VFE_CLEAR_ALL_IRQS,
+		share_ctrl->vfebase + VFE_IRQ_CLEAR_0);
+	msm_camera_io_w(VFE_CLEAR_ALL_IRQS,
+		share_ctrl->vfebase + VFE_IRQ_CLEAR_1);
+	/* Ensure the write order while writing
+	*to the command register using the barrier */
+	msm_camera_io_w_mb(1,
+		share_ctrl->vfebase + VFE_IRQ_CMD);
 }
 
 static void axi_disable_irq(struct vfe_share_ctrl_t *share_ctrl,
@@ -6960,9 +6978,9 @@ static int msm_axi_config(struct v4l2_subdev *sd, void __user *arg)
 		uint32_t *axio = NULL;
 		axio = kmalloc(vfe32_cmd[VFE_CMD_AXI_OUT_CFG].length,
 				GFP_ATOMIC);
-		if (!axio) {
+		if (!axio)
 			return -ENOMEM;
-		}
+
 		if (copy_from_user(axio, (void __user *)(vfecmd.value),
 				vfe32_cmd[VFE_CMD_AXI_OUT_CFG].length)) {
 			kfree(axio);
