@@ -2573,7 +2573,6 @@ static int iris_search(struct iris_device *radio, int on, int dir)
 		case SCAN_FOR_WEAK:
 			radio->srch_st_list.srch_list_dir = dir;
 			radio->srch_st_list.srch_list_mode = srch;
-			radio->srch_st_list.srch_list_max = 0;
 			retval = hci_fm_search_station_list(
 				&radio->srch_st_list, radio->fm_hdev);
 			break;
