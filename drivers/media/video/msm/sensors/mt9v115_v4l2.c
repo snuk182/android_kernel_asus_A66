@@ -37,30 +37,10 @@ static struct v4l2_subdev_info mt9v115_subdev_info[] = {
 	},
 };
 
-static struct msm_camera_csid_vc_cfg mt9v115_cid_cfg[] = {
-	{0, 0x1E, CSI_DECODE_8BIT},
-	{1, CSI_EMBED_DATA, CSI_DECODE_8BIT},
-};
-
-static struct msm_camera_csi2_params mt9v115_csi_params = {
-	.csid_params = {
-		.lane_assign = 0xe4,
-		.lane_cnt = 1,
-		.lut_params = {
-			.num_cid = 2,
-			.vc_cfg = mt9v115_cid_cfg,
-		},
-	},
-	.csiphy_params = {
-		.lane_cnt = 1,
-		.settle_cnt = 0x14, //0x1B
-	},
-};
-
-static struct msm_camera_csi2_params *mt9v115_csi_params_array[] = {
-	&mt9v115_csi_params,
-	&mt9v115_csi_params,
-	&mt9v115_csi_params,
+static enum msm_camera_vreg_name_t mt9v115_veg_seq[] = {
+	CAM_VIO,
+	CAM_VDIG,
+	CAM_VANA,
 };
 
 static int32_t mt9v115_i2c_read(const unsigned short raddr,	unsigned short *rdata,const unsigned short rlen, const unsigned short  iBurstCount)
@@ -286,60 +266,60 @@ static int32_t mt9v115_sensor_setting(struct msm_sensor_ctrl_t *s_ctrl,
 	
 	if (update_type == MSM_SENSOR_REG_INIT) {
 		CDBG("%s MSM_SENSOR_REG_INIT\n",__func__);	
-		s_ctrl->config_csi_flag = 1;
-		s_ctrl->curr_csi_params = NULL;
 	} else if (update_type == MSM_SENSOR_UPDATE_PERIODIC) {
-	pr_info("%s MSM_SENSOR_UPDATE_PERIODIC\n",__func__);
+		pr_info("%s MSM_SENSOR_UPDATE_PERIODIC\n",__func__);
+#if 0
+	       if (s_ctrl->config_csi_flag) {
+			if (s_ctrl->curr_csi_params != s_ctrl->csi_params[0]) {
+				pr_info("config to csi +++\n");
 
-       if (s_ctrl->config_csi_flag) {
-		if (s_ctrl->curr_csi_params != s_ctrl->csi_params[0]) {
-			pr_info("config to csi +++\n");
+				//v4l2_subdev_notify(&s_ctrl->sensor_v4l2_subdev,
+					//NOTIFY_ISPIF_STREAM, (void *)ISPIF_STREAM(PIX_0, ISPIF_OFF_IMMEDIATELY));
 
-			//v4l2_subdev_notify(&s_ctrl->sensor_v4l2_subdev,
-				//NOTIFY_ISPIF_STREAM, (void *)ISPIF_STREAM(PIX_0, ISPIF_OFF_IMMEDIATELY));
+				mt9v115_set_status_to_reset();
+				
+				s_ctrl->curr_csi_params = s_ctrl->csi_params[0];
+				v4l2_subdev_notify(&s_ctrl->sensor_v4l2_subdev,
+					NOTIFY_CSID_CFG,	&s_ctrl->curr_csi_params->csid_params);
+				//v4l2_subdev_notify(&s_ctrl->sensor_v4l2_subdev,NOTIFY_CID_CHANGE, NULL);
+				mb();
+				v4l2_subdev_notify(&s_ctrl->sensor_v4l2_subdev,NOTIFY_CSIPHY_CFG,&s_ctrl->curr_csi_params->csiphy_params);
+				mb();
+				msleep(20);
+				s_ctrl->config_csi_flag = 0;
+				pr_info("config to csi ---\n");
+			}
+#endif
+			{
+				uint32_t op_pixel_clk = 72000000;				
+					v4l2_subdev_notify(&s_ctrl->sensor_v4l2_subdev,NOTIFY_PCLK_CHANGE, &op_pixel_clk);
+			}
+			//v4l2_subdev_notify(&s_ctrl->sensor_v4l2_subdev, NOTIFY_ISPIF_STREAM, (void *)ISPIF_STREAM(	PIX_0, ISPIF_ON_FRAME_BOUNDARY));
 
-			mt9v115_set_status_to_reset();
-			
-			s_ctrl->curr_csi_params = s_ctrl->csi_params[0];
-			v4l2_subdev_notify(&s_ctrl->sensor_v4l2_subdev,
-				NOTIFY_CSID_CFG,	&s_ctrl->curr_csi_params->csid_params);
-			//v4l2_subdev_notify(&s_ctrl->sensor_v4l2_subdev,NOTIFY_CID_CHANGE, NULL);
-			mb();
-			v4l2_subdev_notify(&s_ctrl->sensor_v4l2_subdev,NOTIFY_CSIPHY_CFG,&s_ctrl->curr_csi_params->csiphy_params);
-			mb();
-			msleep(20);
-			s_ctrl->config_csi_flag = 0;
-			pr_info("config to csi ---\n");
-		}
-{
-	uint32_t op_pixel_clk = 72000000;				
-		v4l2_subdev_notify(&s_ctrl->sensor_v4l2_subdev,NOTIFY_PCLK_CHANGE, &op_pixel_clk);
-}
-		//v4l2_subdev_notify(&s_ctrl->sensor_v4l2_subdev, NOTIFY_ISPIF_STREAM, (void *)ISPIF_STREAM(	PIX_0, ISPIF_ON_FRAME_BOUNDARY));
+			rc = mt9v115_init_setting(sensorSetting, iSettingCount);
+			if (rc < 0) {
+				pr_err("MT9V115 leave standby mode fail\n");
+				return rc;
+			}
+			CDBG("mt9v115_sensor_setting UPDATE_PERIODIC ok\n");
 
-				rc = mt9v115_init_setting(sensorSetting, iSettingCount);
-					if (rc < 0) {
-						pr_err("MT9V115 leave standby mode fail\n");
-						return rc;
-					}
-					CDBG("mt9v115_sensor_setting UPDATE_PERIODIC ok\n");
-	
-					readingRegs("0x0042", 0x0042);
-					readingRegs("0x3C00", 0x3C00);
-					readingRegs("0x001A", 0x001A);
-					readingRegs("0x0018", 0x0018);
-					readingRegs("0x3C40", 0x3C40);
-					readingRegs("0x301A", 0x301A);
-					readingRegs("0x3C42", 0x3C42);
-	{
-		unsigned short regreturned = 0;
-		 if (mt9v115_i2c_read(0x0018, &regreturned, 2, 0) <0 || regreturned != 2) {
-			pr_err("Sensor status is incorrect!! 0x0018 Read fail, Reg[0x0018]=0x%X\n", regreturned); 
-			rc = -EINVAL; 		
-		 }		
-	}
-
+			readingRegs("0x0042", 0x0042);
+			readingRegs("0x3C00", 0x3C00);
+			readingRegs("0x001A", 0x001A);
+			readingRegs("0x0018", 0x0018);
+			readingRegs("0x3C40", 0x3C40);
+			readingRegs("0x301A", 0x301A);
+			readingRegs("0x3C42", 0x3C42);
+			{
+				unsigned short regreturned = 0;
+				 if (mt9v115_i2c_read(0x0018, &regreturned, 2, 0) <0 || regreturned != 2) {
+					pr_err("Sensor status is incorrect!! 0x0018 Read fail, Reg[0x0018]=0x%X\n", regreturned); 
+					rc = -EINVAL; 		
+				 }		
+			}
+#if 0
        	}
+#endif
 	}
 	CDBG("%s ---\n",__func__);
 	return rc;
@@ -703,12 +683,15 @@ static struct msm_sensor_fn_t mt9v115_func_tbl = {
 
 static struct msm_sensor_ctrl_t mt9v115_s_ctrl = {
 	.sensor_i2c_client = &mt9v115_sensor_i2c_client,
+	.vreg_seq = mt9v115_veg_seq,
+	.num_vreg_seq = ARRAY_SIZE(mt9v115_veg_seq),
 #if 0
 	.sensor_output_reg_addr = NULL,
 	.sensor_exp_gain_info = NULL,
 	.cam_mode = MSM_SENSOR_MODE_INVALID,
 #endif	
-	.csi_params = &mt9v115_csi_params_array[0],
+	.min_delay = 30,
+	.power_seq_delay = 60,
 	.msm_sensor_mutex = &mt9v115_mut,
 	.sensor_i2c_driver = &mt9v115_i2c_driver,
 	.sensor_v4l2_subdev_info = mt9v115_subdev_info,

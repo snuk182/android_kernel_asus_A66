@@ -479,11 +479,6 @@ static void vpe_send_outmsg(void)
 		return;
 	}
 	event_qcmd = kzalloc(sizeof(struct msm_queue_cmd), GFP_ATOMIC);
-	if (!event_qcmd) {
-		pr_err("%s: out of memory\n", __func__);
-		spin_unlock_irqrestore(&vpe_ctrl->lock, flags);
-		return;
-	}
 	atomic_set(&event_qcmd->on_heap, 1);
 	event_qcmd->command = (void *)vpe_ctrl->pp_frame_info;
 	vpe_ctrl->pp_frame_info = NULL;
@@ -510,6 +505,8 @@ DECLARE_TASKLET(vpe_tasklet, vpe_do_tasklet, 0);
 
 static irqreturn_t vpe_parse_irq(int irq_num, void *data)
 {
+	if(!vpe_ctrl || !vpe_ctrl->vpebase)
+		return IRQ_HANDLED;
 	vpe_ctrl->irq_status = msm_camera_io_r_mb(vpe_ctrl->vpebase +
 							VPE_INTR_STATUS_OFFSET);
 	msm_camera_io_w_mb(vpe_ctrl->irq_status, vpe_ctrl->vpebase +
@@ -823,7 +820,7 @@ static int msm_vpe_process_vpe_cmd(struct msm_vpe_cfg_cmd *vpe_cmd,
 
 		zoom->user_cmd = vpe_cmd->cmd_type;
 		zoom->p_mctl = v4l2_get_subdev_hostdata(&vpe_ctrl->subdev);
-	    D("%s: cookie=0x%x,action=0x%x,path=0x%x",
+		D("%s: cookie=0x%x,action=0x%x,path=0x%x",
 			__func__, zoom->pp_frame_cmd.cookie,
 			zoom->pp_frame_cmd.vpe_output_action,
 			zoom->pp_frame_cmd.path);
@@ -949,8 +946,7 @@ static long msm_vpe_subdev_ioctl(struct v4l2_subdev *sd,
 			pr_err("%s PAYLOAD Copy to user failed ", __func__);
 
 		kfree(pp_frame_info);
-		event_qcmd->command = NULL;
-		free_qcmd(event_qcmd);
+		kfree(event_qcmd);
 		break;
 		}
 

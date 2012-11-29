@@ -238,7 +238,7 @@ static int32_t msm_actuator_move_focus(
 	int16_t dest_step_pos = move_params->dest_step_pos;
 	uint16_t curr_lens_pos = 0;
 	int dir = move_params->dir;
-	//int32_t num_steps = move_params->num_steps;
+	int32_t num_steps = move_params->num_steps;
 	struct damping_params_t ringing_params_kernel;
 
 	if (copy_from_user(&ringing_params_kernel,
