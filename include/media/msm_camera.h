@@ -2248,6 +2248,7 @@ struct msm_camera_vfe_params_t {
 	uint16_t port_info;
 	uint32_t inst_handle;
 	uint16_t cmd_type;
+	uint8_t stream_error;
 };
 
 enum msm_camss_irq_idx {
