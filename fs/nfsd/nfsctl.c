@@ -650,7 +650,7 @@ static ssize_t __write_ports_names(char *buf)
  * a socket of a supported family/protocol, and we use it as an
  * nfsd listener.
  */
-static ssize_t __write_ports_addfd(char *buf)
+static ssize_t __write_ports_addfd(char *buf, struct net *net)
 {
 	char *mesg = buf;
 	int fd, err;
@@ -697,7 +697,7 @@ static ssize_t __write_ports_delfd(char *buf)
  * A transport listener is added by writing it's transport name and
  * a port number.
  */
-static ssize_t __write_ports_addxprt(char *buf)
+static ssize_t __write_ports_addxprt(char *buf, struct net *net)
 {
 	char transport[16];
 	struct svc_xprt *xprt;
@@ -741,7 +741,7 @@ out_err:
  * A transport listener is removed by writing a "-", it's transport
  * name, and it's port number.
  */
-static ssize_t __write_ports_delxprt(char *buf)
+static ssize_t __write_ports_delxprt(char *buf, struct net *net)
 {
 	struct svc_xprt *xprt;
 	char transport[16];
@@ -753,7 +753,7 @@ static ssize_t __write_ports_delxprt(char *buf)
 	if (port < 1 || port > USHRT_MAX || nfsd_serv == NULL)
 		return -EINVAL;
 
-	xprt = svc_find_xprt(nfsd_serv, transport, &init_net, AF_UNSPEC, port);
+	xprt = svc_find_xprt(nfsd_serv, transport, net, AF_UNSPEC, port);
 	if (xprt == NULL)
 		return -ENOTCONN;
 
@@ -762,22 +762,23 @@ static ssize_t __write_ports_delxprt(char *buf)
 	return 0;
 }
 
-static ssize_t __write_ports(struct file *file, char *buf, size_t size)
+static ssize_t __write_ports(struct file *file, char *buf, size_t size,
+				struct net *net)
 {
 	if (size == 0)
 		return __write_ports_names(buf);
 
 	if (isdigit(buf[0]))
-		return __write_ports_addfd(buf);
+		return __write_ports_addfd(buf, net);
 
 	if (buf[0] == '-' && isdigit(buf[1]))
 		return __write_ports_delfd(buf);
 
 	if (isalpha(buf[0]))
-		return __write_ports_addxprt(buf);
+		return __write_ports_addxprt(buf, net);
 
 	if (buf[0] == '-' && isalpha(buf[1]))
-		return __write_ports_delxprt(buf);
+		return __write_ports_delxprt(buf, net);
 
 	return -EINVAL;
 }
@@ -856,9 +857,10 @@ static ssize_t __write_ports(struct file *file, char *buf, size_t size)
 static ssize_t write_ports(struct file *file, char *buf, size_t size)
 {
 	ssize_t rv;
+	struct net *net = &init_net;
 
 	mutex_lock(&nfsd_mutex);
-	rv = __write_ports(file, buf, size);
+	rv = __write_ports(file, buf, size, net);
 	mutex_unlock(&nfsd_mutex);
 	return rv;
 }
