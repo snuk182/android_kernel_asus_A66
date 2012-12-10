@@ -327,7 +327,7 @@ static int nfsd_get_default_max_blksize(void)
 	return ret;
 }
 
-int nfsd_create_serv(void)
+int nfsd_create_serv(struct net *net)
 {
 	int error;
 
@@ -450,7 +450,7 @@ nfsd_svc(unsigned short port, int nrservs)
 	if (nrservs == 0 && nfsd_serv == NULL)
 		goto out;
 
-	error = nfsd_create_serv();
+	error = nfsd_create_serv(net);
 	if (error)
 		goto out;
 
