@@ -1266,7 +1266,7 @@ static void reset_changed_osds(struct ceph_osd_client *osdc)
  * Requeue requests whose mapping to an OSD has changed.  If requests map to
  * no osd, request a new map.
  *
- * Caller should hold map_sem for read and request_mutex.
+ * Caller should hold map_sem for read.
  */
 static void kick_requests(struct ceph_osd_client *osdc, bool force_resend,
 			  bool force_resend_writes)
@@ -1349,6 +1349,7 @@ static void kick_requests(struct ceph_osd_client *osdc, bool force_resend,
 		dout("%d requests for down osds, need new map\n", needmap);
 		ceph_monc_request_next_osdmap(&osdc->client->monc);
 	}
+	reset_changed_osds(osdc);
 }
 
 
@@ -2041,16 +2042,8 @@ static struct ceph_msg *get_reply(struct ceph_connection *con,
 	if (req->r_con_filling_msg) {
 		dout("%s revoking msg %p from old con %p\n", __func__,
 		     req->r_reply, req->r_con_filling_msg);
-<<<<<<< HEAD
 		ceph_msg_revoke_incoming(req->r_reply);
 		req->r_con_filling_msg->ops->put(req->r_con_filling_msg);
-||||||| parent of acecca48781... libceph: use con get/put ops from osd_client
-		ceph_con_revoke_message(req->r_con_filling_msg, req->r_reply);
-		ceph_con_put(req->r_con_filling_msg);
-=======
-		ceph_con_revoke_message(req->r_con_filling_msg, req->r_reply);
-		req->r_con_filling_msg->ops->put(req->r_con_filling_msg);
->>>>>>> acecca48781... libceph: use con get/put ops from osd_client
 		req->r_con_filling_msg = NULL;
 	}
 
