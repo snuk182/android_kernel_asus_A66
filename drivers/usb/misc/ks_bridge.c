@@ -402,6 +402,7 @@ static ssize_t ksb_fs_write(struct file *fp, const char __user *buf,
 		count = MAX_DATA_PKT_SIZE;
 
 	pkt = _ksb_alloc_data_pkt(count, GFP_KERNEL, ksb, PRE_ALLOCATE_TX); // ASUS_BSP+ "Pre allocate ks memory"
+	pkt = ksb_alloc_data_pkt(count, GFP_KERNEL, ksb);
 	if (IS_ERR(pkt)) {
 		dev_err(ksb->fs_dev.this_device,
 				"unable to allocate data packet");
