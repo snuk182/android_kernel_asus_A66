@@ -1382,6 +1382,8 @@ static void data_bridge_process_rx_asus(struct work_struct *work)
 		}
 	}
 
+	/*free rx urbs*/
+	head = &dev->rx_idle;
 	spin_lock_irqsave(&dev->rx_done.lock, flags);
 	while (!list_empty(&dev->rx_idle)) {
 		if (dev->rx_done.qlen > stop_submit_urb_limit)
