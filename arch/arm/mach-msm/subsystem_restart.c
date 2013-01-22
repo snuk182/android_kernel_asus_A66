@@ -36,10 +36,6 @@
 #include <mach/subsystem_notif.h>
 #include <mach/subsystem_restart.h>
 
-#if defined(CONFIG_LGE_CRASH_HANDLER)
-#include <mach/restart.h>
-#include <mach/board_lge.h>
-#endif
 #include "smd_private.h"
 //thomas_chu +++
 #include <linux/asus_global.h>
@@ -305,9 +301,6 @@ static void do_epoch_check(struct subsys_device *dev)
 	struct restart_log *r_log, *temp;
 	static int max_restarts_check;
 	static long max_history_time_check;
-#if defined(CONFIG_LGE_CRASH_HANDLER)
-	int ssr_magic_number = get_ssr_magic_number();
-#endif
 
 	mutex_lock(&restart_log_mutex);
 
@@ -350,10 +343,7 @@ static void do_epoch_check(struct subsys_device *dev)
 	if (time_first && n >= max_restarts_check) {
 		if ((curr_time->tv_sec - time_first->tv_sec) <
 				max_history_time_check) {
-#if defined(CONFIG_LGE_CRASH_HANDLER)
-			msm_set_restart_mode(ssr_magic_number | SUB_UNAB_THD);
-#endif
-			WARN(1, "Subsystems have crashed %d times in less than "\
+			panic("Subsystems have crashed %d times in less than "\
 				"%ld seconds!", max_restarts_check,
 				max_history_time_check);
 		}
@@ -392,16 +382,10 @@ static void send_notification_to_order(struct subsys_device **l, unsigned n,
 static void subsystem_shutdown(struct subsys_device *dev, void *data)
 {
 	const char *name = dev->desc->name;
-#if defined(CONFIG_LGE_CRASH_HANDLER)
-	int ssr_magic_number = get_ssr_magic_number();
-#endif
 
 	pr_info("[%p]: Shutting down %s\n", current, name);
 	if (dev->desc->shutdown(dev->desc) < 0) {
-#if defined(CONFIG_LGE_CRASH_HANDLER)
-		msm_set_restart_mode(ssr_magic_number | SUB_THD_F_SD);
-#endif
-		WARN(1, "subsys-restart: [%p]: Failed to shutdown %s!",
+		panic("subsys-restart: [%p]: Failed to shutdown %s!",
 			current, name);
 	}
 	subsys_set_state(dev, SUBSYS_OFFLINE);
@@ -419,16 +403,10 @@ static void subsystem_ramdump(struct subsys_device *dev, void *data)
 static void subsystem_powerup(struct subsys_device *dev, void *data)
 {
 	const char *name = dev->desc->name;
-#if defined(CONFIG_LGE_CRASH_HANDLER)
-	int ssr_magic_number = get_ssr_magic_number();
-#endif
 
 	pr_info("[%p]: Powering up %s\n", current, name);
 	if (dev->desc->powerup(dev->desc) < 0) {
-#if defined(CONFIG_LGE_CRASH_HANDLER)
-		msm_set_restart_mode(ssr_magic_number | SUB_THD_F_PWR);
-#endif
-		WARN(1, "[%p]: Failed to powerup %s!", current, name);
+		panic("[%p]: Failed to powerup %s!", current, name);
 	}
 	subsys_set_state(dev, SUBSYS_ONLINE);
 }
@@ -445,9 +423,6 @@ static void subsystem_restart_wq_func(struct work_struct *work)
 	struct wake_lock subsystem_restart; // ASUS_BSP+ Wenli "Modify for modem restart"
 	unsigned count;
 	unsigned long flags;
-#if defined(CONFIG_LGE_CRASH_HANDLER)
-	int ssr_magic_number = get_ssr_magic_number();
-#endif
 
 	if (restart_level != RESET_SUBSYS_INDEPENDENT)
 		soc_restart_order = dev->restart_order;
@@ -490,10 +465,7 @@ static void subsystem_restart_wq_func(struct work_struct *work)
 	 * order is being rebooted.
 	 */
 	if (!mutex_trylock(powerup_lock)) {
-#if defined(CONFIG_LGE_CRASH_HANDLER)
-		msm_set_restart_mode(ssr_magic_number | SUB_THD_F_PWR);
-#endif
-		WARN(1, "%s[%p]: Subsystem died during powerup!",
+		panic("%s[%p]: Subsystem died during powerup!",
 						__func__, current);
 	}
 
@@ -585,9 +557,6 @@ static void __subsystem_restart_dev(struct subsys_device *dev)
 int subsystem_restart_dev(struct subsys_device *dev)
 {
 	const char *name = dev->desc->name;
-#if defined(CONFIG_LGE_CRASH_HANDLER)
-	u32 ssr_magic_number;
-#endif
 
 	/*
 	 * If a system reboot/shutdown is underway, ignore subsystem errors.
@@ -642,22 +611,10 @@ int subsystem_restart_dev(struct subsys_device *dev)
 		__subsystem_restart_dev(dev);
 		break;
 	case RESET_SOC:
-#if defined(CONFIG_LGE_CRASH_HANDLER)
-		set_ssr_magic_number(name);
-		ssr_magic_number = get_ssr_magic_number();
-
-		msm_set_restart_mode(ssr_magic_number | SUB_RESET_SOC);
-#endif
-		WARN(1, "subsys-restart: Resetting the SoC - %s crashed.", name);
+		panic("subsys-restart: Resetting the SoC - %s crashed.", name);
 		break;
 	default:
-#if defined(CONFIG_LGE_CRASH_HANDLER)
-		set_ssr_magic_number(name);
-		ssr_magic_number = get_ssr_magic_number();
-
-		msm_set_restart_mode(ssr_magic_number | SUB_UNKNOWN);
-#endif
-		pr_err("subsys-restart: Unknown restart level!\n");
+		panic("subsys-restart: Unknown restart level!\n");
 		break;
 	}
 
@@ -846,11 +803,8 @@ static int __init subsys_restart_init(void)
 	restart_level = RESET_SUBSYS_INDEPENDENT;
 
 	ssr_wq = alloc_workqueue("ssr_wq", WQ_CPU_INTENSIVE, 0);
-	if (!ssr_wq) {
-		pr_err("%s: out of memory\n", __func__);
-		return -ENOMEM;
-	}
-
+	if (!ssr_wq)
+		panic("%s: out of memory\n", __func__);
 
 	return ssr_init_soc_restart_orders();
 }
