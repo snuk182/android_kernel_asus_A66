@@ -150,9 +150,6 @@ enum power_supply_type {
 	POWER_SUPPLY_TYPE_PAD_AC, 
 	POWER_SUPPLY_TYPE_DOCK_AC,
 //ASUS_BSP --- Josh_Liao "add asus battery driver"
-#ifdef CONFIG_WIRELESS_CHARGER
-        POWER_SUPPLY_TYPE_WIRELESS,
-#endif
 };
 
 union power_supply_propval {

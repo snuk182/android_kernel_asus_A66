@@ -75,3 +75,4 @@ obj-$(CONFIG_ASUS_POWER_UTIL)      += util/
 obj-$(CONFIG_BATTERY_ASUS_SERVICE)      += service/
 #ASUS_BSP --- Eason_Chang "Battery gauge porting"
 #snuk182 !!
+
