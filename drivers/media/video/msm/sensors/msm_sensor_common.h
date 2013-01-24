@@ -171,6 +171,10 @@ struct msm_sensor_fn_t {
 	void (*sensor_set_isp_flicker_mode) (int16_t); //ASUS_BSP LiJen "[A60K][8M][NA][Others]implement Flicker mode in 8M camera with ISP"
 	void (*sensor_get_isp_exif) (struct exif_cfg *);	//ASUS_BSP Stimber "[A60K][8M][NA][Other] Implement EXIF info for 8M camera with ISP"
 //ASUS_BSP --- Stimber "[A60K][8M][NA][Others]Full porting for 8M camera with ISP"
+	int (*sensor_set_vision_mode)(struct msm_sensor_ctrl_t *s_ctrl,
+			int32_t vision_mode_enable);
+	int (*sensor_set_vision_ae_control)(
+			struct msm_sensor_ctrl_t *s_ctrl, int ae_mode);
 };
 
 struct msm_sensor_csi_info {
@@ -207,6 +211,7 @@ struct msm_sensor_ctrl_t {
 	struct msm_sensor_v4l2_ctrl_info_t *msm_sensor_v4l2_ctrl_info;
 	uint16_t num_v4l2_ctrl;
 	uint8_t is_csic;
+	int8_t vision_mode_flag;
 
 	uint16_t curr_line_length_pclk;
 	uint16_t curr_frame_length_lines;

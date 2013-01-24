@@ -1035,7 +1035,10 @@ struct msm_snapshot_pp_status {
 #define CFG_SET_ISP_ISO_MODE	65 //ASUS_BSP LiJen "[A60K][8M][NA][Others]implement ISO mode in 8M camera with ISP"
 #define CFG_SET_ISP_FLICKER_MODE	66 //ASUS_BSP LiJen "[A60K][8M][NA][Others]implement ISO mode in 8M camera with ISP"
 #define CFG_GET_ISP_EXIF		67	//ASUS_BSP Stimber "[A60K][8M][NA][Other] Implement EXIF info for 8M camera with ISP"
-#define CFG_MAX			68
+
+#define CFG_SET_VISION_MODE           68
+#define CFG_SET_VISION_AE             69
+#define CFG_MAX                       70
 
 
 #define MOVE_NEAR	0
@@ -1820,6 +1823,8 @@ struct sensor_cfg_data {
 		int flicker; //ASUS_BSP LiJen "[A60K][8M][NA][Others]implement Flicker mode in 8M camera with ISP"
 		struct exif_cfg exif;	//ASUS_BSP Stimber "[A60K][8M][NA][Other] Implement EXIF info for 8M camera with ISP"
 
+		int32_t vision_mode_enable;
+		int32_t vision_ae;
 	} cfg;
 };
 
