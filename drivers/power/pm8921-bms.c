@@ -173,6 +173,7 @@ struct pm8921_bms_chip {
 	int			disable_flat_portion_ocv;
 	int			ocv_dis_high_soc;
 	int			ocv_dis_low_soc;
+	int			prev_vbat_batt_terminal_uv;
 };
 
 /*
@@ -1733,6 +1734,8 @@ static int charging_adjustments(struct pm8921_bms_chip *chip,
 			pr_debug("CC_TO_CV ibat_ua = %d CHG SOC %d\n",
 					ibat_ua, soc);
 		}
+
+		chip->prev_vbat_batt_terminal_uv = vbat_batt_terminal_uv;
 		return soc;
 	}
 
@@ -1742,13 +1745,15 @@ static int charging_adjustments(struct pm8921_bms_chip *chip,
 	 */
 
 	/*
-	 * if voltage lessened by more than 10mV (possibly because of
+	 * if the battery terminal voltage lessened (possibly because of
 	 * a sudden increase in system load) keep reporting the prev chg soc
 	 */
-	if (vbat_batt_terminal_uv <= chip->max_voltage_uv - 10000) {
-		pr_debug("vbat_terminals %d < max = %d CC CHG SOC %d\n",
+	if (vbat_batt_terminal_uv < chip->prev_vbat_batt_terminal_uv) {
+		pr_debug("vbat_terminals %d < prev = %d CC CHG SOC %d\n",
 			vbat_batt_terminal_uv,
-			chip->max_voltage_uv, chip->prev_chg_soc);
+			chip->prev_vbat_batt_terminal_uv,
+			chip->prev_chg_soc);
+		chip->prev_vbat_batt_terminal_uv = vbat_batt_terminal_uv;
 		return chip->prev_chg_soc;
 	}
 
@@ -1775,6 +1780,7 @@ static int charging_adjustments(struct pm8921_bms_chip *chip,
 	}
 
 	pr_debug("Reporting CHG SOC %d\n", chip->prev_chg_soc);
+	chip->prev_vbat_batt_terminal_uv = vbat_batt_terminal_uv;
 	return chip->prev_chg_soc;
 }
 
