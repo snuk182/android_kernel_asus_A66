@@ -838,9 +838,6 @@ static struct attribute *g[] = {
 #ifdef CONFIG_FREEZER
 	&pm_freeze_timeout_attr.attr,
 #endif
-#ifdef CONFIG_FREEZER
-	&pm_freeze_timeout_attr.attr,
-#endif
 	NULL,
 };
 
