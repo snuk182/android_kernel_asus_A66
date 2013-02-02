@@ -280,13 +280,20 @@ read_start:
 		copied += len;
 
 		if (pkt->n_read == pkt->len) {
-			list_del_init(&pkt->list);
 // ASUS_BSP+++ "Pre allocate ks memory"
 			//ksb->alloced_read_pkts--;
 			spin_unlock_irqrestore(&ksb->lock, flags);
 			ksb_free_data_pkt(pkt);
 			spin_lock_irqsave(&ksb->lock, flags);
 // ASUS_BSP--- "Pre allocate ks memory"
+			/*
+			 * re-init the packet and queue it
+			 * for more data.
+			 */
+			pkt->n_read = 0;
+			pkt->len = MAX_DATA_PKT_SIZE;
+			submit_one_urb(ksb, GFP_KERNEL, pkt);
+			pkt = NULL;
 		}
 		spin_lock_irqsave(&ksb->lock, flags);
 	}
