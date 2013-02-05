@@ -564,46 +564,6 @@ static inline int selector_cmp(struct xfrm_selector *s1, struct xfrm_selector *s
 	return 0;
 }
 
-static void xfrm_policy_requeue(struct xfrm_policy *old,
-				struct xfrm_policy *new)
-{
-	struct xfrm_policy_queue *pq = &old->polq;
-	struct sk_buff_head list;
-
-	__skb_queue_head_init(&list);
-
-	spin_lock_bh(&pq->hold_queue.lock);
-	skb_queue_splice_init(&pq->hold_queue, &list);
-	del_timer(&pq->hold_timer);
-	spin_unlock_bh(&pq->hold_queue.lock);
-
-	if (skb_queue_empty(&list))
-		return;
-
-	pq = &new->polq;
-
-	spin_lock_bh(&pq->hold_queue.lock);
-	skb_queue_splice(&list, &pq->hold_queue);
-	pq->timeout = XFRM_QUEUE_TMO_MIN;
-	mod_timer(&pq->hold_timer, jiffies);
-	spin_unlock_bh(&pq->hold_queue.lock);
-}
-
-static bool xfrm_policy_mark_match(struct xfrm_policy *policy,
-				   struct xfrm_policy *pol)
-{
-	u32 mark = policy->mark.v & policy->mark.m;
-
-	if (policy->mark.v == pol->mark.v && policy->mark.m == pol->mark.m)
-		return true;
-
-	if ((mark & pol->mark.m) == pol->mark.v &&
-	    policy->priority == pol->priority)
-		return true;
-
-	return false;
-}
-
 int xfrm_policy_insert(int dir, struct xfrm_policy *policy, int excl)
 {
 	struct net *net = xp_net(policy);
@@ -611,6 +571,7 @@ int xfrm_policy_insert(int dir, struct xfrm_policy *policy, int excl)
 	struct xfrm_policy *delpol;
 	struct hlist_head *chain;
 	struct hlist_node *entry, *newpos;
+	u32 mark = policy->mark.v & policy->mark.m;
 
 	write_lock_bh(&xfrm_policy_lock);
 	chain = policy_hash_bysel(net, &policy->selector, policy->family, dir);
@@ -619,7 +580,7 @@ int xfrm_policy_insert(int dir, struct xfrm_policy *policy, int excl)
 	hlist_for_each_entry(pol, entry, chain, bydst) {
 		if (pol->type == policy->type &&
 		    !selector_cmp(&pol->selector, &policy->selector) &&
-		    xfrm_policy_mark_match(policy, pol) &&
+		    (mark & pol->mark.m) == pol->mark.v &&
 		    xfrm_sec_ctx_match(pol->security, policy->security) &&
 		    !WARN_ON(delpol)) {
 			if (excl) {
@@ -643,10 +604,8 @@ int xfrm_policy_insert(int dir, struct xfrm_policy *policy, int excl)
 	xfrm_pol_hold(policy);
 	net->xfrm.policy_count[dir]++;
 	atomic_inc(&flow_cache_genid);
-	if (delpol) {
-		xfrm_policy_requeue(delpol, policy);
+	if (delpol)
 		__xfrm_policy_unlink(delpol, dir);
-	}
 	policy->index = delpol ? delpol->index : xfrm_gen_index(net, dir);
 	hlist_add_head(&policy->byidx, net->xfrm.policy_byidx+idx_hash(net, policy->index));
 	policy->curlft.add_time = get_seconds();
@@ -1174,15 +1133,11 @@ int xfrm_sk_policy_insert(struct sock *sk, int dir, struct xfrm_policy *pol)
 		pol->index = xfrm_gen_index(net, XFRM_POLICY_MAX+dir);
 		__xfrm_policy_link(pol, XFRM_POLICY_MAX+dir);
 	}
-	if (old_pol) {
-		if (pol)
-			xfrm_policy_requeue(old_pol, pol);
-
+	if (old_pol)
 		/* Unlinking succeeds always. This is the only function
 		 * allowed to delete or replace socket policy.
 		 */
 		__xfrm_policy_unlink(old_pol, XFRM_POLICY_MAX+dir);
-	}
 	write_unlock_bh(&xfrm_policy_lock);
 
 	if (old_pol) {
