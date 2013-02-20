@@ -343,6 +343,7 @@ struct pm8921_chg_chip {
 	bool				btc_panic_if_cant_stop_chg;
 	int				stop_chg_upon_expiry;
 	bool				disable_aicl;
+	int				usb_type;
 };
 
 ///+++ASUS_BSP Eason_Chang  ASUS BAT Update using Global variable
@@ -1795,7 +1796,7 @@ static int pm_power_get_property_mains(struct power_supply *psy,
 			return 0;
 		}
 
-		type = the_chip->usb_psy.type;
+		type = the_chip->usb_type;
 		if (type == POWER_SUPPLY_TYPE_USB_DCP ||
 			type == POWER_SUPPLY_TYPE_USB_ACA ||
 			type == POWER_SUPPLY_TYPE_USB_CDP)
@@ -1929,7 +1930,7 @@ static int pm_power_get_property_usb(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_ONLINE:
 		val->intval = 0;
 
-		if (the_chip->usb_psy.type == POWER_SUPPLY_TYPE_USB)
+		if (the_chip->usb_type == POWER_SUPPLY_TYPE_USB)
 			val->intval = is_usb_chg_plugged_in(the_chip);
 
 		break;
@@ -3229,7 +3230,7 @@ int pm8921_set_usb_power_supply_type(enum power_supply_type type)
 	if (type < POWER_SUPPLY_TYPE_USB && type > POWER_SUPPLY_TYPE_BATTERY)
 		return -EINVAL;
 
-	the_chip->usb_psy.type = type;
+	the_chip->usb_type = type;
 	power_supply_changed(&the_chip->usb_psy);
 	power_supply_changed(&the_chip->dc_psy);
 	return 0;
@@ -6115,6 +6116,7 @@ static int __devinit pm8921_charger_probe(struct platform_device *pdev)
 		pm8921_chg_btc_override_init(chip);
 
 	chip->stop_chg_upon_expiry = pdata->stop_chg_upon_expiry;
+	chip->usb_type = POWER_SUPPLY_TYPE_UNKNOWN;
 
 #ifdef CONFIG_MAXIM_8934_CHARGER
     if(g_A60K_hwID < A66_HW_ID_ER2){
@@ -6199,9 +6201,6 @@ static int __devinit pm8921_charger_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, chip);
 	the_chip = chip;
-
-	/* set initial state of the USB charger type to UNKNOWN */
-	power_supply_set_supply_type(&chip->usb_psy, POWER_SUPPLY_TYPE_UNKNOWN);
 
 	wake_lock_init(&chip->eoc_wake_lock, WAKE_LOCK_SUSPEND, "pm8921_eoc");
     //ASUS_BSP eason QCPatch:Workaround for USB unplug issue+++
