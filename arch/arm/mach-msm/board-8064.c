@@ -3212,6 +3212,38 @@ static struct msm_serial_hs_platform_data apq8064_uartdm_gsbi4_pdata = {
 static struct msm_serial_hs_platform_data apq8064_uartdm_gsbi4_pdata;
 #endif
 
+#ifdef CONFIG_SERIAL_MSM_HS
+static int configure_uartdm_gsbi4_gpios(int on)
+{
+	int ret = 0, i;
+	int uart_gpios[] = {10, 11, 12, 13};
+
+	for (i = 0; i < ARRAY_SIZE(uart_gpios); i++) {
+		if (on) {
+			ret = gpio_request(uart_gpios[i], NULL);
+			if (ret) {
+				pr_err("%s: unable to request uart gpio[%d]\n",
+						__func__, uart_gpios[i]);
+				break;
+			}
+		} else {
+			gpio_free(uart_gpios[i]);
+		}
+	}
+
+	if (ret && on && i)
+		for (; i >= 0; i--)
+			gpio_free(uart_gpios[i]);
+	return ret;
+}
+
+static struct msm_serial_hs_platform_data apq8064_uartdm_gsbi4_pdata = {
+	.gpio_config	= configure_uartdm_gsbi4_gpios,
+};
+#else
+static struct msm_serial_hs_platform_data apq8064_uartdm_gsbi4_pdata;
+#endif
+
 static void __init apq8064_common_init(void)
 {
 	u32 platform_version = socinfo_get_platform_version();
