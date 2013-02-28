@@ -194,6 +194,7 @@ struct msm_hs_port {
 #define UARTDM_RX_BUF_SIZE 512
 #define RETRY_TIMEOUT 5
 #define UARTDM_NR 256
+#define RX_FLUSH_COMPLETE_TIMEOUT 300 /* In jiffies */
 
 static struct dentry *debug_base;
 static struct msm_hs_port q_uart_port[UARTDM_NR];
@@ -869,6 +870,7 @@ static void msm_hs_set_termios(struct uart_port *uport,
 	unsigned int bps;
 	unsigned long data;
 	unsigned long flags;
+	int ret;
 	unsigned int c_cflag = termios->c_cflag;
 	struct msm_hs_port *msm_uport = UARTDM_TO_MSM(uport);
 	bool error_case = false;
@@ -1555,11 +1557,26 @@ static void msm_hs_dmov_rx_callback(struct msm_dmov_cmd *cmd_ptr,
 					struct msm_dmov_errdata *err)
 {
 	struct msm_hs_port *msm_uport;
+	struct uart_port *uport;
+	unsigned long flags;
 
 	if (result & DMOV_RSLT_ERROR)
 		pr_err("%s(): DMOV_RSLT_ERROR\n", __func__);
 
 	msm_uport = container_of(cmd_ptr, struct msm_hs_port, rx.xfer);
+	uport = &(msm_uport->uport);
+
+	pr_debug("%s(): called result:%x\n", __func__, result);
+	if (!(result & DMOV_RSLT_ERROR)) {
+		if (result & DMOV_RSLT_FLUSH) {
+			if (msm_uport->rx_discard_flush_issued) {
+				spin_lock_irqsave(&uport->lock, flags);
+				msm_uport->rx_discard_flush_issued = false;
+				spin_unlock_irqrestore(&uport->lock, flags);
+				wake_up(&msm_uport->rx.wait);
+			}
+		}
+	}
 
 	tasklet_schedule(&msm_uport->rx.tlet);
 }
@@ -1775,10 +1792,23 @@ static int msm_hs_check_clock_off(struct uart_port *uport)
 	}
 
 	if (msm_uport->rx.flush != FLUSH_SHUTDOWN) {
-		if (msm_uport->rx.flush == FLUSH_NONE)
+		if (msm_uport->rx.flush == FLUSH_NONE) {
 			msm_hs_stop_rx_locked(uport);
+			msm_uport->rx_discard_flush_issued = true;
+		}
 
 		spin_unlock_irqrestore(&uport->lock, flags);
+		if (msm_uport->rx_discard_flush_issued) {
+			pr_debug("%s(): wainting for flush completion.\n",
+								__func__);
+			ret = wait_event_timeout(msm_uport->rx.wait,
+				msm_uport->rx_discard_flush_issued == false,
+				RX_FLUSH_COMPLETE_TIMEOUT);
+			if (!ret)
+				pr_err("%s(): Flush complete pending.\n",
+								__func__);
+		}
+
 		mutex_unlock(&msm_uport->clk_mutex);
 		return 0;  /* come back later to really clock off */
 	}
