@@ -1617,7 +1617,10 @@ void mipi_dsi_cmdlist_tx(struct dcs_cmd_req *req)
 
 	mipi_dsi_buf_init(&dsi_tx_buf);
 	tp = &dsi_tx_buf;
-	ret = mipi_dsi_cmds_tx(tp, req->cmds, req->cmds_cnt);
+	if (req->flags & CMD_REQ_SINGLE_TX)
+		ret = mipi_dsi_cmds_single_tx(tp, req->cmds, req->cmds_cnt);
+	else
+		ret = mipi_dsi_cmds_tx(tp, req->cmds, req->cmds_cnt);
 
 	if (req->cb)
 		req->cb(ret);
