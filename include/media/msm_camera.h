@@ -1,5 +1,4 @@
-/* Copyright (c) 2009-2012, The Linux Foundation. All rights reserved.
- *
+/* Copyright (c) 2009-2013, The Linux Foundation. All rights reserved.
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
  * only version 2 as published by the Free Software Foundation.
@@ -1040,7 +1039,8 @@ struct msm_snapshot_pp_status {
 
 #define CFG_SET_VISION_MODE           68
 #define CFG_SET_VISION_AE             69
-#define CFG_MAX                       70
+#define CFG_ACTUAOTOR_REG_INIT        70
+#define CFG_MAX                       71
 
 
 #define MOVE_NEAR	0
@@ -1855,6 +1855,7 @@ struct damping_params_t {
 enum actuator_type {
 	ACTUATOR_VCM,
 	ACTUATOR_PIEZO,
+	ACTUATOR_HALL_EFFECT,
 };
 
 enum msm_actuator_data_type {
