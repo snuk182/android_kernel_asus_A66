@@ -387,7 +387,8 @@ static void usb_wwan_indat_callback(struct urb *urb)
 		spin_unlock_irqrestore(&portdata->in_lock, flags);
 
 		//ASUS_BSP+++ BennyCheng "fix null pointer panic in usb_wwan_in_work() when power on"
-		queue_work_on(0, msm_usb_wwan_wq, &portdata->in_work);
+		// queue_work_on(0, msm_usb_wwan_wq, &portdata->in_work);
+		queue_work_on(0, system_nrt_wq, &portdata->in_work);
 		//ASUS_BSP--- BennyCheng "fix null pointer panic in usb_wwan_in_work() when power on"
 
 		return;
@@ -508,7 +509,8 @@ void usb_wwan_unthrottle(struct tty_struct *tty)
 	port->throttled = false;
 
 	//ASUS_BSP+++ BennyCheng "fix null pointer panic in usb_wwan_in_work() when power on"
-	queue_work_on(0, msm_usb_wwan_wq, &portdata->in_work);
+	//queue_work_on(0, msm_usb_wwan_wq, &portdata->in_work);
+	queue_work_on(0, system_nrt_wq, &portdata->in_work);
 	//ASUS_BSP--- BennyCheng "fix null pointer panic in usb_wwan_in_work() when power on"
 }
 EXPORT_SYMBOL(usb_wwan_unthrottle);
