@@ -1810,12 +1810,17 @@ static int get_prop_battery_uvolts(struct pm8921_chg_chip *chip)
 	return (int)result.physical;
 }
 
-static unsigned int voltage_based_capacity(struct pm8921_chg_chip *chip)
+static int voltage_based_capacity(struct pm8921_chg_chip *chip)
 {
-	unsigned int current_voltage_uv = get_prop_battery_uvolts(chip);
-	unsigned int current_voltage_mv = current_voltage_uv / 1000;
+	int current_voltage_uv = get_prop_battery_uvolts(chip);
+	int current_voltage_mv = current_voltage_uv / 1000;
 	unsigned int low_voltage = chip->min_voltage_mv;
 	unsigned int high_voltage = chip->max_voltage_mv;
+
+	if (current_voltage_uv < 0) {
+		pr_err("Error reading current voltage\n");
+		return -EIO;
+	}
 
 	if (current_voltage_mv <= low_voltage)
 		return 0;
@@ -1883,6 +1888,11 @@ static int get_prop_batt_capacity(struct pm8921_chg_chip *chip)
         printk("[BAT][Bms]: No such device or address\n");//ASUS_BSP Eason   
     }//ASUS_BSP Eason  
 
+	if (percent_soc < 0) {
+		pr_err("Unable to read battery voltage\n");
+		goto fail_voltage;
+	}
+
 	if (percent_soc <= 10)
 		pr_warn_ratelimited("low battery charge = %d%%\n",
 						percent_soc);
@@ -1903,6 +1913,7 @@ static int get_prop_batt_capacity(struct pm8921_chg_chip *chip)
 			pm_chg_vbatdet_set(the_chip, PM8921_CHG_VBATDET_MAX);
 	}
 
+fail_voltage:
 	chip->recent_reported_soc = percent_soc;
 	printk("[BAT][Bms]:%d\n", percent_soc);//ASUS_BSP Eason 
 	return percent_soc;
@@ -1938,37 +1949,38 @@ int get_BMS_capacity(void)
 	return  adjust_bms_soc;
 }
 //Eason: choose Capacity type SWGauge/BMS ---
-static int get_prop_batt_current_max(struct pm8921_chg_chip *chip)
+
+static int get_prop_batt_current_max(struct pm8921_chg_chip *chip, int *curr)
 {
-	int curr = pm8921_bms_get_current_max();
-	if (curr == -EINVAL)
+	*curr = 0;
+	*curr = pm8921_bms_get_current_max();
+	if (*curr == -EINVAL)
 		return -EINVAL;
 
 	//ASUS BSP +++ Eason Chang add BAT global variable
-	gBatteryCurrentMax = (curr)*1000;
+	gBatteryCurrentMax = (*curr)*1000;
 	//ASUS BSP --- Eason Chang add BAT global variable
 
-	return curr;
+	return 0;
 }
 
-static int get_prop_batt_current(struct pm8921_chg_chip *chip)
+static int get_prop_batt_current(struct pm8921_chg_chip *chip, int *curr)
 {
-	int result_ua, rc;
+	int rc;
 
-	rc = pm8921_bms_get_battery_current(&result_ua);
+	*curr = 0;
+	rc = pm8921_bms_get_battery_current(curr);
 	if (rc == -ENXIO) {
-		rc = pm8xxx_ccadc_get_battery_current(&result_ua);
+		rc = pm8xxx_ccadc_get_battery_current(curr);
 	}
-
-	if (rc) {
+	if (rc)
 		pr_err("unable to get batt current rc = %d\n", rc);
-		return rc;
-	} else {
-		//ASUS BSP +++ Eason Chang add BAT global variable
-		gBatteryCurrent = result_ua;
-		//ASUS BSP --- Eason Chang add BAT global variable
-		return result_ua;
+	//ASUS BSP +++ Eason Chang add BAT global variable
+	else{
+		gBatteryCurrent = *curr;
 	}
+	//ASUS BSP --- Eason Chang add BAT global variable
+	return rc;
 }
 
 static int get_prop_batt_fcc(struct pm8921_chg_chip *chip)
@@ -1978,23 +1990,23 @@ static int get_prop_batt_fcc(struct pm8921_chg_chip *chip)
 	rc = pm8921_bms_get_fcc();
 	if (rc < 0)
 		pr_err("unable to get batt fcc rc = %d\n", rc);
-		//ASUS BSP +++ Eason Chang add BAT global variable
-       gBatteryFcc = rc;
-		//ASUS BSP --- Eason Chang add BAT global variable
+
+	//ASUS BSP +++ Eason Chang add BAT global variable
+	gBatteryFcc = rc;
+	//ASUS BSP --- Eason Chang add BAT global variable
+		
 	return rc;
 }
 
-static int get_prop_batt_charge_now(struct pm8921_chg_chip *chip)
+static int get_prop_batt_charge_now(struct pm8921_chg_chip *chip, int *cc_uah)
 {
 	int rc;
-	int cc_uah;
 
-	rc = pm8921_bms_cc_uah(&cc_uah);
+	*cc_uah = 0;
+	rc = pm8921_bms_cc_uah(cc_uah);
+	if (rc)
+		pr_err("unable to get batt fcc rc = %d\n", rc);
 
-	if (rc == 0)
-		return cc_uah;
-
-	pr_err("unable to get batt fcc rc = %d\n", rc);
 	return rc;
 }
 
@@ -2007,13 +2019,11 @@ static int get_prop_batt_health(struct pm8921_chg_chip *chip)
 		gBatteryHealth = POWER_SUPPLY_HEALTH_OVERHEAT;//ASUS BSP +++ Eason Chang add BAT global variable
 		return POWER_SUPPLY_HEALTH_OVERHEAT;
 	}
-
 	temp = pm_chg_get_rt_status(chip, BATTTEMP_COLD_IRQ);
 	if (temp) {
 		gBatteryHealth = POWER_SUPPLY_HEALTH_COLD;//ASUS BSP +++ Eason Chang add BAT global variable
 		return POWER_SUPPLY_HEALTH_COLD;
 	}
-
 	gBatteryHealth = POWER_SUPPLY_HEALTH_GOOD;//ASUS BSP +++ Eason Chang add BAT global variable
 	return POWER_SUPPLY_HEALTH_GOOD;
 }
@@ -2056,13 +2066,15 @@ static int get_prop_charge_type(struct pm8921_chg_chip *chip)
 }
 
 #define MAX_TOLERABLE_BATT_TEMP_DDC	680
-static int get_prop_batt_temp(struct pm8921_chg_chip *chip)
+static int get_prop_batt_temp(struct pm8921_chg_chip *chip, int *temp)
 {
 	int rc;
 	struct pm8xxx_adc_chan_result result;
 
-	if (chip->battery_less_hardware)
-		return 300;
+	if (chip->battery_less_hardware) {
+		*temp = 300;
+		return 0;
+	}
 
 	rc = pm8xxx_adc_read(chip->batt_temp_channel, &result);
 	if (rc) {
@@ -2076,7 +2088,6 @@ static int get_prop_batt_temp(struct pm8921_chg_chip *chip)
 		pr_err("BATT_TEMP= %d > 68degC, device will be shutdown\n",
 							(int) result.physical);
 
- 
 	//carol+, workaround, to avoid auto shutdown for PMIC V1 chip, V2/V3 need to test 
        if( result.physical > 500 ) 
        { 
@@ -2087,36 +2098,43 @@ static int get_prop_batt_temp(struct pm8921_chg_chip *chip)
 	} 
 	//carol-
    	gBatteryTemp = (int)result.physical;
-	return (int)result.physical;
+	*temp = (int)result.physical;
+
+	return rc;
 }
 
 //ASUS BSP +++ Eason Chang add BAT global variable
 void UpdateGlobalValue(void)
 {
-    pr_debug("[BAT][8921]%s()+++\n",__FUNCTION__);
-	 //asus_bat_report_phone_status(get_prop_batt_status(the_chip));
+	int curr = 0;
+	int temp = 0;
+
+	pr_debug("[BAT][8921]%s()+++\n",__FUNCTION__);
+	//asus_bat_report_phone_status(get_prop_batt_status(the_chip));
 	get_prop_battery_uvolts(the_chip);
 	get_prop_batt_health(the_chip);
 	get_prop_charge_type(the_chip);
 	get_prop_batt_present(the_chip);
-    //asus_bat_report_phone_capacity(get_prop_batt_capacity(the_chip));
-	get_prop_batt_current(the_chip);
-	get_prop_batt_current_max(the_chip);
-   get_prop_batt_temp(the_chip);
-   get_prop_batt_fcc(the_chip);
-   pr_debug("[BAT][8921]%s()---\n",__FUNCTION__);
+	//asus_bat_report_phone_capacity(get_prop_batt_capacity(the_chip));
+	get_prop_batt_current(the_chip, &curr);
+	get_prop_batt_current_max(the_chip, &curr);
+	get_prop_batt_temp(the_chip, &temp);
+	get_prop_batt_fcc(the_chip);
+	pr_debug("[BAT][8921]%s()---\n",__FUNCTION__);
 }
 //ASUS BSP --- Eason Chang add BAT global variable
 
 ///+++ASUS_BSP+++ Eason_Chang  ASUS SW gauge
 int get_temp_for_ASUSswgauge(void)
 { 
-  if (the_chip == NULL){
-  		printk("[BAT][SWgauge]%s():the_chip == NULL",__FUNCTION__);
-        return 25;
-  }else{	
-  		return get_prop_batt_temp(the_chip)/10;
-  }
+	int temp = 0;
+	if (the_chip == NULL){
+		printk("[BAT][SWgauge]%s():the_chip == NULL",__FUNCTION__);
+		return 25;
+	}else{	
+		get_prop_batt_temp(the_chip, &temp);
+		return temp/10;
+	}
 }
 
 int get_voltage_for_ASUSswgauge(void)
@@ -2131,12 +2149,14 @@ int get_voltage_for_ASUSswgauge(void)
 
 int get_current_for_ASUSswgauge(void)
 { 
-  if (the_chip == NULL){
-  		printk("[BAT][SWgauge]%s():the_chip == NULL",__FUNCTION__);
+	int curr = 0;
+	if (the_chip == NULL){
+		printk("[BAT][SWgauge]%s():the_chip == NULL",__FUNCTION__);
 		return 500;
-  }else{
-        return get_prop_batt_current(the_chip)/1000;
-  }		
+	}else{
+		get_prop_batt_current(the_chip, &curr);
+		return curr/1000;
+	}
 }
 ///---ASUS_BSP--- Eason_Chang  ASUS SW gauge
 
@@ -2144,6 +2164,8 @@ static int pm_batt_power_get_property(struct power_supply *psy,
 				       enum power_supply_property psp,
 				       union power_supply_propval *val)
 {
+	int rc = 0;
+	int value;
 	struct pm8921_chg_chip *chip = container_of(psy, struct pm8921_chg_chip,
 								batt_psy);
 
@@ -2198,15 +2220,14 @@ static int pm_batt_power_get_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_PRESENT:
 //ASUS_BSP +++ Josh_Liao "add asus battery driver"
 #ifdef CONFIG_BATTERY_ASUS
-        #if 0
-		val->intval = asus_bat_report_phone_present(get_prop_batt_present(chip));
-		pr_debug("[BAT]%s(), phone bat present val:%d \r\n", __FUNCTION__, val->intval);
-        #else
 		val->intval = gBatteryPresent;
 		pr_debug("POWER_SUPPLY_PROP_PRESENT = %d\r\n",val->intval);
-        #endif		
 #else
-		val->intval = get_prop_batt_present(chip);
+		rc = get_prop_batt_present(chip);
+		if (rc >= 0) {
+			val->intval = rc;
+			rc = 0;
+		}
 #endif /* CONFIG_BATTERY_ASUS */
 //ASUS_BSP --- Josh_Liao "add asus battery driver"
 		break;
@@ -2220,65 +2241,88 @@ static int pm_batt_power_get_property(struct power_supply *psy,
 		val->intval = chip->min_voltage_mv * 1000;
 		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_NOW:
-        #if 0	
-		val->intval = get_prop_battery_uvolts(chip);
-        #else
+#if 0
+		rc = get_prop_battery_uvolts(chip);
+		if (rc >= 0) {
+			val->intval = rc;
+			rc = 0;
+		}
+#else
 		val->intval = gBatteryVol;
 		pr_debug("POWER_SUPPLY_PROP_VOLTAGE_NOW = %d\r\n",val->intval);
-        #endif		
+#endif
 //ASUS_BSP +++ Josh_Liao "add asus battery driver"
 		pr_debug( "[BAT]%s(), POWER_SUPPLY_PROP_VOLTAGE_NOW:%d \r\n", __FUNCTION__, val->intval);
 //ASUS_BSP --- Josh_Liao "add asus battery driver"
+
 		break;
 	case POWER_SUPPLY_PROP_CAPACITY:
 //ASUS_BSP +++ Josh_Liao "add asus battery driver"
 #ifdef CONFIG_BATTERY_ASUS
-
 		val->intval = asus_bat_report_phone_capacity(get_prop_batt_capacity(chip));
 		//asus_bat_write_phone_bat_capacity_tofile();
 
 #else
-		val->intval = get_prop_batt_capacity(chip);
+		rc = get_prop_batt_capacity(chip);
+		if (rc >= 0) {
+			val->intval = rc;
+			rc = 0;
+		}
 #endif /* CONFIG_BATTERY_ASUS */
 //ASUS_BSP --- Josh_Liao "add asus battery driver"
+
 		break;
 	case POWER_SUPPLY_PROP_CURRENT_NOW:
-        #if 0	
-		val->intval = get_prop_batt_current(chip);
-        #else
+#if 0
+		rc = get_prop_batt_current(chip, &value);
+		if (!rc)
+			val->intval = value;
+#else
 		val->intval = gBatteryCurrent;
 		pr_debug("POWER_SUPPLY_PROP_CURRENT_NOW = %d\r\n",val->intval);
-        #endif		
+#endif
 		break;
 	case POWER_SUPPLY_PROP_CURRENT_MAX:
-	#if 0
-		val->intval = get_prop_batt_current_max(chip);
-	#else
+#if 0
+		rc = get_prop_batt_current_max(chip, &value);
+		if (!rc)
+			val->intval = value;
+#else
 		val->intval = gBatteryCurrentMax;
 		pr_debug("POWER_SUPPLY_PROP_CURRENT_NOW_MAX = %d\r\n",val->intval);
-	#endif
+#endif
 		break;
 	case POWER_SUPPLY_PROP_TEMP:
-        #if 0	
-		val->intval = get_prop_batt_temp(chip);
-        #else
+#if 0
+		rc = get_prop_batt_temp(chip, &value);
+		if (!rc)
+			val->intval = value;
+#else
 		val->intval = gBatteryTemp;
 		pr_debug("POWER_SUPPLY_PROP_TEMP = %d\r\n",val->intval);
-        #endif		
+#endif
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_FULL:
-        #if 0	
-		val->intval = get_prop_batt_fcc(chip);
-        #else
+#if 0
+		rc = get_prop_batt_fcc(chip);
+		if (rc >= 0) {
+			val->intval = rc;
+			rc = 0;
+		}
+#else
 		val->intval = gBatteryFcc;
-		pr_debug("POWER_SUPPLY_PROP_ENERGY_FULL val=%d\r\n",val->intval);
-        #endif	
+		pr_debug("POWER_SUPPLY_PROP_CHARGE_FULL val=%d\r\n",val->intval);
+#endif
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_NOW:
-		val->intval = get_prop_batt_charge_now(chip);
+		rc = get_prop_batt_charge_now(chip, &value);
+		if (!rc) {
+			val->intval = value;
+			rc = 0;
+		}
 		break;
 	default:
-		return -EINVAL;
+		rc = -EINVAL;
 	}
 
     //Eason if doesn't get correct ADC Vol&Curr at first update Cap show unknow status +++ 
@@ -2286,7 +2330,7 @@ static int pm_batt_power_get_property(struct power_supply *psy,
     {
         return -EINVAL;
     }else{    
-	    return 0;
+	    return rc;
     }
     //Eason if doesn't get correct ADC Vol&Curr at first update Cap show unknow status ---
 }
@@ -2337,7 +2381,9 @@ static int api_get_prop_batt_volt(void)
 
 static int api_get_prop_batt_curr(void)
 {
-	return get_prop_batt_current(local_chip);
+	int curr = 0;
+	get_prop_batt_current(local_chip, &curr);
+	return curr;
 }
 
 extern enum asus_chg_src asus_chg_get_chg_mode(void)
@@ -2466,6 +2512,7 @@ void change_chg_statue_check_interval(int interval)
 static void chg_status_check_work(struct work_struct *work)
 {
     unsigned long flags;
+    int curr = 0;
     struct delayed_work *dwork = to_delayed_work(work);
     struct pm8921_chg_chip *chip = container_of(dwork,
     			struct pm8921_chg_chip, chg_status_check_work);
@@ -2475,7 +2522,7 @@ static void chg_status_check_work(struct work_struct *work)
 
             return ;
         }
-
+	(get_prop_batt_current(chip, &curr));
         spin_lock_irqsave(&asus_chg_mode_lock, flags);
 
         if(is_chg_plugged_in(chip)){
@@ -2493,7 +2540,7 @@ static void chg_status_check_work(struct work_struct *work)
                 ,pm_chg_get_rt_status(chip, CHGHOT_IRQ)
                 ,pm_chg_get_rt_status(chip, VBATDET_LOW_IRQ));
             printk("[pm8921]current:%d,eoc threshold:%d\n"
-                ,(get_prop_batt_current(chip)) / 1000
+                ,curr / 1000
                 ,iterm_programmed);
 
             if(chip->chgdone_reported == false){
@@ -3055,11 +3102,17 @@ EXPORT_SYMBOL_GPL(pm8921_set_usb_power_supply_type);
 
 int pm8921_batt_temperature(void)
 {
+	int temp = 0, rc = 0;
 	if (!the_chip) {
 		pr_err("called before init\n");
 		return -EINVAL;
 	}
-	return get_prop_batt_temp(the_chip);
+	rc = get_prop_batt_temp(the_chip, &temp);
+	if (rc) {
+		pr_err("Unable to read temperature");
+		return rc;
+	}
+	return temp;
 }
 
 //ASUS_BSP +++ Josh_Liao "add asus battery driver"
@@ -3720,12 +3773,11 @@ static void unplug_check_worker(struct work_struct *work)
 		/* No charger active */
 		if (!(is_usb_chg_plugged_in(chip)
 				&& !(is_dc_chg_plugged_in(chip)))) {
+			get_prop_batt_current(chip, &ibat);
 			pr_debug(
 			"Stop: chg removed reg_loop = %d, fsm = %d ibat = %d\n",
 				pm_chg_get_regulation_loop(chip),
-				pm_chg_get_fsm_state(chip),
-				get_prop_batt_current(chip)
-				);
+				pm_chg_get_fsm_state(chip), ibat);
 			return;
 		} else {
 			goto check_again_later;
@@ -3752,9 +3804,9 @@ static void unplug_check_worker(struct work_struct *work)
 	reg_loop = pm_chg_get_regulation_loop(chip);
 	pr_debug("reg_loop=0x%x usb_ma = %d\n", reg_loop, usb_ma);
 
-	ibat = get_prop_batt_current(chip);
+	rc = get_prop_batt_current(chip, &ibat);
 	if ((reg_loop & VIN_ACTIVE_BIT) && !chip->disable_chg_rmvl_wrkarnd) {
-		if (ibat > 0) {
+		if (ibat > 0 && !rc) {
 			pr_debug("revboost ibat = %d fsm = %d loop = 0x%x\n",
 				ibat, pm_chg_get_fsm_state(chip), reg_loop);
 			attempt_reverse_boost_fix(chip);
@@ -4280,9 +4332,9 @@ static void battery_warm(bool enter)
 
 static void check_temp_thresholds(struct pm8921_chg_chip *chip)
 {
-	int temp = 0;
+	int temp = 0, rc;
 
-	temp = get_prop_batt_temp(chip);
+	rc = get_prop_batt_temp(chip, &temp);
 	pr_debug("temp = %d, warm_thr_temp = %d, cool_thr_temp = %d\n",
 			temp, chip->warm_temp_dc,
 			chip->cool_temp_dc);
@@ -4503,7 +4555,11 @@ static void btc_override_worker(struct work_struct *work)
 		return;
 	}
 
-	decidegc = get_prop_batt_temp(chip);
+	rc = get_prop_batt_temp(chip, &decidegc);
+	if (rc) {
+		pr_info("Failed to read temperature\n");
+		goto fail_btc_temp;
+	}
 
 	pr_debug("temp=%d\n", decidegc);
 
@@ -4545,6 +4601,7 @@ static void btc_override_worker(struct work_struct *work)
 		return;
 	}
 
+fail_btc_temp:
 	rc = pm_chg_override_hot(chip, 0);
 	if (rc)
 		pr_err("Couldnt write 0 to hot comp\n");
