@@ -24,6 +24,7 @@
 #include <sound/jack.h>
 #include <asm/mach-types.h>
 #include <mach/socinfo.h>
+#include <linux/mfd/pm8xxx/pm8038.h>
 #include "msm-pcm-routing.h"
 #include "../codecs/wcd9304.h"
 
@@ -86,6 +87,27 @@ static int msm8930_enable_codec_ext_clk(
 		bool dapm);
 static bool msm8930_swap_gnd_mic(struct snd_soc_codec *codec);
 
+static u32 spkr_boost_enable_gpio = PM8038_GPIO_PM_TO_SYS(0x1);
+
+struct pm_gpio SPKR_ON = {
+	.direction      = PM_GPIO_DIR_OUT,
+	.output_buffer  = PM_GPIO_OUT_BUF_CMOS,
+	.output_value   = 1,
+	.pull      = PM_GPIO_PULL_NO,
+	.vin_sel   = PM_GPIO_VIN_S4,
+	.out_strength   = PM_GPIO_STRENGTH_MED,
+	.function       = PM_GPIO_FUNC_NORMAL,
+};
+struct pm_gpio SPKR_OFF = {
+	.direction      = PM_GPIO_DIR_OUT,
+	.output_buffer  = PM_GPIO_OUT_BUF_CMOS,
+	.output_value   = 0,
+	.pull      = PM_GPIO_PULL_NO,
+	.vin_sel   = PM_GPIO_VIN_S4,
+	.out_strength   = PM_GPIO_STRENGTH_MED,
+	.function       = PM_GPIO_FUNC_NORMAL,
+};
+
 static struct sitar_mbhc_config mbhc_cfg = {
 	.headset_jack = &hs_jack,
 	.button_jack = &button_jack,
@@ -99,7 +121,6 @@ static struct sitar_mbhc_config mbhc_cfg = {
 	.gpio_level_insert = 1,
 	.swap_gnd_mic = NULL,
 };
-
 
 static void msm8930_ext_control(struct snd_soc_codec *codec)
 {
@@ -194,6 +215,21 @@ static void msm8960_ext_spk_power_amp_on(u32 spk)
 						  __func__, SPKR_BOOST_GPIO);
 						return;
 					}
+				} else if (socinfo_get_platform_subtype() ==
+						PLATFORM_SUBTYPE_SGLTE) {
+					ret = pm8xxx_gpio_config(
+							spkr_boost_enable_gpio,
+							&SPKR_ON);
+					if (ret) {
+						pr_err("%s: Failure: spkr" \
+							"boost gpio ON %u\n",
+						  __func__, spkr_boost_enable_gpio);
+						return;
+					} else {
+						pr_debug("%s:Config PMIC8038" \
+					"gpio for speaker ON successfully\n",
+						__func__);
+					}
 				}
 				pm8xxx_spk_enable(MSM8930_SPK_ON);
 			}
@@ -213,6 +249,7 @@ static void msm8960_ext_spk_power_amp_on(u32 spk)
 
 static void msm8960_ext_spk_power_amp_off(u32 spk)
 {
+	int ret = 0;
 	if (spk & (SPK_AMP_POS | SPK_AMP_NEG)) {
 		if (!msm8930_ext_spk_pamp)
 			return;
@@ -229,6 +266,18 @@ static void msm8960_ext_spk_power_amp_off(u32 spk)
 					__func__, SPKR_BOOST_GPIO);
 			gpio_direction_output(SPKR_BOOST_GPIO, 0);
 			gpio_free(SPKR_BOOST_GPIO);
+		} else if (socinfo_get_platform_subtype() ==
+				PLATFORM_SUBTYPE_SGLTE) {
+			ret = pm8xxx_gpio_config(spkr_boost_enable_gpio,
+						&SPKR_OFF);
+			if (ret) {
+				pr_err("%s: Failure: spkr boost gpio OFF %u\n",
+				  __func__, spkr_boost_enable_gpio);
+				return;
+			} else {
+				pr_debug("%s:Config PMIC8038 gpio for speaker" \
+				" OFF successfully\n", __func__);
+			}
 		}
 
 		pm8xxx_spk_enable(MSM8930_SPK_OFF);
@@ -415,6 +464,32 @@ static const struct snd_soc_dapm_route common_audio_map[] = {
 	{"MIC BIAS1 External", NULL, "Digital Mic4"},
 
 
+};
+
+static const struct snd_soc_dapm_route common_audio_map_sglte[] = {
+
+	{"RX_BIAS", NULL, "MCLK"},
+	{"LDO_H", NULL, "MCLK"},
+
+	{"MIC BIAS1 Internal1", NULL, "MCLK"},
+	{"MIC BIAS2 Internal1", NULL, "MCLK"},
+
+	/* Speaker path */
+	{"Ext Spk Left Pos", NULL, "LINEOUT1"},
+	{"Ext Spk Left Neg", NULL, "LINEOUT2"},
+
+	/* Headset Mic */
+	{"AMIC2", NULL, "MIC BIAS2 External"},
+	{"MIC BIAS2 External", NULL, "Headset Mic"},
+
+	/* Microphone path */
+	{"AMIC1", NULL, "MIC BIAS1 External"},
+	{"MIC BIAS1 External", NULL, "ANCLeft Headset Mic"},
+
+	{"AMIC3", NULL, "MIC BIAS1 External"},
+	{"MIC BIAS1 External", NULL, "ANCRight Headset Mic"},
+
+	{"HEADPHONE", NULL, "LDO_H"},
 };
 
 static const char *spk_function[] = {"Off", "On"};
@@ -736,8 +811,12 @@ static int msm8930_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	snd_soc_dapm_new_controls(dapm, msm8930_dapm_widgets,
 				ARRAY_SIZE(msm8930_dapm_widgets));
 
-	snd_soc_dapm_add_routes(dapm, common_audio_map,
-		ARRAY_SIZE(common_audio_map));
+	if (socinfo_get_platform_subtype() == PLATFORM_SUBTYPE_SGLTE)
+		snd_soc_dapm_add_routes(dapm, common_audio_map_sglte,
+			ARRAY_SIZE(common_audio_map_sglte));
+	else
+		snd_soc_dapm_add_routes(dapm, common_audio_map,
+			ARRAY_SIZE(common_audio_map));
 
 	snd_soc_dapm_enable_pin(dapm, "Ext Spk Left Pos");
 	snd_soc_dapm_enable_pin(dapm, "Ext Spk Left Neg");
