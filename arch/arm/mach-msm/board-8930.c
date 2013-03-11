@@ -72,6 +72,7 @@
 #include <mach/msm_bus_board.h>
 #include <mach/msm_memtypes.h>
 #include <mach/dma.h>
+#include <mach/msm_serial_hs.h>
 #include <mach/msm_xo.h>
 #include <mach/restart.h>
 
@@ -1920,7 +1921,7 @@ static struct i2c_board_info mxt_device_info_8930[] __initdata = {
 	},
 };
 
-/*»     Synaptics Thin Driver»  */
+/*     Synaptics Thin Driver  */
 
 #define CLEARPAD3202_ADDR 0x20
 #define CLEARPAD3202_ATTEN_GPIO (11)
