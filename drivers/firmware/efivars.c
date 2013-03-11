@@ -767,11 +767,11 @@ static int efi_pstore_write(enum pstore_type_id type,
 	 * size: a size of logging data
 	 * DUMP_NAME_LEN * 2: a maximum size of variable name
 	 */
-	status = efivars->ops->query_variable_info(PSTORE_EFI_ATTRIBUTES,
-						   &storage_space,
-						   &remaining_space,
-						   &max_variable_size);
-	if (status || remaining_space < size + DUMP_NAME_LEN * 2) {
+
+	status = check_var_size_locked(efivars, PSTORE_EFI_ATTRIBUTES,
+					 size + DUMP_NAME_LEN * 2);
+
+	if (status) {
 		spin_unlock_irqrestore(&efivars->lock, flags);
 		*id = part;
 		return -ENOSPC;
