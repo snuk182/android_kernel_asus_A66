@@ -1895,6 +1895,29 @@ static struct mdm_platform_data bmdm_platform_data = {
 	.no_a2m_errfatal_on_ssr = 1,
 };
 
+static struct mdm_platform_data sglte2_mdm_platform_data = {
+	.mdm_version = "3.0",
+	.ramdump_delay_ms = 2000,
+	.early_power_on = 1,
+	.sfr_query = 1,
+	.vddmin_resource = &mdm_vddmin_rscs,
+	.peripheral_platform_device = &apq8064_device_hsic_host,
+	.ramdump_timeout_ms = 120000,
+	.mdm2ap_status_gpio_run_cfg = &mdm2ap_status_gpio_run_cfg,
+	.sysmon_subsys_id_valid = 1,
+	.sysmon_subsys_id = SYSMON_SS_EXT_MODEM,
+	.no_a2m_errfatal_on_ssr = 1,
+};
+
+static struct mdm_platform_data sglte2_qsc_platform_data = {
+	.mdm_version = "3.0",
+	.ramdump_delay_ms = 2000,
+	.ramdump_timeout_ms = 600000,
+	.no_powerdown_after_ramdumps = 1,
+	.image_upgrade_supported = 1,
+	.no_a2m_errfatal_on_ssr = 1,
+};
+
 static struct tsens_platform_data apq_tsens_pdata  = {
 		.tsens_factor		= 1000,
 		.hw_type		= APQ_8064,

@@ -185,6 +185,10 @@ static struct pm8xxx_mpp_init pm8xxx_mpps[] __initdata = {
 	PM8921_MPP_INIT(1, D_OUTPUT, PM8921_MPP_DIG_LEVEL_VPH, DOUT_CTRL_HIGH),
 };
 
+static struct pm8xxx_gpio_init pm8921_sglte2_gpios[] __initdata = {
+	PM8921_GPIO_OUTPUT(23, 1, HIGH),		/* PM2QSC_SOFT_RESET */
+	PM8921_GPIO_OUTPUT(21, 1, HIGH),		/* PM2QSC_KEYPADPWR */
+};
 
 void __init apq8064_configure_gpios(struct pm8xxx_gpio_init *data, int len)
 {
