@@ -5485,8 +5485,10 @@ static irqreturn_t sitar_hphl_ocp_irq(int irq, void *data)
 
 	if (sitar) {
 		codec = sitar->codec;
-		if (sitar->hphlocp_cnt++ < SITAR_OCP_ATTEMPT) {
+		if ((sitar->hphlocp_cnt < SITAR_OCP_ATTEMPT) &&
+		    (!sitar->hphrocp_cnt)) {
 			pr_info("%s: retry\n", __func__);
+			sitar->hphlocp_cnt++;
 			snd_soc_update_bits(codec, SITAR_A_RX_HPH_OCP_CTL, 0x10,
 					    0x00);
 			snd_soc_update_bits(codec, SITAR_A_RX_HPH_OCP_CTL, 0x10,
@@ -5494,7 +5496,6 @@ static irqreturn_t sitar_hphl_ocp_irq(int irq, void *data)
 		} else {
 			wcd9xxx_disable_irq(codec->control_data,
 					  SITAR_IRQ_HPH_PA_OCPL_FAULT);
-			sitar->hphlocp_cnt = 0;
 			sitar->hph_status |= SND_JACK_OC_HPHL;
 			if (sitar->mbhc_cfg.headset_jack)
 				sitar_snd_soc_jack_report(sitar,
@@ -5518,8 +5519,10 @@ static irqreturn_t sitar_hphr_ocp_irq(int irq, void *data)
 
 	if (sitar) {
 		codec = sitar->codec;
-		if (sitar->hphrocp_cnt++ < SITAR_OCP_ATTEMPT) {
+		if ((sitar->hphrocp_cnt < SITAR_OCP_ATTEMPT) &&
+		    (!sitar->hphlocp_cnt)) {
 			pr_info("%s: retry\n", __func__);
+			sitar->hphrocp_cnt++;
 			snd_soc_update_bits(codec, SITAR_A_RX_HPH_OCP_CTL, 0x10,
 					   0x00);
 			snd_soc_update_bits(codec, SITAR_A_RX_HPH_OCP_CTL, 0x10,
@@ -5527,7 +5530,6 @@ static irqreturn_t sitar_hphr_ocp_irq(int irq, void *data)
 		} else {
 			wcd9xxx_disable_irq(codec->control_data,
 					 SITAR_IRQ_HPH_PA_OCPR_FAULT);
-			sitar->hphrocp_cnt = 0;
 			sitar->hph_status |= SND_JACK_OC_HPHR;
 			if (sitar->mbhc_cfg.headset_jack)
 				sitar_snd_soc_jack_report(sitar,
