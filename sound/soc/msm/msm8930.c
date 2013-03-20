@@ -857,7 +857,30 @@ static int msm8930_audrx_init(struct snd_soc_pcm_runtime *rtd)
 
 	codec_clk = clk_get(cpu_dai->dev, "osr_clk");
 
-	mbhc_cfg.gpio = 37;
+	/*
+	 * Switch is present only in 8930 CDP and SGLTE
+	 */
+	if (socinfo_get_platform_subtype() == PLATFORM_SUBTYPE_SGLTE ||
+		machine_is_msm8930_cdp())
+		mbhc_cfg.swap_gnd_mic = msm8930_swap_gnd_mic;
+
+	if (socinfo_get_platform_subtype() == PLATFORM_SUBTYPE_SGLTE) {
+		mbhc_cfg.gpio = GPIO_HS_DET_SGLTE;
+		mbhc_cfg.gpio_level_insert = 0;
+	} else
+		mbhc_cfg.gpio = GPIO_HS_DET;
+
+	/*
+	 * GPIO for headset detect is present in all devices
+	 * MTP/Fluid/CDP/SGLTE
+	 */
+	err = gpio_request(mbhc_cfg.gpio, "HEADSET_DETECT");
+	if (err) {
+		pr_err("%s: Failed to request gpio %d\n",
+				__func__, mbhc_cfg.gpio);
+		return err;
+	}
+
 	mbhc_cfg.gpio_irq = gpio_to_irq(mbhc_cfg.gpio);
 	sitar_hs_detect(codec, &mbhc_cfg);
 
