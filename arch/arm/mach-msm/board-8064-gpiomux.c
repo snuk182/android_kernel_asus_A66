@@ -493,7 +493,6 @@ static struct msm_gpiomux_config cyts_gpio_configs[] __initdata = {
 		},
 	},
 };
-
 static struct msm_gpiomux_config cyts_gpio_alt_config[] __initdata = {
 	{	/* TS INTERRUPT */
 		.gpio = 6,
