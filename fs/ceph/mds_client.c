@@ -3425,42 +3425,16 @@ static struct ceph_auth_handshake *get_authorizer(struct ceph_connection *con,
 		ceph_auth_destroy_authorizer(ac, auth->authorizer);
 		auth->authorizer = NULL;
 	}
-<<<<<<< HEAD
 	if (!auth->authorizer) {
 		int ret = ceph_auth_create_authorizer(ac, CEPH_ENTITY_TYPE_MDS,
 						      auth);
-||||||| parent of 4f33c7ed379... ceph: have get_authorizer methods return pointers
-	if (!auth->authorizer && ac->ops && ac->ops->create_authorizer) {
-		ret = ac->ops->create_authorizer(ac, CEPH_ENTITY_TYPE_MDS, auth);
-=======
-	if (!auth->authorizer && ac->ops && ac->ops->create_authorizer) {
-		int ret = ac->ops->create_authorizer(ac, CEPH_ENTITY_TYPE_MDS,
-<<<<<<< HEAD
-							auth);
->>>>>>> 4f33c7ed379... ceph: have get_authorizer methods return pointers
-||||||| parent of 29c65a277a6... libceph: add update_authorizer auth method
-							auth);
-=======
-						     auth);
 		if (ret)
-			return ERR_PTR(ret);
-	} else if (ac->ops && ac->ops_update_authorizer) {
-		int ret = ac->ops->update_authorizer(ac, CEPH_ENTITY_TYPE_MDS,
-						     auth);
->>>>>>> 29c65a277a6... libceph: add update_authorizer auth method
-		if (ret)
-<<<<<<< HEAD
 			return ERR_PTR(ret);
 	} else {
 		int ret = ceph_auth_update_authorizer(ac, CEPH_ENTITY_TYPE_MDS,
 						      auth);
 		if (ret)
 			return ERR_PTR(ret);
-||||||| parent of 4f33c7ed379... ceph: have get_authorizer methods return pointers
-			return ret;
-=======
-			return ERR_PTR(ret);
->>>>>>> 4f33c7ed379... ceph: have get_authorizer methods return pointers
 	}
 	*proto = ac->protocol;
 
