@@ -175,6 +175,20 @@ static struct wake_lock    savelog_wakelock;
 extern void pet_watchdog(void);
 
 
+/* SGLTE2 restart ordering info*/
+static const char * const order_8064_sglte2[] = {"external_modem",
+						"external_modem_mdm"};
+
+static struct subsys_soc_restart_order restart_orders_8064_fusion_sglte2 = {
+	.subsystem_list = order_8064_sglte2,
+	.count = ARRAY_SIZE(order_8064_sglte2),
+	.subsys_ptrs = {[ARRAY_SIZE(order_8064_sglte2)] = NULL}
+	};
+
+static struct subsys_soc_restart_order *restart_orders_8064_sglte2[] = {
+	&restart_orders_8064_fusion_sglte2,
+	};
+
 /* These will be assigned to one of the sets above after
  * runtime SoC identification.
  */
@@ -767,10 +781,18 @@ static int __init ssr_init_soc_restart_orders(void)
 		restart_orders = restart_orders_8960_sglte;
 		n_restart_orders = ARRAY_SIZE(restart_orders_8960_sglte);
 	}
+
 #else
-	restart_orders = restart_orders_8960;
-	n_restart_orders = ARRAY_SIZE(restart_orders_8960);
+
+	if (socinfo_get_platform_subtype() == PLATFORM_SUBTYPE_SGLTE2) {
+		restart_orders = restart_orders_8064_sglte2;
+		n_restart_orders = ARRAY_SIZE(restart_orders_8064_sglte2);
+	} else {
+		restart_orders = restart_orders_8960;
+		n_restart_orders = ARRAY_SIZE(restart_orders_8960);
+	}
 #endif
+
 	for (i = 0; i < n_restart_orders; i++) {
 		mutex_init(&restart_orders[i]->powerup_lock);
 		mutex_init(&restart_orders[i]->shutdown_lock);
