@@ -199,7 +199,16 @@ struct synaptics_rmi4_data {
 	struct mutex rmi4_io_ctrl_mutex;
 	struct delayed_work det_work;
 	struct workqueue_struct *det_workqueue;
+<<<<<<< HEAD
 	const char *fw_image_name;
+||||||| parent of 2b1f1549c3b... input: synaptics_fw_update: Remove hardcoded firmware image name
+	struct early_suspend early_suspend;
+=======
+#ifdef CONFIG_HAS_EARLYSUSPEND
+	struct early_suspend early_suspend;
+#endif
+	const char *fw_image_name;
+>>>>>>> 2b1f1549c3b... input: synaptics_fw_update: Remove hardcoded firmware image name
 	unsigned char current_page;
 	unsigned char button_0d_enabled;
 	unsigned char full_pm_cycle;
