@@ -422,12 +422,6 @@ ssize_t mdp4_dsi_video_show_event(struct device *dev,
 	vctrl = &vsync_ctrl_db[0];
 	timestamp = vctrl->vsync_time;
 
-	ret = wait_event_interruptible(vctrl->wait_queue,
-			!ktime_equal(timestamp, vctrl->vsync_time) &&
-			vctrl->vsync_irq_enabled);
-	if (ret == -ERESTARTSYS)
-		return ret;
-
 	vsync_tick = ktime_to_ns(vctrl->vsync_time);
 	ret = scnprintf(buf, PAGE_SIZE, "VSYNC=%llu", vsync_tick);
 	buf[strlen(buf) + 1] = '\0';
