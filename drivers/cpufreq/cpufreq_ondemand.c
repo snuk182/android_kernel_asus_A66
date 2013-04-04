@@ -1307,8 +1307,9 @@ static int __init cpufreq_gov_dbs_init(void)
 	for_each_possible_cpu(i) {
 		struct cpu_dbs_info_s *this_dbs_info =
 			&per_cpu(od_cpu_dbs_info, i);
-                struct dbs_sync_work_struct *dbs_sync =
-                        &per_cpu(dbs_sync_work, i);
+
+		struct dbs_sync_work_struct *dbs_sync =
+			&per_cpu(dbs_sync_work, i);
 
 		mutex_init(&this_dbs_info->timer_mutex);
 		INIT_WORK(&per_cpu(dbs_refresh_work, i), dbs_refresh_callback);
