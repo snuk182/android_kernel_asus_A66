@@ -3549,7 +3549,6 @@ static int ci13xxx_stop(struct usb_gadget_driver *driver)
 
 	usb_ep_free_request(&udc->ep0in.ep, udc->status);
 	kfree(udc->status_buf);
-	udc->status_buf = NULL;
 
 	udc->gadget.dev.driver = NULL;
 
