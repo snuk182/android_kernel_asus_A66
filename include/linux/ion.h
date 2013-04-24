@@ -14,7 +14,7 @@
  * GNU General Public License for more details.
  *
  */
-//snuk182 !!
+
 #ifndef _LINUX_ION_H
 #define _LINUX_ION_H
 
@@ -510,12 +510,14 @@ static inline int msm_ion_do_cache_op(struct ion_client *client,
 struct ion_allocation_data {
 	size_t len;
 	size_t align;
-/* HACK: Kernel needs heap_mask, userspace needs heap_id_mask. Damn Google. */
-//#ifdef __KERNEL__
 	unsigned int heap_mask;
-//#else
-//	unsigned int heap_id_mask;
-//#endif
+	unsigned int flags;
+	struct ion_handle *handle;
+};
+
+struct ion_allocation_data_compat {
+	size_t len;
+	size_t align;
 	unsigned int flags;
 	struct ion_handle *handle;
 };
@@ -566,6 +568,9 @@ struct ion_custom_data {
 #define ION_IOC_ALLOC		_IOWR(ION_IOC_MAGIC, 0, \
 				      struct ion_allocation_data)
 
+#define ION_IOC_ALLOC_COMPAT		_IOWR(ION_IOC_MAGIC, 0, \
+				      struct ion_allocation_data_compat)
+
 /**
  * DOC: ION_IOC_FREE - free memory
  *
@@ -603,6 +608,8 @@ struct ion_custom_data {
  */
 #define ION_IOC_IMPORT		_IOWR(ION_IOC_MAGIC, 5, struct ion_fd_data)
 
+#define ION_IOC_IMPORT_COMPAT		_IOWR(ION_IOC_MAGIC, 5, int)
+
 /**
  * DOC: ION_IOC_CUSTOM - call architecture specific ion ioctl
  *
@@ -611,13 +618,13 @@ struct ion_custom_data {
  */
 #define ION_IOC_CUSTOM		_IOWR(ION_IOC_MAGIC, 6, struct ion_custom_data)
 
-/**
- * DOC: ION_IOC_SYNC - syncs a shared file descriptors to memory
- *
- * Deprecated in favor of using the dma_buf api's correctly (syncing
- * will happend automatically when the buffer is mapped to a device).
- * If necessary should be used after touching a cached buffer from the cpu,
- * this will make the buffer in memory coherent.
- */
-#define ION_IOC_SYNC		_IOWR(ION_IOC_MAGIC, 7, struct ion_fd_data)
+#define ION_IOC_CLEAN_CACHES_COMPAT		_IOWR(ION_IOC_MAGIC, 7, \
+						struct ion_flush_data)
+#define ION_IOC_INV_CACHES_COMPAT		_IOWR(ION_IOC_MAGIC, 8, \
+						struct ion_flush_data)
+#define ION_IOC_CLEAN_INV_CACHES_COMPAT		_IOWR(ION_IOC_MAGIC, 9, \
+						struct ion_flush_data)
+#define ION_IOC_GET_FLAGS_COMPAT		_IOWR(ION_IOC_MAGIC, 10, \
+						struct ion_flag_data)
+
 #endif /* _LINUX_ION_H */
