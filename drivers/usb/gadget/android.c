@@ -622,106 +622,6 @@ static void adb_closed_callback(void)
 /*-------------------------------------------------------------------------*/
 /* Supported functions initialization */
 
-/* ACM */
-static char acm_transports[32];	/*enabled ACM ports - "tty[,sdio]"*/
-static ssize_t acm_transports_store(
-		struct device *device, struct device_attribute *attr,
-		const char *buff, size_t size)
-{
-	strlcpy(acm_transports, buff, sizeof(acm_transports));
-
-	return size;
-}
-
-static char acm_xport_names[32];
-static ssize_t
-acm_xport_names_store(struct device *device, struct device_attribute *attr,
-			const char *buff, size_t size)
-{
-	strlcpy(acm_xport_names, buff, sizeof(acm_xport_names));
-
-	return size;
-}
-
-static ssize_t
-acm_xport_names_show(struct device *d, struct device_attribute *a, char *buff)
-{
-	return snprintf(buff, PAGE_SIZE, "%s", acm_xport_names);
-}
-
-static DEVICE_ATTR(acm_transports, S_IWUSR, NULL, acm_transports_store);
-static DEVICE_ATTR(acm_transport_names,  S_IRUGO | S_IWUSR,
-			acm_xport_names_show, acm_xport_names_store);
-static struct device_attribute *acm_function_attributes[] = {
-		&dev_attr_acm_transports,
-		&dev_attr_acm_transport_names,
-		NULL
-};
-
-static void acm_function_cleanup(struct android_usb_function *f)
-{
-	gserial_cleanup();
-}
-
-static int
-acm_function_bind_config(struct android_usb_function *f,
-		struct usb_configuration *c)
-{
-	char *name, *xport_name = NULL;
-	char buf[32], *b, xport_name_buf[32], *tb;
-	int err = -1, i;
-	static int acm_initialized, ports;
-
-	if (acm_initialized)
-		goto bind_config;
-
-	acm_initialized = 1;
-	strlcpy(buf, acm_transports, sizeof(buf));
-	b = strim(buf);
-
-	strlcpy(xport_name_buf, acm_xport_names, sizeof(xport_name_buf));
-	tb = strim(xport_name_buf);
-
-	while (b) {
-		name = strsep(&b, ",");
-
-		if (name) {
-			if (tb)
-				xport_name = strsep(&tb, ",");
-			err = acm_init_port(ports, name, xport_name);
-			if (err) {
-				pr_err("acm: Cannot open port '%s'", name);
-				goto out;
-			}
-			ports++;
-		}
-	}
-	err = acm_port_setup(c);
-	if (err) {
-		pr_err("acm: Cannot setup transports");
-		goto out;
-	}
-
-bind_config:
-	for (i = 0; i < ports; i++) {
-		err = acm_bind_config(c, i);
-		if (err) {
-			pr_err("acm: bind_config failed for port %d", i);
-			goto out;
-		}
-	}
-
-out:
-	return err;
-}
-
-static struct android_usb_function acm_function = {
-	.name		= "acm",
-	.cleanup	= acm_function_cleanup,
-	.bind_config	= acm_function_bind_config,
-	.attributes	= acm_function_attributes,
-};
-
 /* RMNET_SMD */
 static int rmnet_smd_function_bind_config(struct android_usb_function *f,
 					  struct usb_configuration *c)
@@ -1208,6 +1108,99 @@ static struct android_usb_function serial_function = {
 	.cleanup	= serial_function_cleanup,
 	.bind_config	= serial_function_bind_config,
 	.attributes	= serial_function_attributes,
+};
+
+/* ACM */
+static char acm_transports[32];	/*enabled ACM ports - "tty[,sdio]"*/
+static ssize_t acm_transports_store(
+		struct device *device, struct device_attribute *attr,
+		const char *buff, size_t size)
+{
+	strlcpy(acm_transports, buff, sizeof(acm_transports));
+
+	return size;
+}
+
+static DEVICE_ATTR(acm_transports, S_IWUSR, NULL, acm_transports_store);
+
+/*enabled ACM transport names - "serial_hsic[,serial_hsusb]"*/
+static char acm_xport_names[32];
+static ssize_t acm_xport_names_store(
+		struct device *device, struct device_attribute *attr,
+		const char *buff, size_t size)
+{
+	strlcpy(acm_xport_names, buff, sizeof(acm_xport_names));
+
+	return size;
+}
+
+static DEVICE_ATTR(acm_transport_names, S_IWUSR, NULL, acm_xport_names_store);
+
+static struct device_attribute *acm_function_attributes[] = {
+		&dev_attr_acm_transports,
+		&dev_attr_acm_transport_names,
+		NULL };
+
+static void acm_function_cleanup(struct android_usb_function *f)
+{
+	gserial_cleanup();
+}
+
+static int acm_function_bind_config(struct android_usb_function *f,
+					struct usb_configuration *c)
+{
+	char *name, *xport_name = NULL;
+	char buf[32], *b, xport_name_buf[32], *tb;
+	int err = -1, i;
+	static int acm_initialized, ports;
+
+	if (acm_initialized)
+		goto bind_config;
+
+	acm_initialized = 1;
+	strlcpy(buf, acm_transports, sizeof(buf));
+	b = strim(buf);
+
+	strlcpy(xport_name_buf, acm_xport_names, sizeof(xport_name_buf));
+	tb = strim(xport_name_buf);
+
+	while (b) {
+		name = strsep(&b, ",");
+
+		if (name) {
+			if (tb)
+				xport_name = strsep(&tb, ",");
+			err = acm_init_port(ports, name, xport_name);
+			if (err) {
+				pr_err("acm: Cannot open port '%s'", name);
+				goto out;
+			}
+			ports++;
+		}
+	}
+	err = acm_port_setup(c);
+	if (err) {
+		pr_err("acm: Cannot setup transports");
+		goto out;
+	}
+
+bind_config:
+	for (i = 0; i < ports; i++) {
+		err = acm_bind_config(c, i);
+		if (err) {
+			pr_err("acm: bind_config failed for port %d", i);
+			goto out;
+		}
+	}
+
+out:
+	return err;
+}
+static struct android_usb_function acm_function = {
+	.name		= "acm",
+	.cleanup	= acm_function_cleanup,
+	.bind_config	= acm_function_bind_config,
+	.attributes	= acm_function_attributes,
 };
 
 /* CCID */

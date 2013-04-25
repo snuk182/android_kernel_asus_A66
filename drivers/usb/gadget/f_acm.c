@@ -1013,6 +1013,9 @@ static int acm_init_port(int port_num, const char *name, const char *port_name)
 		no_acm_smd_ports++;
 		break;
 	case USB_GADGET_XPORT_HSIC:
+		ghsic_ctrl_set_port_name(port_name, name);
+		ghsic_data_set_port_name(port_name, name);
+
 		/*client port number will be updated in acm_port_setup*/
 		ghsic_ctrl_set_port_name(port_name, name);
 		ghsic_data_set_port_name(port_name, name);
