@@ -36,6 +36,13 @@ wit the following convention:
 	reg = <(baseaddr) (size)>;
 	(linux,contiguous-region);
 	(linux,default-contiguous-region);
+<<<<<<< HEAD
+||||||| parent of 93a74ed30b5... cma: Allow option to use strict memblock_reserved memory
+	(linux,memory-limit);
+=======
+	(linux,reserve-region);
+	(linux,memory-limit);
+>>>>>>> 93a74ed30b5... cma: Allow option to use strict memblock_reserved memory
         label = (unique_name);
 };
 
@@ -48,6 +55,23 @@ linux,contiguous-region: property indicating that the defined memory
 linux,default-contiguous-region: property indicating that the region
 		is the default region for all contiguous memory
 		allocations, Linux specific (optional)
+<<<<<<< HEAD
+||||||| parent of 93a74ed30b5... cma: Allow option to use strict memblock_reserved memory
+linux,memory-limit: property specifying an upper bound on the physical address
+		of the region if the region is placed dynamically. If no limit
+		is specificed, the region may be placed anywhere in the physical
+		address space. 0 may be used to specify lowmem (i.e. the region
+		will be placed in the direct mapped lowmem region)
+=======
+linux,reserve-region: property indicating that the contiguous memory will
+		not be given back to the system allocator. The memory be
+		always be available for contiguous use.
+linux,memory-limit: property specifying an upper bound on the physical address
+		of the region if the region is placed dynamically. If no limit
+		is specificed, the region may be placed anywhere in the physical
+		address space. 0 may be used to specify lowmem (i.e. the region
+		will be placed in the direct mapped lowmem region)
+>>>>>>> 93a74ed30b5... cma: Allow option to use strict memblock_reserved memory
 label:		an internal name used for automatically associating the
 		cma region with a given device. The label is optional;
 		if the label is not given the client is responsible for
