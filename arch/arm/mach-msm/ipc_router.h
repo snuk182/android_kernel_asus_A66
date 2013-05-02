@@ -52,6 +52,22 @@
 
 #define ALIGN_SIZE(x) ((4 - ((x) & 3)) & 3)
 
+#define ALL_SERVICE 0xFFFFFFFF
+#define ALL_INSTANCE 0xFFFFFFFF
+
+enum {
+	CLIENT_PORT,
+	SERVER_PORT,
+	CONTROL_PORT,
+	IRSC_PORT,
+};
+
+enum {
+	NULL_MODE,
+	SINGLE_LINK_MODE,
+	MULTI_LINK_MODE,
+};
+
 union rr_control_msg {
 	uint32_t cmd;
 	struct {
