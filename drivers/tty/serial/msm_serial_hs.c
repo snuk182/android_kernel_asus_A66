@@ -870,7 +870,6 @@ static void msm_hs_set_termios(struct uart_port *uport,
 	unsigned int bps;
 	unsigned long data;
 	unsigned long flags;
-	int ret;
 	unsigned int c_cflag = termios->c_cflag;
 	struct msm_hs_port *msm_uport = UARTDM_TO_MSM(uport);
 	bool error_case = false;
