@@ -877,6 +877,30 @@ static void msm_hs_set_termios(struct uart_port *uport,
 	}
 
 	/*
+	 * It is quite possible that previous graceful flush is not
+	 * completed and set_termios() request has been received.
+	 * Hence wait here to make sure that it is completed and
+	 * queued one more UART RX CMD with ADM.
+	 */
+	if (msm_uport->rx.dma_in_flight &&
+			msm_uport->rx.flush == FLUSH_DATA_READY) {
+		spin_unlock_irqrestore(&uport->lock, flags);
+		ret = wait_event_timeout(msm_uport->rx.wait,
+			msm_uport->rx.flush == FLUSH_NONE,
+			RX_FLUSH_COMPLETE_TIMEOUT);
+		if (!ret) {
+			pr_err("%s(): timeout for Rx cmd completion\n",
+							__func__);
+			spin_lock_irqsave(&uport->lock, flags);
+			print_uart_registers(msm_uport);
+			spin_unlock_irqrestore(&uport->lock, flags);
+			BUG_ON(1);
+		}
+
+		spin_lock_irqsave(&uport->lock, flags);
+	}
+
+	/*
 	 * Disable Rx channel of UARTDM
 	 * DMA Rx Stall happens if enqueue and flush of Rx command happens
 	 * concurrently. Hence before changing the baud rate/protocol
