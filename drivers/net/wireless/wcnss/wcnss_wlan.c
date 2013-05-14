@@ -27,6 +27,7 @@
 #include <mach/peripheral-loader.h>
 #include <mach/msm_smd.h>
 #include <mach/msm_iomap.h>
+#include <linux/mfd/pm8xxx/misc.h>
 
 #include <linux/kernel.h>
 #include <mach/socinfo.h>
@@ -79,6 +80,72 @@ struct wcnss_version {
 	unsigned char  minor;
 	unsigned char  version;
 	unsigned char  revision;
+};
+
+struct wcnss_pmic_dump {
+	char reg_name[10];
+	u16 reg_addr;
+};
+
+static struct wcnss_pmic_dump wcnss_pmic_reg_dump[] = {
+	{"S2", 0x1D8}, /* S2 */
+	{"L4", 0xB4},  /* L4 */
+	{"L10", 0xC0},  /* L10 */
+	{"LVS2", 0x62},   /* LVS2 */
+	{"S4", 0x1E8}, /*S4*/
+	{"LVS7", 0x06C}, /*LVS7*/
+	{"LVS1", 0x060}, /*LVS7*/
+};
+
+#define NVBIN_FILE "wlan/prima/WCNSS_qcom_wlan_nv.bin"
+
+/*
+ * On SMD channel 4K of maximum data can be transferred, including message
+ * header, so NV fragment size as next multiple of 1Kb is 3Kb.
+ */
+#define NV_FRAGMENT_SIZE  3072
+
+/* Macro to find the total number fragments of the NV bin Image */
+#define TOTALFRAGMENTS(x) (((x % NV_FRAGMENT_SIZE) == 0) ? \
+	(x / NV_FRAGMENT_SIZE) : ((x / NV_FRAGMENT_SIZE) + 1))
+
+struct nvbin_dnld_req_params {
+	/*
+	 * Fragment sequence number of the NV bin Image. NV Bin Image
+	 * might not fit into one message due to size limitation of
+	 * the SMD channel FIFO so entire NV blob is chopped into
+	 * multiple fragments starting with seqeunce number 0. The
+	 * last fragment is indicated by marking is_last_fragment field
+	 * to 1. At receiving side, NV blobs would be concatenated
+	 * together without any padding bytes in between.
+	 */
+	unsigned short frag_number;
+
+	/*
+	 * When set to 1 it indicates that no more fragments will
+	 * be sent. Receiver shall send back response message after
+	 * last fragment.
+	 */
+	unsigned short is_last_fragment;
+
+	/* NV Image size (number of bytes) */
+	unsigned int nvbin_buffer_size;
+
+	/*
+	 * Following the 'nvbin_buffer_size', there should be
+	 * nvbin_buffer_size bytes of NV bin Image i.e.
+	 * uint8[nvbin_buffer_size].
+	 */
+};
+
+struct nvbin_dnld_req_msg {
+	/*
+	 * Note: The length specified in nvbin_dnld_req_msg messages
+	 * should be hdr.msg_len = sizeof(nvbin_dnld_req_msg) +
+	 * nvbin_buffer_size.
+	 */
+	struct smd_msg_hdr hdr;
+	struct nvbin_dnld_req_params dnld_req_params;
 };
 
 static struct {
@@ -172,9 +239,30 @@ static ssize_t wcnss_version_show(struct device *dev,
 
 static DEVICE_ATTR(wcnss_version, S_IRUSR,
 		wcnss_version_show, NULL);
+
+
+void wcnss_riva_dump_pmic_regs(void)
+{
+	int i, rc;
+	u8  val;
+
+	for (i = 0; i < ARRAY_SIZE(wcnss_pmic_reg_dump); i++) {
+		val = 0;
+		rc = pm8xxx_read_register(wcnss_pmic_reg_dump[i].reg_addr,
+				&val);
+		if (rc)
+			pr_err("PMIC READ: Failed to read addr = %d\n",
+					wcnss_pmic_reg_dump[i].reg_addr);
+		else
+			pr_err("PMIC READ: addr = %x, value = %x\n",
+					wcnss_pmic_reg_dump[i].reg_addr, val);
+	}
+}
+
 /* interface to reset Riva by sending the reset interrupt */
 void wcnss_reset_intr(void)
 {
+	wcnss_riva_dump_pmic_regs();
 	wmb();
 	__raw_writel(1 << 24, MSM_APCS_GCC_BASE + 0x8);
 }
