@@ -1297,6 +1297,7 @@ static void kick_requests(struct ceph_osd_client *osdc, int force_resend)
 		__unregister_linger_request(osdc, req);
 		__register_request(osdc, req);
 	}
+	reset_changed_osds(osdc);
 	mutex_unlock(&osdc->request_mutex);
 
 	if (needmap) {
