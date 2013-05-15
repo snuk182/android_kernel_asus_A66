@@ -447,3 +447,6 @@ two, it gets "is it an O_EXCL or equivalent?" boolean argument.  Note that
 local filesystems can ignore tha argument - they are guaranteed that the
 object doesn't exist.  It's remote/distributed ones that might care...
 
+--
+[mandatory]
+	vfs_readdir() is gone; switch to iterate_dir() instead
