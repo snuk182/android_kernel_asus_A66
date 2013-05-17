@@ -828,7 +828,6 @@ static int hdmi_cec_power(int on)
 error:
 	return rc;
 }
-<<<<<<< HEAD
 
 static int hdmi_panel_power(int on)
 {
@@ -848,22 +847,6 @@ static bool hdmi_platform_source(void)
 	return cpu_is_msm8930ab() ? true : false ;
 }
 
-||||||| parent of 39599cc3def... msm_fb: hdmi: Proper disabling of HDMI
-=======
-
-static int hdmi_panel_power(int on)
-{
-	int rc;
-
-	pr_debug("%s: HDMI Core: %s\n", __func__, (on ? "ON" : "OFF"));
-	rc = hdmi_core_power(on, 1);
-	if (rc)
-		rc = hdmi_cec_power(on);
-
-	pr_debug("%s: HDMI Core: %s Success\n", __func__, (on ? "ON" : "OFF"));
-	return rc;
-}
->>>>>>> 39599cc3def... msm_fb: hdmi: Proper disabling of HDMI
 #endif /* CONFIG_FB_MSM_HDMI_MSM_PANEL */
 
 void __init msm8930_init_fb(void)
