@@ -509,7 +509,7 @@ struct msm_hdmi_platform_data {
 	int (*init_irq)(void);
 	bool (*check_hdcp_hw_support)(void);
    	void (*ddc_switch)(bool ddc, bool on);   //Mickey, add for hdmi ddc switch
-	bool (*foundry)(void);
+	bool (*source)(void);
 	bool is_mhl_enabled;
 };
 
