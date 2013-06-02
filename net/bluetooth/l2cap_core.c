@@ -2040,7 +2040,7 @@ static void l2cap_ertm_send_rr_or_rnr(struct sock *sk, bool poll)
 	struct l2cap_pinfo *pi;
 	struct bt_l2cap_control control;
 
-	BT_DBG("sk %p, poll %d", sk, (int) poll);
+	BT_DBG("sk %pK, poll %d", sk, (int) poll);
 
 	pi = l2cap_pi(sk);
 
