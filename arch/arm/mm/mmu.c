@@ -870,8 +870,8 @@ void __init iotable_init(struct map_desc *io_desc, int nr)
 		vm = &svm->vm;
 		vm->addr = (void *)(md->virtual & PAGE_MASK);
 		vm->size = PAGE_ALIGN(md->length + (md->virtual & ~PAGE_MASK));
-		vm->phys_addr = __pfn_to_phys(md->pfn); 
-		vm->flags = VM_IOREMAP | VM_ARM_STATIC_MAPPING; 
+		vm->phys_addr = __pfn_to_phys(md->pfn);
+		vm->flags = VM_IOREMAP | VM_ARM_STATIC_MAPPING;
 		vm->flags |= VM_ARM_MTYPE(md->type);
 		vm->caller = iotable_init;
 		add_static_vm_early(svm++);
@@ -1426,9 +1426,10 @@ static void __init map_lowmem(void)
 
 	/* Map all the lowmem memory banks. */
 	for_each_memblock(memory, reg) {
-		phys_addr_t start = reg->base;
-		phys_addr_t end = start + reg->size;
 		struct map_desc map;
+		nr++;
+		start = reg->base;
+		end = start + reg->size;
 
 		if (end > arm_lowmem_limit)
 			end = arm_lowmem_limit;
