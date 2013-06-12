@@ -3931,9 +3931,8 @@ static void vfe32_process_reg_update_irq(
 
 				share_ctrl->liveshot_state =
 					VFE_STATE_STARTED;
-//ASUS_BSP+++ CR_Increase video snapshot stability Randy_Change@asus.com.tw [2012/9/10] Modify Begin
-				msm_camera_io_w(1, vfe32_ctrl->share_ctrl->vfebase + VFE_REG_UPDATE_CMD);
-//ASUS_BSP--- CR_Increase video snapshot stability Randy_Change@asus.com.tw [2012/9/10] Modify End
+				msm_camera_io_w_mb(1, share_ctrl->vfebase +
+					VFE_REG_UPDATE_CMD);
 			}
 			break;
 		case VFE_STATE_STARTED:
