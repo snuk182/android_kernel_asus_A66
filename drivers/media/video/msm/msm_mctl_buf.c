@@ -542,11 +542,7 @@ int msm_mctl_buf_done(struct msm_cam_media_controller *p_mctl,
 			if (idx > MSM_DEV_INST_MAX) {
 				idx = GET_VIDEO_INST_IDX(
 					buf_handle->inst_handle);
-				if (idx > MSM_DEV_INST_MAX) {
-					pr_err("%s Invalid idx %d ", __func__,
-						idx);
-					return -EINVAL;
-				}
+				BUG_ON(idx > MSM_DEV_INST_MAX);
 				pcam_inst = p_mctl->pcam_ptr->dev_inst[idx];
 			} else {
 				pcam_inst = p_mctl->pcam_ptr->mctl_node.
@@ -675,16 +671,25 @@ struct msm_cam_v4l2_dev_inst *msm_mctl_get_pcam_inst(
 	 *    video instance.
 	 */
 	if (buf_handle->buf_lookup_type == BUF_LOOKUP_BY_INST_HANDLE) {
-		idx = GET_MCTLPP_INST_IDX(buf_handle->inst_handle);
-		if (idx > MSM_DEV_INST_MAX) {
-			idx = GET_VIDEO_INST_IDX(buf_handle->inst_handle);
-			if (idx > MSM_DEV_INST_MAX) {
-				pr_err("%s Invalid idx %d ", __func__, idx);
-				return NULL;
-			}
-			pcam_inst = pcam->dev_inst[idx];
+		if (buf_handle->inst_handle == 0) {
+			pr_err("%sBuffer instance handle not initialised",
+				 __func__);
+			return pcam_inst;
 		} else {
-			pcam_inst = pcam->mctl_node.dev_inst[idx];
+			idx = GET_MCTLPP_INST_IDX(buf_handle->inst_handle);
+			if (idx > MSM_DEV_INST_MAX) {
+				idx = GET_VIDEO_INST_IDX(
+					buf_handle->inst_handle);
+				if (idx > MSM_DEV_INST_MAX) {
+					pr_err("%s Invalid video inst idx %d",
+						__func__, idx);
+					return pcam_inst;
+				} else {
+					pcam_inst = pcam->dev_inst[idx];
+				}
+			} else {
+				pcam_inst = pcam->mctl_node.dev_inst[idx];
+			}
 		}
 	} else if ((buf_handle->buf_lookup_type == BUF_LOOKUP_BY_IMG_MODE)
 		&& (buf_handle->image_mode >= 0 &&
@@ -864,12 +869,9 @@ int msm_mctl_buf_done_pp(struct msm_cam_media_controller *pmctl,
 
 	if (buf_handle->buf_lookup_type == BUF_LOOKUP_BY_INST_HANDLE) {
 		idx = GET_MCTLPP_INST_IDX(buf_handle->inst_handle);
-		if (idx > MSM_DEV_INST_MAX) {
+		if (idx >= MSM_DEV_INST_MAX) {
 			idx = GET_VIDEO_INST_IDX(buf_handle->inst_handle);
-			if (idx > MSM_DEV_INST_MAX) {
-				pr_err("%s Invalid idx %d ", __func__, idx);
-				return -EINVAL;
-			}
+			BUG_ON(idx >= MSM_DEV_INST_MAX);
 			pcam_inst = pmctl->pcam_ptr->dev_inst[idx];
 		} else {
 			pcam_inst = pmctl->pcam_ptr->mctl_node.dev_inst[idx];
