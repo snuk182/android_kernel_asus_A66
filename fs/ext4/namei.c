@@ -1825,9 +1825,7 @@ retry:
 	err = PTR_ERR(inode);
 	if (!IS_ERR(inode)) {
 		init_special_inode(inode, inode->i_mode, rdev);
-#ifdef CONFIG_EXT4_FS_XATTR
 		inode->i_op = &ext4_special_inode_operations;
-#endif
 		err = ext4_add_nondir(handle, dentry, inode);
 	}
 	ext4_journal_stop(handle);
@@ -2431,7 +2429,7 @@ static int ext4_link(struct dentry *old_dentry,
 
 retry:
 	handle = ext4_journal_start(dir, EXT4_DATA_TRANS_BLOCKS(dir->i_sb) +
-					EXT4_INDEX_EXTRA_TRANS_BLOCKS);
+					EXT4_INDEX_EXTRA_TRANS_BLOCKS + 1);
 	if (IS_ERR(handle))
 		return PTR_ERR(handle);
 
@@ -2445,6 +2443,11 @@ retry:
 	err = ext4_add_entry(handle, dentry, inode);
 	if (!err) {
 		ext4_mark_inode_dirty(handle, inode);
+		/* this can happen only for tmpfile being
+		 * linked the first time
+		 */
+		if (inode->i_nlink == 1)
+			ext4_orphan_del(handle, inode);
 		d_instantiate(dentry, inode);
 	} else {
 		drop_nlink(inode);
