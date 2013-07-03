@@ -64,6 +64,7 @@ prototypes:
 	int (*atomic_open)(struct inode *, struct dentry *,
 				struct file *, unsigned open_flag,
 				umode_t create_mode, int *opened);
+	int (*tmpfile) (struct inode *, struct dentry *, umode_t);
 
 locking rules:
 	all may block
@@ -93,6 +94,7 @@ fiemap:		no
 <<<<<<< HEAD
 update_time:	no
 atomic_open:	yes
+tmpfile:	no
 
 ||||||| parent of 5d4a3e8df42... fs: introduce inode operation ->update_time
 =======
