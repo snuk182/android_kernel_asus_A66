@@ -200,8 +200,10 @@ static void get_encap_work(struct work_struct *w)
 		dev->get_encap_failure_cnt++;
 		usb_unanchor_urb(dev->rcvurb);
 		usb_autopm_put_interface(dev->intf);
-		dev_err(dev->devicep,
-		"%s: Error submitting Read URB %d\n", __func__, status);
+		if (status != -ENODEV)
+			dev_err(dev->devicep,
+			"%s: Error submitting Read URB %d\n",
+			__func__, status);
 		goto resubmit_int_urb;
 	}
 
@@ -214,7 +216,9 @@ resubmit_int_urb:
 		status = usb_submit_urb(dev->inturb, GFP_KERNEL);
 		if (status) {
 			usb_unanchor_urb(dev->inturb);
-			dev_err(dev->devicep, "%s: Error re-submitting Int URB %d\n",
+			if (status != -ENODEV)
+				dev_err(dev->devicep,
+				"%s: Error re-submitting Int URB %d\n",
 				__func__, status);
 		}
 	}
@@ -278,8 +282,10 @@ resubmit_int_urb:
 	status = usb_submit_urb(urb, GFP_ATOMIC);
 	if (status) {
 		usb_unanchor_urb(urb);
-		dev_err(dev->devicep, "%s: Error re-submitting Int URB %d\n",
-		__func__, status);
+		if (status != -ENODEV)
+			dev_err(dev->devicep,
+			"%s: Error re-submitting Int URB %d\n",
+			__func__, status);
 	}
 
 	return;
@@ -375,7 +381,9 @@ resubmit_int_urb:
 		status = usb_submit_urb(dev->inturb, GFP_ATOMIC);
 		if (status) {
 			usb_unanchor_urb(dev->inturb);
-			dev_err(dev->devicep, "%s: Error re-submitting Int URB %d\n",
+			if (status != -ENODEV)
+				dev_err(dev->devicep,
+				"%s: Error re-submitting Int URB %d\n",
 				__func__, status);
 		}
 	}
@@ -389,8 +397,9 @@ int rmnet_usb_ctrl_start_rx(struct rmnet_ctrl_dev *dev)
 	retval = usb_submit_urb(dev->inturb, GFP_KERNEL);
 	if (retval < 0) {
 		usb_unanchor_urb(dev->inturb);
-		dev_err(dev->devicep, "%s Intr submit %d\n", __func__,
-				retval);
+		if (retval != -ENODEV)
+			dev_err(dev->devicep,
+			"%s Intr submit %d\n", __func__, retval);
 	}
 
 	return retval;
@@ -519,7 +528,9 @@ static int rmnet_usb_ctrl_write(struct rmnet_ctrl_dev *dev,
 	dev->snd_encap_cmd_cnt++;
 	result = usb_submit_urb(sndurb, GFP_KERNEL);
 	if (result < 0) {
-		dev_err(dev->devicep, "%s: Submit URB error %d\n",
+		if (result != -ENODEV)
+			dev_err(dev->devicep,
+			"%s: Submit URB error %d\n",
 			__func__, result);
 		dev->snd_encap_cmd_cnt--;
 		usb_autopm_put_interface(dev->intf);
