@@ -10,7 +10,6 @@
  * GNU General Public License for more details.
  *
  */
-//snuk182 !!
 
 #include <linux/module.h>
 #include <linux/workqueue.h>
