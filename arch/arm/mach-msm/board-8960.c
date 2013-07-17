@@ -3664,6 +3664,12 @@ static struct i2c_board_info __initdata mpu_i2c_boardinfo[] = {
 };
 #endif
 //ASUS_BSP --- Jason Chang "9-axis sensor porting"
+/* AVTimer */
+static struct platform_device msm_dev_avtimer_device = {
+	.name = "dev_avtimer",
+	.dev = { .platform_data = &dev_avtimer_pdata },
+};
+
 /* Sensors DSPS platform data */
 #ifdef CONFIG_MSM_DSPS
 #define DSPS_PIL_GENERIC_NAME		"dsps"
@@ -4598,6 +4604,10 @@ static void __init msm8960_cdp_init(void)
 		platform_device_register(&mdm_sglte_device);
 	}
 	ion_adjust_secure_allocation();
+	if (machine_is_msm8960_mtp() || machine_is_msm8960_fluid() ||
+		machine_is_msm8960_cdp()) {
+		platform_device_register(&msm_dev_avtimer_device);
+	}
 }
 
 MACHINE_START(MSM8960_CDP, "QCT MSM8960 CDP")
