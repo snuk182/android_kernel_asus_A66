@@ -1808,6 +1808,7 @@ void xhci_queue_config_ep_quirk(struct xhci_hcd *xhci,
 void xhci_stop_endpoint_command_watchdog(unsigned long arg);
 void xhci_ring_ep_doorbell(struct xhci_hcd *xhci, unsigned int slot_id,
 		unsigned int ep_index, unsigned int stream_id);
+union xhci_trb *xhci_find_next_enqueue(struct xhci_ring *ring);
 
 /* xHCI roothub code */
 void xhci_set_link_state(struct xhci_hcd *xhci, __le32 __iomem **port_array,
