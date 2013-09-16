@@ -364,11 +364,9 @@ struct inode_operations {
 	ssize_t (*listxattr) (struct dentry *, char *, size_t);
 	int (*removexattr) (struct dentry *, const char *);
 	void (*update_time)(struct inode *, struct timespec *, int);
-	int (*atomic_open)(struct inode *, struct dentry *,
+	int (*atomic_open)(struct inode *, struct dentry *, struct file *,
+			unsigned open_flag, umode_t create_mode, int *opened);
 	int (*tmpfile) (struct inode *, struct dentry *, umode_t);
-} ____cacheline_aligned;
-				struct file *, unsigned open_flag,
-				umode_t create_mode, int *opened);
 };
 
 Again, all methods are called without any locks being held, unless
@@ -490,9 +488,6 @@ otherwise noted.
 	f_op->open().  If the file was created, the FILE_CREATED flag should be
 	set in "opened".  In case of O_EXCL the method must only succeed if the
 	file didn't exist and hence FILE_CREATED shall always be set on success.
-
-  tmpfile: called in the end of O_TMPFILE open().  Optional, equivalent to
-	atomically creating, opening and unlinking a file in given directory.
 
   tmpfile: called in the end of O_TMPFILE open().  Optional, equivalent to
 	atomically creating, opening and unlinking a file in given directory.
