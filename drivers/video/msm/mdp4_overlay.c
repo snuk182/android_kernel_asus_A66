@@ -43,6 +43,8 @@
 
 #define VERSION_KEY_MASK	0xFFFFFF00
 
+#define MDP_IOMMU_OVERMAP_SIZE 640 * 1024 * 4 * 2
+
 struct mdp4_overlay_ctrl {
 	struct mdp4_overlay_pipe plist[OVERLAY_PIPE_MAX];
 	struct mdp4_overlay_pipe *stage[MDP4_MIXER_MAX][MDP4_MIXER_STAGE_MAX];
