@@ -125,7 +125,7 @@ obj-y				+= platform/
 obj-y				+= ieee802154/
 #common clk code
 obj-y				+= clk/
-obj-y				+= sensors/
+
 obj-$(CONFIG_HWSPINLOCK)	+= hwspinlock/
 obj-$(CONFIG_NFC)		+= nfc/
 obj-$(CONFIG_IOMMU_SUPPORT)	+= iommu/
@@ -142,4 +142,9 @@ obj-$(CONFIG_PM_DEVFREQ)	+= devfreq/
 obj-$(CONFIG_MOBICORE_SUPPORT)  += gud/
 
 obj-$(CONFIG_CORESIGHT)		+= coresight/
-#snuk182 !!
+
+obj-$(CONFIG_ESOC)		+= esoc/
+
+#sensor_class
+obj-$(CONFIG_SENSORS)		+= sensors/
+
