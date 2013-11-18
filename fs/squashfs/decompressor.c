@@ -24,12 +24,14 @@
 #include <linux/types.h>
 #include <linux/mutex.h>
 #include <linux/slab.h>
-#include <linux/buffer_head.h>
+#include <linux/highmem.h>
+#include <linux/fs.h>
 
 #include "squashfs_fs.h"
 #include "squashfs_fs_sb.h"
 #include "decompressor.h"
 #include "squashfs.h"
+#include "page_actor.h"
 
 /*
  * This file (and decompressor.h) implements a decompressor framework for
@@ -39,6 +41,12 @@
 static const struct squashfs_decompressor squashfs_lzma_unsupported_comp_ops = {
 	NULL, NULL, NULL, NULL, LZMA_COMPRESSION, "lzma", 0
 };
+
+#ifndef CONFIG_SQUASHFS_LZ4
+static const struct squashfs_decompressor squashfs_lz4_comp_ops = {
+	NULL, NULL, NULL, NULL, LZ4_COMPRESSION, "lz4", 0
+};
+#endif
 
 #ifndef CONFIG_SQUASHFS_LZO
 static const struct squashfs_decompressor squashfs_lzo_comp_ops = {
@@ -64,6 +72,7 @@ static const struct squashfs_decompressor squashfs_unknown_comp_ops = {
 
 static const struct squashfs_decompressor *decompressor[] = {
 	&squashfs_zlib_comp_ops,
+	&squashfs_lz4_comp_ops,
 	&squashfs_lzo_comp_ops,
 	&squashfs_xz_comp_ops,
 	&squashfs_lzma_unsupported_comp_ops,
@@ -86,33 +95,44 @@ const struct squashfs_decompressor *squashfs_lookup_decompressor(int id)
 static void *get_comp_opts(struct super_block *sb, unsigned short flags)
 {
 	struct squashfs_sb_info *msblk = sb->s_fs_info;
-	void *buffer = NULL, *comp_opts;
+	void *comp_opts, *buffer = NULL;
+	struct page *page;
+	struct squashfs_page_actor *actor = NULL;
 	int length = 0;
+
+	if (!SQUASHFS_COMP_OPTS(flags))
+		return squashfs_comp_opts(msblk, buffer, length);
 
 	/*
 	 * Read decompressor specific options from file system if present
 	 */
-	if (SQUASHFS_COMP_OPTS(flags)) {
-		buffer = kmalloc(PAGE_CACHE_SIZE, GFP_KERNEL);
-		if (buffer == NULL) {
-			comp_opts = ERR_PTR(-ENOMEM);
-			goto out;
-		}
 
-		length = squashfs_read_data(sb, &buffer,
-			sizeof(struct squashfs_super_block), 0, NULL,
-				PAGE_CACHE_SIZE, 1);
+	page = alloc_page(GFP_KERNEL);
+	if (!page)
+		return ERR_PTR(-ENOMEM);
 
-		if (length < 0) {
-			comp_opts = ERR_PTR(length);
-			goto out;
-		}
+	actor = squashfs_page_actor_init(&page, 1, 0, NULL);
+	if (actor == NULL) {
+		comp_opts = ERR_PTR(-ENOMEM);
+		goto actor_error;
 	}
 
-	comp_opts = squashfs_comp_opts(msblk, buffer, length);
+	length = squashfs_read_data(sb,
+		sizeof(struct squashfs_super_block), 0, NULL, actor);
 
-out:
-	kfree(buffer);
+	if (length < 0) {
+		comp_opts = ERR_PTR(length);
+		goto read_error;
+	}
+
+	buffer = kmap_atomic(page);
+	comp_opts = squashfs_comp_opts(msblk, buffer, length);
+	kunmap_atomic(buffer);
+
+read_error:
+	squashfs_page_actor_free(actor, 0);
+actor_error:
+	__free_page(page);
 	return comp_opts;
 }
 

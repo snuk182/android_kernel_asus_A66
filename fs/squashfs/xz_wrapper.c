@@ -32,6 +32,7 @@
 #include "squashfs_fs_sb.h"
 #include "squashfs.h"
 #include "decompressor.h"
+#include "page_actor.h"
 
 struct squashfs_xz {
 	struct xz_dec *state;
@@ -54,7 +55,7 @@ static void *squashfs_xz_comp_opts(struct squashfs_sb_info *msblk,
 	struct comp_opts *opts;
 	int err = 0, n;
 
-	opts = kmalloc(sizeof(*opts), GFP_KERNEL);
+	opts = kmalloc(sizeof(*opts), GFP_ATOMIC);
 	if (opts == NULL) {
 		err = -ENOMEM;
 		goto out2;
@@ -129,19 +130,20 @@ static void squashfs_xz_free(void *strm)
 
 
 static int squashfs_xz_uncompress(struct squashfs_sb_info *msblk, void *strm,
-	void **buffer, struct buffer_head **bh, int b, int offset, int length,
-	int srclength, int pages)
+	struct buffer_head **bh, int b, int offset, int length,
+	struct squashfs_page_actor *output)
 {
 	enum xz_ret xz_err;
-	int avail, total = 0, k = 0, page = 0;
+	int avail, total = 0, k = 0;
 	struct squashfs_xz *stream = strm;
+	void *buf = NULL;
 
 	xz_dec_reset(stream->state);
 	stream->buf.in_pos = 0;
 	stream->buf.in_size = 0;
 	stream->buf.out_pos = 0;
-	stream->buf.out_size = PAGE_CACHE_SIZE;
-	stream->buf.out = buffer[page++];
+	stream->buf.out_size = PAGE_SIZE;
+	stream->buf.out = squashfs_first_page(output);
 
 	do {
 		if (stream->buf.in_pos == stream->buf.in_size && k < b) {
@@ -153,27 +155,40 @@ static int squashfs_xz_uncompress(struct squashfs_sb_info *msblk, void *strm,
 			offset = 0;
 		}
 
-		if (stream->buf.out_pos == stream->buf.out_size
-							&& page < pages) {
-			stream->buf.out = buffer[page++];
-			stream->buf.out_pos = 0;
-			total += PAGE_CACHE_SIZE;
+		if (stream->buf.out_pos == stream->buf.out_size) {
+			stream->buf.out = squashfs_next_page(output);
+			if (!IS_ERR(stream->buf.out)) {
+				stream->buf.out_pos = 0;
+				total += PAGE_SIZE;
+			}
 		}
 
+		if (!stream->buf.out) {
+			if (!buf) {
+				buf = kmalloc(PAGE_SIZE, GFP_ATOMIC);
+				if (!buf)
+					goto out;
+			}
+			stream->buf.out = buf;
+		}
 		xz_err = xz_dec_run(stream->state, &stream->buf);
 
 		if (stream->buf.in_pos == stream->buf.in_size && k < b)
 			put_bh(bh[k++]);
 	} while (xz_err == XZ_OK);
 
+	squashfs_finish_page(output);
+
 	if (xz_err != XZ_STREAM_END || k < b)
 		goto out;
 
+	kfree(buf);
 	return total + stream->buf.out_pos;
 
 out:
 	for (; k < b; k++)
 		put_bh(bh[k]);
+	kfree(buf);
 
 	return -EIO;
 }

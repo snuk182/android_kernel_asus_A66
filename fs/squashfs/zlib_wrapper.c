@@ -32,6 +32,7 @@
 #include "squashfs_fs_sb.h"
 #include "squashfs.h"
 #include "decompressor.h"
+#include "page_actor.h"
 
 static void *zlib_init(struct squashfs_sb_info *dummy, void *buff)
 {
@@ -62,14 +63,15 @@ static void zlib_free(void *strm)
 
 
 static int zlib_uncompress(struct squashfs_sb_info *msblk, void *strm,
-	void **buffer, struct buffer_head **bh, int b, int offset, int length,
-	int srclength, int pages)
+	struct buffer_head **bh, int b, int offset, int length,
+	struct squashfs_page_actor *output)
 {
-	int zlib_err, zlib_init = 0;
-	int k = 0, page = 0;
+	void *buf = NULL;
+	int zlib_err, zlib_init = 0, k = 0;
 	z_stream *stream = strm;
 
-	stream->avail_out = 0;
+	stream->avail_out = PAGE_SIZE;
+	stream->next_out = squashfs_first_page(output);
 	stream->avail_in = 0;
 
 	do {
@@ -81,15 +83,27 @@ static int zlib_uncompress(struct squashfs_sb_info *msblk, void *strm,
 			offset = 0;
 		}
 
-		if (stream->avail_out == 0 && page < pages) {
-			stream->next_out = buffer[page++];
-			stream->avail_out = PAGE_CACHE_SIZE;
+		if (stream->avail_out == 0) {
+			stream->next_out = squashfs_next_page(output);
+			if (!IS_ERR(stream->next_out))
+				stream->avail_out = PAGE_SIZE;
+		}
+
+		if (!stream->next_out) {
+			if (!buf) {
+				buf = kmalloc(PAGE_SIZE, GFP_ATOMIC);
+				if (!buf)
+					goto out;
+			}
+			stream->next_out = buf;
 		}
 
 		if (!zlib_init) {
 			zlib_err = zlib_inflateInit(stream);
-			if (zlib_err != Z_OK)
+			if (zlib_err != Z_OK) {
+				squashfs_finish_page(output);
 				goto out;
+			}
 			zlib_init = 1;
 		}
 
@@ -98,6 +112,8 @@ static int zlib_uncompress(struct squashfs_sb_info *msblk, void *strm,
 		if (stream->avail_in == 0 && k < b)
 			put_bh(bh[k++]);
 	} while (zlib_err == Z_OK);
+
+	squashfs_finish_page(output);
 
 	if (zlib_err != Z_STREAM_END)
 		goto out;
@@ -109,11 +125,13 @@ static int zlib_uncompress(struct squashfs_sb_info *msblk, void *strm,
 	if (k < b)
 		goto out;
 
+	kfree(buf);
 	return stream->total_out;
 
 out:
 	for (; k < b; k++)
 		put_bh(bh[k]);
+	kfree(buf);
 
 	return -EIO;
 }
