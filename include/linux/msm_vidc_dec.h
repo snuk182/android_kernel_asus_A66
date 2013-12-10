@@ -1,6 +1,6 @@
 #ifndef _MSM_VIDC_DEC_H_
 #define _MSM_VIDC_DEC_H_
-//snuk182 - copied from a68
+
 #include <linux/types.h>
 #include <linux/ioctl.h>
 

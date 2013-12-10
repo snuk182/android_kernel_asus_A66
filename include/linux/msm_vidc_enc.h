@@ -3,7 +3,7 @@
 
 #include <linux/types.h>
 #include <linux/ioctl.h>
-// snuk182 - copied from a68
+
 /** STATUS CODES*/
 /* Base value for status codes */
 #define VEN_S_BASE	0x00000000
