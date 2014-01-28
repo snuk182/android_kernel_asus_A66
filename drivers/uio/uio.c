@@ -673,7 +673,6 @@ static int uio_mmap_physical(struct vm_area_struct *vma)
 		return -EINVAL;
 
 	vma->vm_ops = &uio_physical_vm_ops;
-
 	vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
 
 	/*
