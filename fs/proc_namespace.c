@@ -257,11 +257,6 @@ static int mounts_open_common(struct inode *inode, struct file *file,
 		goto err;
 	}
 	ns = nsp->mnt_ns;
-	if (!ns) {
-		rcu_read_unlock();
-		put_task_struct(task);
-		goto err;
-	}
 	get_mnt_ns(ns);
 	if (!task->fs) {
 		task_unlock(task);
