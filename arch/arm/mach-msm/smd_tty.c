@@ -29,6 +29,7 @@
 #include <linux/tty.h>
 #include <linux/tty_driver.h>
 #include <linux/tty_flip.h>
+#include <linux/suspend.h>
 
 #include <mach/msm_smd.h>
 #include <mach/peripheral-loader.h>
@@ -38,12 +39,17 @@
 
 #define MAX_SMD_TTYS 37
 #define MAX_TTY_BUF_SIZE 2048
+#define TTY_PUSH_WS_POST_SUSPEND_DELAY 100
 
 static DEFINE_MUTEX(smd_tty_lock);
 
 static uint smd_tty_modem_wait;
 module_param_named(modem_wait, smd_tty_modem_wait,
 			uint, S_IRUGO | S_IWUSR | S_IWGRP);
+
+static bool smd_tty_in_suspend;
+static bool smd_tty_read_in_suspend;
+static struct wakeup_source read_in_suspend_ws;
 
 struct smd_tty_info {
 	smd_channel_t *ch;
@@ -178,6 +184,10 @@ static void smd_tty_read(unsigned long param)
 		pr_debug("%s: lock wakelock %s\n", __func__, info->wake_lock.name);
 #endif
 		wake_lock_timeout(&info->wake_lock, HZ / 2);
+
+		if (smd_tty_in_suspend)
+			smd_tty_read_in_suspend = true;
+
 		tty_flip_buffer_push(tty);
 	}
 
@@ -534,6 +544,32 @@ static int smd_tty_dummy_probe(struct platform_device *pdev)
 	return -ENODEV;
 }
 
+static int smd_tty_pm_notifier(struct notifier_block *nb,
+				unsigned long event, void *unused)
+{
+	switch (event) {
+	case PM_SUSPEND_PREPARE:
+		smd_tty_read_in_suspend = false;
+		smd_tty_in_suspend = true;
+	break;
+
+	case PM_POST_SUSPEND:
+		smd_tty_in_suspend = false;
+		if (smd_tty_read_in_suspend) {
+			smd_tty_read_in_suspend = false;
+			__pm_wakeup_event(&read_in_suspend_ws,
+				TTY_PUSH_WS_POST_SUSPEND_DELAY);
+		}
+	break;
+	}
+	return NOTIFY_DONE;
+}
+
+static struct notifier_block smd_tty_pm_nb = {
+	.notifier_call = smd_tty_pm_notifier,
+	.priority = 0,
+};
+
 static struct tty_driver *smd_tty_driver;
 
 static int __init smd_tty_init(void)
@@ -621,6 +657,13 @@ static int __init smd_tty_init(void)
 	INIT_DELAYED_WORK(&loopback_work, loopback_probe_worker);
 	pm_qos_add_request(&smd_tty_qos_req, PM_QOS_CPU_DMA_LATENCY,
 			PM_QOS_DEFAULT_VALUE);
+
+	ret = register_pm_notifier(&smd_tty_pm_nb);
+	if (ret)
+		pr_err("%s: power state notif error %d\n", __func__, ret);
+
+	wakeup_source_init(&read_in_suspend_ws, "SMDTTY_READ_IN_SUSPEND");
+
 	return 0;
 
 out:
