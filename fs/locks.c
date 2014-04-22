@@ -1751,7 +1751,7 @@ int fcntl_getlk(struct file *filp, unsigned int cmd, struct flock __user *l)
 
 	if (cmd == F_OFD_GETLK) {
 		cmd = F_GETLK;
-		file_lock.fl_flags |= FL_FILE_PVT;
+		file_lock.fl_flags |= FL_OFDLCK;
 		file_lock.fl_owner = (fl_owner_t)filp;
 	}
 
@@ -1877,17 +1877,17 @@ again:
 
 	/*
 	 * If the cmd is requesting file-private locks, then set the
-	 * FL_FILE_PVT flag and override the owner.
+	 * FL_OFDLCK flag and override the owner.
 	 */
 	switch (cmd) {
 	case F_OFD_SETLK:
 		cmd = F_SETLK;
-		file_lock->fl_flags |= FL_FILE_PVT;
+		file_lock->fl_flags |= FL_OFDLCK;
 		file_lock->fl_owner = (fl_owner_t)filp;
 		break;
 	case F_OFD_SETLKW:
 		cmd = F_SETLKW;
-		file_lock->fl_flags |= FL_FILE_PVT;
+		file_lock->fl_flags |= FL_OFDLCK;
 		file_lock->fl_owner = (fl_owner_t)filp;
 		/* Fallthrough */
 	case F_SETLKW:
@@ -1958,7 +1958,7 @@ int fcntl_getlk64(struct file *filp, unsigned int cmd, struct flock64 __user *l)
 
 	if (cmd == F_OFD_GETLK) {
 		cmd = F_GETLK64;
-		file_lock.fl_flags |= FL_FILE_PVT;
+		file_lock.fl_flags |= FL_OFDLCK;
 		file_lock.fl_owner = (fl_owner_t)filp;
 	}
 
@@ -2017,17 +2017,17 @@ again:
 
 	/*
 	 * If the cmd is requesting file-private locks, then set the
-	 * FL_FILE_PVT flag and override the owner.
+	 * FL_OFDLCK flag and override the owner.
 	 */
 	switch (cmd) {
 	case F_OFD_SETLK:
 		cmd = F_SETLK64;
-		file_lock->fl_flags |= FL_FILE_PVT;
+		file_lock->fl_flags |= FL_OFDLCK;
 		file_lock->fl_owner = (fl_owner_t)filp;
 		break;
 	case F_OFD_SETLKW:
 		cmd = F_SETLKW64;
-		file_lock->fl_flags |= FL_FILE_PVT;
+		file_lock->fl_flags |= FL_OFDLCK;
 		file_lock->fl_owner = (fl_owner_t)filp;
 		/* Fallthrough */
 	case F_SETLKW64:
