@@ -81,9 +81,9 @@ static struct vfsmount *shm_mnt;
 #define SHORT_SYMLINK_LEN 128
 
 /*
- * shmem_fallocate and shmem_writepage communicate via inode->i_private
- * (with i_mutex making sure that it has only one user at a time):
- * we would prefer not to enlarge the shmem inode just for that.
+ * shmem_fallocate communicates with shmem_fault or shmem_writepage via
+ * inode->i_private (with i_mutex making sure that it has only one user at
+ * a time): we would prefer not to enlarge the shmem inode just for that.
  */
 struct shmem_falloc {
 	wait_queue_head_t *waitq; /* faults into hole wait for punch to end */
@@ -2185,7 +2185,7 @@ static long shmem_fallocate(struct file *file, int mode, loff_t offset,
 		wake_up_all(&shmem_falloc_waitq);
 		spin_unlock(&inode->i_lock);
 		error = 0;
-		goto out;
+		goto undone;
 	}
 
 	/* We need to check rlimit even when FALLOC_FL_KEEP_SIZE */
