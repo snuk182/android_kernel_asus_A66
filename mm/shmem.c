@@ -2191,7 +2191,7 @@ static long shmem_fallocate(struct file *file, int mode, loff_t offset,
 		wake_up_all(&shmem_falloc_waitq);
 		spin_unlock(&inode->i_lock);
 		error = 0;
-		goto undone;
+		goto out;
 	}
 
 	/* We need to check rlimit even when FALLOC_FL_KEEP_SIZE */
