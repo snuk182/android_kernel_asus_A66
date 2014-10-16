@@ -232,18 +232,7 @@ CONFIG_NF_CT_NETLINK=y
 CONFIG_NETFILTER_TPROXY=y
 CONFIG_NETFILTER_XT_TARGET_CLASSIFY=y
 CONFIG_NETFILTER_XT_TARGET_CONNMARK=y
-CONFIG_NETFILTER_XT_TARGET_CONNSECMARK=y	retval = hci_cmd(HCI_FM_GET_DET_CH_TH_CMD, radio->fm_hdev);
-	if (retval < 0) {
-		FMDERR("Failed to get chnl det thresholds  %d", retval);
-		return retval;
-	}
-	radio->ch_det_threshold.sinr = 1;//This value is set according to VD's test result
-	retval = hci_set_ch_det_thresholds_req(&radio->ch_det_threshold, radio->fm_hdev);
-	if (retval < 0) {
-		FMDERR("Failed to set SINR threshold %d", retval);
-		return retval;
-	}
-
+CONFIG_NETFILTER_XT_TARGET_CONNSECMARK=y
 CONFIG_NETFILTER_XT_TARGET_LOG=y
 CONFIG_NETFILTER_XT_TARGET_MARK=y
 CONFIG_NETFILTER_XT_TARGET_NFQUEUE=y
