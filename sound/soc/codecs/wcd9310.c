@@ -38,6 +38,7 @@
 #include <linux/wakelock.h>
 #include <linux/suspend.h>
 #include "wcd9310.h"
+#include "wcdcal-hwdep.h"
 
 #include <linux/microp_pin_def.h>
 //Bruno++ Audio debug mode
@@ -10394,6 +10395,7 @@ err_potential_irq:
 	wcd9xxx_free_irq(codec->control_data, TABLA_IRQ_MBHC_REMOVAL, tabla);
 err_remove_irq:
 	wcd9xxx_free_irq(codec->control_data, TABLA_IRQ_MBHC_INSERTION, tabla);
+err_hwdep:
 err_insert_irq:
 #endif	//Bruno++
 err_hwdep:
@@ -10404,7 +10406,6 @@ err_pdata:
 	kfree(tabla);
 	return ret;
 }
-
 static int tabla_codec_remove(struct snd_soc_codec *codec)
 {
 	int i;
