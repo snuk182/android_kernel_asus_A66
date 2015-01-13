@@ -49,7 +49,6 @@
 
 #include <linux/mfd/pm8xxx/pm8921.h>
 //Rice: added for hs detect and button detect
-#include "wcdcal-hwdep.h"
 
 static int cfilt_adjust_ms = 10;
 module_param(cfilt_adjust_ms, int, 0644);
