@@ -5299,7 +5299,7 @@ void l2cap_amp_physical_complete(int result, u8 local_id, u8 remote_id,
 {
 	struct l2cap_pinfo *pi;
 
-	BT_DBG("result %d, local_id %d, remote_id %d, sk %p", result,
+	BT_DBG("result %d, local_id %d, remote_id %d, sk %pK", result,
 		(int) local_id, (int) remote_id, sk);
 
 	lock_sock(sk);
