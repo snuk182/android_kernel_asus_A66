@@ -3352,10 +3352,6 @@ int mmc_suspend_host(struct mmc_host *host)
 	if (mmc_bus_needs_resume(host))
 		return 0;
 
-	if (cancel_delayed_work(&host->detect))
-		wake_unlock(&host->detect_wake_lock);
-	mmc_flush_scheduled_work();
-
 	mmc_bus_get(host);
 	if (host->bus_ops && !host->bus_dead) {
 		/*
@@ -3387,7 +3383,9 @@ int mmc_suspend_host(struct mmc_host *host)
 			if (err == -ENOSYS || !host->bus_ops->resume) {
 				/*
 				 * We simply "remove" the card in this case.
-				 * It will be redetected on resume.
+				 * It will be redetected on resume.  (Calling
+				 * bus_ops->remove() with a claimed host can
+				 * deadlock.)
 				 */
 				if (host->bus_ops->remove)
 					host->bus_ops->remove(host);
@@ -3477,6 +3475,7 @@ int mmc_pm_notify(struct notifier_block *notify_block,
 	switch (mode) {
 	case PM_HIBERNATION_PREPARE:
 	case PM_SUSPEND_PREPARE:
+	case PM_RESTORE_PREPARE:
 		if (host->card && mmc_card_mmc(host->card)) {
 			mmc_claim_host(host);
 			err = mmc_stop_bkops(host->card);
