@@ -91,7 +91,7 @@
  VOS_STATUS hdd_wlan_re_init(void);
 
 void hdd_conf_mcastbcast_filter(hdd_context_t* pHddCtx, v_BOOL_t setfilter);
-VOS_STATUS hdd_conf_arp_offload(hdd_adapter_t* pAdapter, v_BOOL_t fenable);
+VOS_STATUS hdd_conf_arp_offload(hdd_adapter_t* pAdapter, int fenable);
 /*
  * Function: hdd_conf_hostoffload
  *           Central function to configure the supported offloads,
@@ -104,4 +104,11 @@ void hdd_conf_gtk_offload(hdd_adapter_t *pAdapter, v_BOOL_t fenable);
 #ifdef WLAN_NS_OFFLOAD
 void hdd_conf_ns_offload(hdd_adapter_t *pAdapter, int fenable);
 #endif
+
+int wlan_hdd_ipv4_changed(struct notifier_block *nb,
+                           unsigned long data, void *arg);
+int wlan_hdd_ipv6_changed(struct notifier_block *nb,
+                           unsigned long data, void *arg);
+
+
 #endif // if !defined __WLAN_QCT_DRIVER_H

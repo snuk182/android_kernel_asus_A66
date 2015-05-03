@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * Previously licensed under the ISC license by Qualcomm Atheros, Inc.
  *
@@ -1540,6 +1540,7 @@ tANI_BOOLEAN csrIsP2pSessionConnected( tpAniSirGlobal pMac )
     tCsrRoamSession *pSession = NULL;
     tANI_U32 countP2pCli = 0;
     tANI_U32 countP2pGo = 0;
+    tANI_U32 countSAP = 0;
 
     for( i = 0; i < CSR_ROAM_SESSION_MAX; i++ )
     {
@@ -1556,6 +1557,10 @@ tANI_BOOLEAN csrIsP2pSessionConnected( tpAniSirGlobal pMac )
                 if (pSession->pCurRoamProfile->csrPersona == VOS_P2P_GO_MODE) {
                     countP2pGo++;
                 }
+
+                if (pSession->pCurRoamProfile->csrPersona == VOS_STA_SAP_MODE) {
+                    countSAP++;
+                }
             }
         }
     }
@@ -1564,7 +1569,7 @@ tANI_BOOLEAN csrIsP2pSessionConnected( tpAniSirGlobal pMac )
      * - at least one P2P CLI session is connected
      * - at least one P2P GO session is connected
      */
-    if ( (countP2pCli > 0) || (countP2pGo > 0 ) ) {
+    if ( (countP2pCli > 0) || (countP2pGo > 0 ) || (countSAP > 0 ) ) {
         fRc = eANI_BOOLEAN_TRUE;
     }
 
@@ -2588,18 +2593,25 @@ eCsrCfgDot11Mode csrFindBestPhyMode( tpAniSirGlobal pMac, tANI_U32 phyMode )
     eCsrBand eBand = pMac->roam.configParam.eBand;
 
 
+    if ((0 == phyMode) ||
 #ifdef WLAN_FEATURE_11AC
-    if ((0 == phyMode) || ((eCSR_DOT11_MODE_AUTO & phyMode) && (IS_FEATURE_SUPPORTED_BY_FW(DOT11AC))) 
-           || ((eCSR_DOT11_MODE_11ac & phyMode) && (IS_FEATURE_SUPPORTED_BY_FW(DOT11AC))))
-    {
-        cfgDot11ModeToUse = eCSR_CFG_DOT11_MODE_11AC;
-    }
-    else
+        (eCSR_DOT11_MODE_11ac & phyMode) ||
 #endif
-
-    if ((0 == phyMode) || (eCSR_DOT11_MODE_AUTO & phyMode))
+        (eCSR_DOT11_MODE_AUTO & phyMode))
     {
-        cfgDot11ModeToUse = eCSR_CFG_DOT11_MODE_11N;
+#ifdef WLAN_FEATURE_11AC
+        if (IS_FEATURE_SUPPORTED_BY_FW(DOT11AC))
+        {
+           cfgDot11ModeToUse = eCSR_CFG_DOT11_MODE_11AC;
+        }
+        else
+#endif
+        {
+           /* Default to 11N mode if user has configured 11ac mode
+            * and FW doesn't supports 11ac mode .
+            */
+           cfgDot11ModeToUse = eCSR_CFG_DOT11_MODE_11N;
+        }
     }
     else
     {
@@ -3734,6 +3746,7 @@ tANI_U8 csrConstructRSNIe( tHalHandle hHal, tANI_U32 sessionId, tCsrRoamProfile 
     tANI_U8 *pGroupMgmtCipherSuite;
 #endif
     tDot11fBeaconIEs *pIesLocal = pIes;
+    eCsrAuthType negAuthType = eCSR_AUTH_TYPE_UNKNOWN;
 
     smsLog(pMac, LOGW, "%s called...", __func__);
 
@@ -3749,7 +3762,7 @@ tANI_U8 csrConstructRSNIe( tHalHandle hHal, tANI_U32 sessionId, tCsrRoamProfile 
         // See if the cyphers in the Bss description match with the settings in the profile.
         fRSNMatch = csrGetRSNInformation( hHal, &pProfile->AuthType, pProfile->negotiatedUCEncryptionType, 
                                             &pProfile->mcEncryptionType, &pIesLocal->RSN,
-                                            UnicastCypher, MulticastCypher, AuthSuite, &RSNCapabilities, NULL, NULL );
+                                            UnicastCypher, MulticastCypher, AuthSuite, &RSNCapabilities, &negAuthType, NULL );
         if ( !fRSNMatch ) break;
 
         pRSNIe->IeHeader.ElementID = SIR_MAC_RSN_EID;
@@ -3776,7 +3789,11 @@ tANI_U8 csrConstructRSNIe( tHalHandle hHal, tANI_U32 sessionId, tCsrRoamProfile 
 
         pPMK = (tCsrRSNPMKIe *)( ((tANI_U8 *)(&pAuthSuite->AuthOui[ 1 ])) + sizeof(tANI_U16) );
 
-        if( csrLookupPMKID( pMac, sessionId, pSirBssDesc->bssId, &(PMKId[0]) ) )
+        if (
+#ifdef FEATURE_WLAN_CCX
+        (eCSR_AUTH_TYPE_CCKM_RSN != negAuthType) &&
+#endif
+        csrLookupPMKID( pMac, sessionId, pSirBssDesc->bssId, &(PMKId[0]) ) )
         {
             pPMK->cPMKIDs = 1;
 
@@ -5846,7 +5863,7 @@ tSirResultCodes csrGetDeAuthRspStatusCode( tSirSmeDeauthRsp *pSmeRsp )
     tANI_U8 *pBuffer = (tANI_U8 *)pSmeRsp;
     tANI_U32 ret;
 
-    pBuffer += (sizeof(tANI_U16) + sizeof(tANI_U16) + sizeof(tSirMacAddr));
+    pBuffer += (sizeof(tANI_U16) + sizeof(tANI_U16) + sizeof(tANI_U8) + sizeof(tANI_U16));
     //tSirResultCodes is an enum, assuming is 32bit
     //If we cannot make this assumption, use copymemory
     pal_get_U32( pBuffer, &ret );

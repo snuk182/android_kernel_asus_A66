@@ -534,7 +534,7 @@ static eHalStatus hdd_IndicateScanResult(hdd_scan_info_t *scanInfo, tCsrScanResu
    /* AGE */
    event.cmd = IWEVCUSTOM;
    p = custom;
-   p += snprintf(p, MAX_CUSTOM_LEN, " Age: %lu",
+   p += scnprintf(p, MAX_CUSTOM_LEN, " Age: %lu",
                  vos_timer_get_system_ticks() - descriptor->nReceivedTime);
    event.u.data.length = p - custom;
    current_event = iwe_stream_add_point (scanInfo->info,current_event, end,
@@ -959,8 +959,7 @@ int iw_set_cscan(struct net_device *dev, struct iw_request_info *info,
         int i, j, ssid_start;
         hdd_scan_pending_option_e scanPendingOption = WEXT_SCAN_PENDING_GIVEUP;
 
-        /* save the original buffer */
-        str_ptr = wrqu->data.pointer;
+        str_ptr = extra;
 
         i = WEXT_CSCAN_HEADER_SIZE;
 
@@ -1193,8 +1192,8 @@ exit_point:
 }
 
 /* Abort any MAC scan if in progress */
-void hdd_abort_mac_scan(hdd_context_t* pHddCtx)
+void hdd_abort_mac_scan(hdd_context_t* pHddCtx, eCsrAbortReason reason)
 {
-    sme_AbortMacScan(pHddCtx->hHal);
+    sme_AbortMacScan(pHddCtx->hHal, reason);
 }
 
