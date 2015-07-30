@@ -1,0 +1,12 @@
+config MAXIM_8934_CHARGER
+        bool "Support for Maxim 8934 charger"
+        default y 
+
+config DUMMY_CHARGER
+        bool "Support for dummy charger"
+        default y
+
+config PM_8921_CHARGER
+        bool "Support for PM 8921 charger"
+        default y
+

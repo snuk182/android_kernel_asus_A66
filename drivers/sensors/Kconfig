@@ -1,0 +1,9 @@
+menu "Sensors driver"
+
+config SENSORS_CM3623
+	bool "PS ALS CM3623 support"
+	default n
+	---help---
+	  ASUS SENSORS folder
+
+endmenu
