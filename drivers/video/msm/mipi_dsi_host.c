@@ -1517,7 +1517,7 @@ void mipi_dsi_cmd_mdp_busy(void)
 				__func__, current->pid);
 		wait_for_completion(&dsi_mdp_comp);
 	}
-	pr_info("%s: done pid=%d\n",
+	pr_debug("%s: done pid=%d\n",
 				__func__, current->pid);
 }
 
