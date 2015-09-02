@@ -42,11 +42,6 @@ static ssize_t led_brightness_show(struct device *dev,
 	return snprintf(buf, LED_BUFF_SIZE, "%u\n", led_cdev->brightness);
 }
 
-// BSP Louis +++
-static unsigned long g_brfading_val = 100;    //default for no backlight fading
-static unsigned long g_brightness = 1;
-static unsigned long g_thermal_fading = 100;
-
 static ssize_t led_brightness_store(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t size)
 {
@@ -55,16 +50,6 @@ static ssize_t led_brightness_store(struct device *dev,
 	char *after;
 	unsigned long state = simple_strtoul(buf, &after, 10);
 	size_t count = after - buf;
-
-    g_brightness = state;
-    if (state >= 20 && state <= 255) {
-        state = state * g_brfading_val * g_thermal_fading / 10000;
-
-        if(state < 20 && state > 0)
-            state = 20;
-        else if (state > 255 )
-            state = 255;
-    }
 
 	if (isspace(*after))
 		count++;
@@ -79,102 +64,6 @@ static ssize_t led_brightness_store(struct device *dev,
 
 	return ret;
 }
-
-static ssize_t brightness_thermal_fading_store (struct device *dev,
-        struct device_attribute *attr, const char *buf, size_t size)
-{
-    struct led_classdev *led_cdev = dev_get_drvdata(dev);
-    char *after;
-    unsigned long state = simple_strtoul(buf, &after, 10);
-
-    g_thermal_fading = state;
-
-    if (g_thermal_fading > 100 || g_thermal_fading < 50) {
-        g_thermal_fading = 100;
-    }
-
-    if (g_brightness <= 255) {
-        state = g_brightness * g_brfading_val * g_thermal_fading / 10000;
-
-        printk("[BACKLIGHT] (%s): g_thermal_fading = %lu\n", __FUNCTION__ , g_thermal_fading);
-
-        if(state < 20 && state > 0)
-            state = 20;
-        else if (state > 255 )
-            state = 255;
-
-        led_set_brightness(led_cdev, state);
-    }
-
-    return size;
-}
-
-static ssize_t led_brightness_fading_store(struct device *dev,
-        struct device_attribute *attr, const char *buf, size_t size)
-{
-    struct led_classdev *led_cdev = dev_get_drvdata(dev);
-   // ssize_t ret = -EINVAL;
-    char *after;
-    unsigned long state = simple_strtoul(buf, &after, 10);
-
-    g_brfading_val = state;
-    if (g_brfading_val > 100) {
-        g_brfading_val = 100;
-    }
-
-    if (g_brightness <= 255) {
-		state = g_brightness * g_brfading_val * g_thermal_fading / 10000;
-
-		printk("[BACKLIGHT] (%s): g_brfading_val = %lu\n",__FUNCTION__ , g_brfading_val);
-
-		if(state < 20 && state > 0)
-			state = 20;
-		else if (state > 255 )
-			state = 255;
-
-		if(state <= 255 && state >= 0)
-			led_set_brightness(led_cdev, state);
-	}
-
-/*
-    size_t count = after - buf;
-
-    if (isspace(*after))
-        count++;
-
-    if (count == size) {
-        ret = count;
-
-        if (state == LED_OFF)
-            led_trigger_remove(led_cdev);
-        led_set_brightness(led_cdev, state);
-    }
-*/
-    return size;
-}
-
-static ssize_t led_brightness_fading_show(struct device *dev, 
-        struct device_attribute *attr, char *buf)
-{
-    struct led_classdev *led_cdev = dev_get_drvdata(dev);
-
-    /* no lock needed for this */
-    led_update_brightness(led_cdev);
-
-    return snprintf(buf, LED_BUFF_SIZE, "%lu\n", g_brfading_val);
-}
-
-static ssize_t brightness_thermal_fading_show (struct device *dev, 
-        struct device_attribute *attr, char *buf)
-{
-    struct led_classdev *led_cdev = dev_get_drvdata(dev);
-
-    /* no lock needed for this */
-    led_update_brightness(led_cdev);
-
-    return snprintf(buf, LED_BUFF_SIZE, "%lu\n", g_thermal_fading);
-}
-//BSP Louis ---
 
 static ssize_t led_max_brightness_store(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t size)
@@ -205,8 +94,6 @@ static ssize_t led_max_brightness_show(struct device *dev,
 
 static struct device_attribute led_class_attrs[] = {
 	__ATTR(brightness, 0644, led_brightness_show, led_brightness_store),
-    __ATTR(brightness_fading, 0644, led_brightness_fading_show, led_brightness_fading_store),
-    __ATTR(br_thermal_fading, 0644, brightness_thermal_fading_show, brightness_thermal_fading_store),
 	__ATTR(max_brightness, 0644, led_max_brightness_show,
 			led_max_brightness_store),
 #ifdef CONFIG_LEDS_TRIGGERS

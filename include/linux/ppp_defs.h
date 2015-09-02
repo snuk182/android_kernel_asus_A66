@@ -7,6 +7,7 @@
  *  modify it under the terms of the GNU General Public License
  *  version 2 as published by the Free Software Foundation.
  */
+//snuk182 !!
 #include <linux/types.h>
 
 #ifndef _PPP_DEFS_H_

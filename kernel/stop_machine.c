@@ -8,6 +8,7 @@
  *
  * This file is released under the GPLv2 and any later version.
  */
+//snuk182 !!?
 #include <linux/completion.h>
 #include <linux/cpu.h>
 #include <linux/init.h>
@@ -21,7 +22,6 @@
 
 #include <linux/atomic.h>
 extern void *scm_regsave;
-spinlock_t stop_machine_lock;
 /*
  * Structure to determine completion condition and record errors.  May
  * be shared by works on different cpus.
@@ -134,8 +134,8 @@ void stop_one_cpu_nowait(unsigned int cpu, cpu_stop_fn_t fn, void *arg,
 	cpu_stop_queue_work(&per_cpu(cpu_stopper, cpu), work_buf);
 }
 
-DEFINE_MUTEX(stop_cpus_mutex);
 /* static data for stop_cpus */
+static DEFINE_MUTEX(stop_cpus_mutex);
 static DEFINE_PER_CPU(struct cpu_stop_work, stop_cpus_work);
 
 static void queue_stop_cpus_work(const struct cpumask *cpumask,
@@ -380,7 +380,7 @@ static int __init cpu_stop_init(void)
 		spin_lock_init(&stopper->lock);
 		INIT_LIST_HEAD(&stopper->works);
 	}
-	spin_lock_init(&stop_machine_lock);
+
 	/* start one for the boot cpu */
 	err = cpu_stop_cpu_callback(&cpu_stop_cpu_notifier, CPU_UP_PREPARE,
 				    bcpu);
@@ -463,12 +463,15 @@ static int stop_machine_cpu_stop(void *data)
 	 */
 	local_save_flags(flags);
 
+	if (!smdata->active_cpus)
+		is_active = cpu == cpumask_first(cpu_online_mask);
+	else
+		is_active = cpumask_test_cpu(cpu, smdata->active_cpus);
 
 	/* Simple state machine */
 	do {
 		/* Chill out and ensure we re-read stopmachine_state. */
 		cpu_relax();
-		spin_lock_irq(&stop_machine_lock);
 		if (smdata->state != curstate) {
 			curstate = smdata->state;
 			switch (curstate) {
@@ -477,11 +480,6 @@ static int stop_machine_cpu_stop(void *data)
 				hard_irq_disable();
 				break;
 			case STOPMACHINE_RUN:
-				if (!smdata->active_cpus)
-					is_active = cpu == cpumask_first(cpu_online_mask);
-				else
-					is_active = cpumask_test_cpu(cpu, smdata->active_cpus);
-		
 				if (is_active)
 					err = smdata->fn(smdata->data);
 				break;
@@ -490,7 +488,6 @@ static int stop_machine_cpu_stop(void *data)
 			}
 			ack_state(smdata);
 		}
-		spin_unlock_irq(&stop_machine_lock);
 // ASUS_BSP +++ Tingyi "[A66][Dock] Prevent watchdog timeout when insert dock int sleep state"		
 		wait_count++;
 		if (((wait_count % 100000) == 0) &&

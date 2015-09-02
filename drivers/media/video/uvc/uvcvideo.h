@@ -14,7 +14,7 @@
 #include <media/media-device.h>
 #include <media/v4l2-device.h>
 #include <media/videobuf2-core.h>
-
+//snuk182 !!
 /* --------------------------------------------------------------------------
  * UVC constants
  */

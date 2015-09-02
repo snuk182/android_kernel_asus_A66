@@ -59,13 +59,6 @@ config EARLYSUSPEND
 	  Call early suspend handlers when the user requested sleep state
 	  changes.
 
-config FASTBOOT
-        bool "Fast Boot"
-        depends on WAKELOCK
-        default y
-        ---help---
-          Call fast boot handler when the user requested to power off for fast boot.
-
 choice
 	prompt "User-space screen access"
 	default FB_EARLYSUSPEND if !FRAMEBUFFER_CONSOLE

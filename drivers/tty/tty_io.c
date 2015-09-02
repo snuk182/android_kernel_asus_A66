@@ -63,7 +63,7 @@
  * alloc_tty_struct() always uses kmalloc()
  *			 -- Andrew Morton <andrewm@uow.edu.eu> 17Mar01
  */
-
+//snuk182 !!
 #include <linux/types.h>
 #include <linux/major.h>
 #include <linux/errno.h>

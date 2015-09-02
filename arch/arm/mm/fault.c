@@ -8,6 +8,7 @@
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
  */
+//snuk182 !!
 #include <linux/module.h>
 #include <linux/signal.h>
 #include <linux/mm.h>
@@ -36,6 +37,9 @@
 #endif /* CONFIG_EMULATE_DOMAIN_MANAGER_V7 */
 
 #include "fault.h"
+
+#define CREATE_TRACE_POINTS
+#include <trace/events/exception.h>
 
 #ifdef CONFIG_MMU
 

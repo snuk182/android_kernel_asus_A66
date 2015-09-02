@@ -8,7 +8,7 @@
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
  */
-
+//snuk182 !!
 #include <linux/module.h>
 
 #include <linux/init.h>
@@ -1758,6 +1758,8 @@ static const struct dev_pm_ops gpio_keys_pm_ops = {
         .resume_noirq   = gpio_keys_resume_noirq,       //Ledger
 };
 #endif
+
+//static SIMPLE_DEV_PM_OPS(gpio_keys_pm_ops, gpio_keys_suspend, gpio_keys_resume);
 
 static struct platform_driver gpio_keys_device_driver = {
 	.probe		= gpio_keys_probe,

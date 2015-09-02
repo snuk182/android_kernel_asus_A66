@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -21,6 +21,7 @@
 #include "msm_gemini_platform.h"
 #include "msm_gemini_common.h"
 
+#  define UINT32_MAX    (4294967295U)
 static int release_buf;
 
 /*************** queue helper ****************/
@@ -218,6 +219,7 @@ int msm_gemini_evt_get(struct msm_gemini_device *pgmn_dev,
 		return -EAGAIN;
 	}
 
+	memset(&ctrl_cmd, 0, sizeof(struct msm_gemini_ctrl_cmd));
 	ctrl_cmd.type = buf_p->vbuf.type;
 	kfree(buf_p);
 
@@ -280,6 +282,7 @@ int msm_gemini_we_pingpong_irq(struct msm_gemini_device *pgmn_dev,
 		GMN_DBG("%s:%d] no output return buffer\n", __func__,
 			__LINE__);
 		rc = -1;
+		return rc;
 	}
 
 	buf_out = msm_gemini_q_out(&pgmn_dev->output_buf_q);
@@ -637,8 +640,8 @@ int msm_gemini_ioctl_hw_cmds(struct msm_gemini_device *pgmn_dev,
 	void * __user arg)
 {
 	int is_copy_to_user;
-	int len;
-	uint32_t m;
+	uint32_t len;
+	uint32_t m,n;
 	struct msm_gemini_hw_cmds *hw_cmds_p;
 	struct msm_gemini_hw_cmd *hw_cmd_p;
 
@@ -647,8 +650,23 @@ int msm_gemini_ioctl_hw_cmds(struct msm_gemini_device *pgmn_dev,
 		return -EFAULT;
 	}
 
+    if ((m == 0) || (m > ((UINT32_MAX-sizeof(struct msm_gemini_hw_cmds))/
+           sizeof(struct msm_gemini_hw_cmd)))) {
+           GMN_PR_ERR("%s:%d] outof range of hwcmds\n",
+            __func__, __LINE__);
+           return -EINVAL;
+    }
+
 	len = sizeof(struct msm_gemini_hw_cmds) +
 		sizeof(struct msm_gemini_hw_cmd) * (m - 1);
+
+	n = ((len - sizeof(struct msm_gemini_hw_cmds)) / (sizeof(struct msm_gemini_hw_cmd))) + 1 ;
+
+	if ((m != n) || (len < 0)) {
+	    GMN_PR_ERR("%s:%d] m != n failed\n", __func__, __LINE__);
+	    return -EFAULT;
+	}
+
 	hw_cmds_p = kmalloc(len, GFP_KERNEL);
 	if (!hw_cmds_p) {
 		GMN_PR_ERR("%s:%d] no mem %d\n", __func__, __LINE__, len);
@@ -744,14 +762,6 @@ int msm_gemini_ioctl_reset(struct msm_gemini_device *pgmn_dev,
 	return rc;
 }
 
-int msm_gemini_ioctl_test_dump_region(struct msm_gemini_device *pgmn_dev,
-	unsigned long arg)
-{
-	GMN_DBG("%s:%d] Enter\n", __func__, __LINE__);
-	msm_gemini_hw_region_dump(arg);
-	return 0;
-}
-
 long __msm_gemini_ioctl(struct msm_gemini_device *pgmn_dev,
 	unsigned int cmd, unsigned long arg)
 {
@@ -814,10 +824,6 @@ long __msm_gemini_ioctl(struct msm_gemini_device *pgmn_dev,
 
 	case MSM_GMN_IOCTL_HW_CMDS:
 		rc = msm_gemini_ioctl_hw_cmds(pgmn_dev, (void __user *) arg);
-		break;
-
-	case MSM_GMN_IOCTL_TEST_DUMP_REGION:
-		rc = msm_gemini_ioctl_test_dump_region(pgmn_dev, arg);
 		break;
 
 	default:

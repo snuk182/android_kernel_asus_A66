@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -10,7 +10,7 @@
  * GNU General Public License for more details.
  *
  */
-
+//snuk182 !!!!
 #include "msm_sensor.h"
 #include "ov2720.h"
 #define SENSOR_NAME "ov2720"
@@ -609,14 +609,12 @@ static struct msm_camera_i2c_conf_array ov2720_confs[] = {
 	ARRAY_SIZE(ov2720_vga_settings), 0, MSM_CAMERA_I2C_BYTE_DATA},
 	{&ov2720_720_settings[0],
 	ARRAY_SIZE(ov2720_720_settings), 0, MSM_CAMERA_I2C_BYTE_DATA},
-#if 0
 	{&ov2720_60fps_settings[0],
 	ARRAY_SIZE(ov2720_60fps_settings), 0, MSM_CAMERA_I2C_BYTE_DATA},
 	{&ov2720_90fps_settings[0],
 	ARRAY_SIZE(ov2720_90fps_settings), 0, MSM_CAMERA_I2C_BYTE_DATA},
 	{&ov2720_120fps_settings[0],
 	ARRAY_SIZE(ov2720_120fps_settings), 0, MSM_CAMERA_I2C_BYTE_DATA},
-#endif
 };
 #endif
 //ASUS_BSP --- Stimber "[A60K][8M][NA][Others]Full porting for 8M camera with ISP"
@@ -654,37 +652,37 @@ static struct msm_sensor_output_info_t ov2720_dimensions[] = {
 //ASUS_BSP --- Stimber "Add Full HD resolution for recording"
 #if 0
 	{
-		.x_output = 640,//0x280, /* 640 */
-		.y_output = 480,//0x1E0, /* 480 */
+		.x_output = 0x280, /* 640 */
+		.y_output = 0x1E0, /* 480 */
 		.line_length_pclk = 0x30C, /* 780 */
 		.frame_length_lines = 0x200, /* 512 */
-		.vt_pixel_clk = 216000000,//24000000,
-		.op_pixel_clk = 216000000,//24000000,
+		.vt_pixel_clk = 24000000,
+		.op_pixel_clk = 24000000,
 		.binning_factor = 1,
 	},
 	{
-		.x_output = 640,//0x280, /* 640 */
-		.y_output = 480,//0x1E0, /* 480 */
+		.x_output = 0x280, /* 640 */
+		.y_output = 0x1E0, /* 480 */
 		.line_length_pclk = 0x30C, /* 780 */
 		.frame_length_lines = 0x200, /* 512 */
-		.vt_pixel_clk = 216000000,//36000000,
-		.op_pixel_clk = 216000000,//36000000,
+		.vt_pixel_clk = 36000000,
+		.op_pixel_clk = 36000000,
 		.binning_factor = 1,
 	},
 	{
-		.x_output = 640,//0x280, /* 640 */
-		.y_output = 480,//0x1E0, /* 480 */
+		.x_output = 0x280, /* 640 */
+		.y_output = 0x1E0, /* 480 */
 		.line_length_pclk = 0x30C, /* 780 */
 		.frame_length_lines = 0x200, /* 512 */
-		.vt_pixel_clk = 216000000,//48000000,
-		.op_pixel_clk = 216000000,//48000000,
+		.vt_pixel_clk = 48000000,
+		.op_pixel_clk = 48000000,
 		.binning_factor = 1,
 	},
 #endif
 };
 
 static struct msm_camera_csid_vc_cfg ov2720_cid_cfg[] = {
-	{0, 0x1E, CSI_DECODE_8BIT},
+	{0, 0x1E, CSI_DECODE_8BIT}, //{0, CSI_RAW10, CSI_DECODE_10BIT},
 	{1, CSI_EMBED_DATA, CSI_DECODE_8BIT},
 };
 
@@ -1815,8 +1813,42 @@ static struct msm_camera_i2c_client ov2720_sensor_i2c_client = {
 	.addr_type = MSM_CAMERA_I2C_WORD_ADDR,
 };
 
+#if 0
+static const struct of_device_id ov2720_dt_match[] = {
+	{.compatible = "qcom,ov2720", .data = &ov2720_s_ctrl},
+	{}
+};
+
+MODULE_DEVICE_TABLE(of, ov2720_dt_match);
+
+static struct platform_driver ov2720_platform_driver = {
+	.driver = {
+		.name = "qcom,ov2720",
+		.owner = THIS_MODULE,
+		.of_match_table = ov2720_dt_match,
+	},
+};
+
+static int32_t ov2720_platform_probe(struct platform_device *pdev)
+{
+	int32_t rc = 0;
+	const struct of_device_id *match;
+	match = of_match_device(ov2720_dt_match, &pdev->dev);
+	rc = msm_sensor_platform_probe(pdev, match->data);
+	return rc;
+}
+#endif
+
 static int __init msm_sensor_init_module(void)
 {
+#if 0
+	int32_t rc = 0;
+	rc = platform_driver_probe(&ov2720_platform_driver,
+		ov2720_platform_probe);
+	if (!rc)
+		return rc;
+#endif
+
        create_fjm6mo_proc_file();   //ASUS_BSP  LiJen "[A66][8M][NA][Others]add proc file fo AP ISP update"
 // ASUS_BSP +++ LiJen "[A66][8M][NA][Others] add workqueue to change ISP mode" 
 #ifdef WITH_WQ
@@ -1824,6 +1856,24 @@ static int __init msm_sensor_init_module(void)
 #endif
 // ASUS_BSP --- LiJen "[A66][8M][NA][Others] add workqueue to change ISP mode" 
 	return i2c_add_driver(&ov2720_i2c_driver);
+}
+
+static void __exit msm_sensor_exit_module(void)
+{
+#ifdef WITH_WQ
+	fjm6mo_flush_workqueue();
+	fjm6mo_destroy_workqueue();
+#endif
+	remove_fjm6mo_proc_file();	
+
+#if 0
+	if (ov2720_s_ctrl.pdev) {
+		msm_sensor_free_sensor_data(&ov2720_s_ctrl);
+		platform_driver_unregister(&ov2720_platform_driver);
+	} else
+		i2c_del_driver(&ov2720_i2c_driver);
+#endif
+	return;
 }
 
 static struct v4l2_subdev_core_ops ov2720_subdev_core_ops = {
@@ -1870,7 +1920,7 @@ static struct msm_sensor_fn_t ov2720_func_tbl = {
 	.sensor_config = ov2720_sensor_config,
 	.sensor_power_up = ov2720_sensor_power_up,
 	.sensor_power_down = ov2720_sensor_power_down,
-	.sensor_adjust_frame_lines = msm_sensor_adjust_frame_lines,
+	.sensor_adjust_frame_lines = msm_sensor_adjust_frame_lines2,  //snuk182 - really 2, not 1 ?
 	.sensor_get_csi_params = msm_sensor_get_csi_params,
 	.sensor_get_isp_exif = fjm6mo_get_exif,	//ASUS_BSP Stimber "[A60K][8M][NA][Other] Implement EXIF info for 8M camera with ISP"
 //ASUS_BSP --- Stimber "[A60K][8M][NA][Others]Full porting for 8M camera with ISP"
@@ -1921,6 +1971,7 @@ struct msm_sensor_ctrl_t ov2720_s_ctrl = { //ASUS_BSP Stimber "[A60K][8M][NA][Ot
 };
 
 module_init(msm_sensor_init_module);
+module_exit(msm_sensor_exit_module);
 MODULE_DESCRIPTION("Omnivision 2MP Bayer sensor driver");
 MODULE_LICENSE("GPL v2");
 

@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -21,9 +21,11 @@
 #include <linux/debugfs.h>
 #include "rmnet_usb_ctrl.h"
 
-#define DEVICE_NAME			"hsicctl"
-#define NUM_CTRL_CHANNELS		4
+static char *rmnet_dev_names[MAX_RMNET_DEVS] = {"hsicctl"};
+module_param_array(rmnet_dev_names, charp, NULL, S_IRUGO | S_IWUSR);
+
 #define DEFAULT_READ_URB_LENGTH		0x1000
+#define UNLINK_TIMEOUT_MS		500 /*random value*/
 
 /*Output control lines.*/
 #define ACM_CTRL_DTR		BIT(0)
@@ -92,9 +94,14 @@ do { \
 				pr_info(x); \
 		} while (0)
 
-struct rmnet_ctrl_dev		*ctrl_dev[NUM_CTRL_CHANNELS];
-struct class			*ctrldev_classp;
-static dev_t			ctrldev_num;
+/* passed in rmnet_usb_ctrl_init */
+static int num_devs;
+static int insts_per_dev;
+
+/* dynamically allocated 2-D array of num_devs*insts_per_dev ctrl_devs */
+static struct rmnet_ctrl_dev **ctrl_devs;
+static struct class	*ctrldev_classp[MAX_RMNET_DEVS];
+static dev_t		ctrldev_num[MAX_RMNET_DEVS];
 
 struct ctrl_pkt {
 	size_t	data_size;
@@ -122,6 +129,55 @@ static int is_dev_connected(struct rmnet_ctrl_dev *dev)
 	return 0;
 }
 
+static void get_encap_work(struct work_struct *w)
+{
+	struct usb_device	*udev;
+	struct rmnet_ctrl_dev	*dev =
+			container_of(w, struct rmnet_ctrl_dev, get_encap_work);
+	int			status;
+
+	udev = interface_to_usbdev(dev->intf);
+
+	status = usb_autopm_get_interface(dev->intf);
+	if (status < 0 && status != -EAGAIN && status != -EACCES) {
+		dev->get_encap_failure_cnt++;
+		return;
+	}
+
+	usb_fill_control_urb(dev->rcvurb, udev,
+				usb_rcvctrlpipe(udev, 0),
+				(unsigned char *)dev->in_ctlreq,
+				dev->rcvbuf,
+				DEFAULT_READ_URB_LENGTH,
+				resp_avail_cb, dev);
+
+
+	usb_anchor_urb(dev->rcvurb, &dev->rx_submitted);
+	status = usb_submit_urb(dev->rcvurb, GFP_KERNEL);
+	if (status) {
+		dev->get_encap_failure_cnt++;
+		usb_unanchor_urb(dev->rcvurb);
+		usb_autopm_put_interface(dev->intf);
+		dev_err(dev->devicep,
+		"%s: Error submitting Read URB %d\n", __func__, status);
+		goto resubmit_int_urb;
+	}
+
+	return;
+
+resubmit_int_urb:
+	/*check if it is already submitted in resume*/
+	if (!dev->inturb->anchor) {
+		usb_anchor_urb(dev->inturb, &dev->rx_submitted);
+		status = usb_submit_urb(dev->inturb, GFP_KERNEL);
+		if (status) {
+			usb_unanchor_urb(dev->inturb);
+			dev_err(dev->devicep, "%s: Error re-submitting Int URB %d\n",
+				__func__, status);
+		}
+	}
+}
+
 static void notification_available_cb(struct urb *urb)
 {
 	int				status;
@@ -133,12 +189,13 @@ static void notification_available_cb(struct urb *urb)
 
 	switch (urb->status) {
 	case 0:
+	/*if non zero lenght of data received while unlink*/
+	case -ENOENT:
 		/*success*/
 		break;
 
 	/*do not resubmit*/
 	case -ESHUTDOWN:
-	case -ENOENT:
 	case -ECONNRESET:
 	case -EPROTO:
 		return;
@@ -156,26 +213,17 @@ static void notification_available_cb(struct urb *urb)
 		goto resubmit_int_urb;
 	}
 
+	if (!urb->actual_length)
+		return;
+
 	ctrl = urb->transfer_buffer;
 
 	switch (ctrl->bNotificationType) {
 	case USB_CDC_NOTIFY_RESPONSE_AVAILABLE:
 		dev->resp_avail_cnt++;
-		usb_fill_control_urb(dev->rcvurb, udev,
-					usb_rcvctrlpipe(udev, 0),
-					(unsigned char *)dev->in_ctlreq,
-					dev->rcvbuf,
-					DEFAULT_READ_URB_LENGTH,
-					resp_avail_cb, dev);
-
-		status = usb_submit_urb(dev->rcvurb, GFP_ATOMIC);
-		if (status) {
-			dev_err(dev->devicep,
-			"%s: Error submitting Read URB %d\n", __func__, status);
-			goto resubmit_int_urb;
-		}
 
 		usb_mark_last_busy(udev);
+		queue_work(dev->wq, &dev->get_encap_work);
 
 		if (!dev->resp_available) {
 			dev->resp_available = true;
@@ -189,10 +237,13 @@ static void notification_available_cb(struct urb *urb)
 	}
 
 resubmit_int_urb:
+	usb_anchor_urb(urb, &dev->rx_submitted);
 	status = usb_submit_urb(urb, GFP_ATOMIC);
-	if (status)
+	if (status) {
+		usb_unanchor_urb(urb);
 		dev_err(dev->devicep, "%s: Error re-submitting Int URB %d\n",
 		__func__, status);
+	}
 
 	return;
 }
@@ -207,6 +258,8 @@ static void resp_avail_cb(struct urb *urb)
 	size_t				cpkt_size = 0;
 
 	udev = interface_to_usbdev(dev->intf);
+
+	usb_autopm_put_interface_async(dev->intf);
 
 	switch (urb->status) {
 	case 0:
@@ -263,45 +316,36 @@ static void resp_avail_cb(struct urb *urb)
 	wake_up(&dev->read_wait_queue);
 
 resubmit_int_urb:
-	/*re-submit int urb to check response available*/
-	usb_mark_last_busy(udev);
-	status = usb_submit_urb(dev->inturb, GFP_ATOMIC);
-	if (status)
-		dev_err(dev->devicep, "%s: Error re-submitting Int URB %d\n",
-			__func__, status);
+	/*check if it is already submitted in resume*/
+	if (!dev->inturb->anchor) {
+		usb_mark_last_busy(udev);
+		usb_anchor_urb(dev->inturb, &dev->rx_submitted);
+		status = usb_submit_urb(dev->inturb, GFP_ATOMIC);
+		if (status) {
+			usb_unanchor_urb(dev->inturb);
+			dev_err(dev->devicep, "%s: Error re-submitting Int URB %d\n",
+				__func__, status);
+		}
+	}
 }
 
 int rmnet_usb_ctrl_start_rx(struct rmnet_ctrl_dev *dev)
 {
 	int	retval = 0;
 
+	usb_anchor_urb(dev->inturb, &dev->rx_submitted);
 	retval = usb_submit_urb(dev->inturb, GFP_KERNEL);
-	if (retval < 0)
-		dev_err(dev->devicep, "%s Intr submit %d\n", __func__, retval);
+	if (retval < 0) {
+		usb_unanchor_urb(dev->inturb);
+		dev_err(dev->devicep, "%s Intr submit %d\n", __func__,
+				retval);
+	}
 
 	return retval;
 }
 
-int rmnet_usb_ctrl_stop_rx(struct rmnet_ctrl_dev *dev)
-{
-	if (!is_dev_connected(dev)) {
-		dev_dbg(dev->devicep, "%s: Ctrl device disconnected\n",
-			__func__);
-		return -ENODEV;
-	}
-
-	dev_dbg(dev->devicep, "%s\n", __func__);
-
-	usb_kill_urb(dev->rcvurb);
-	usb_kill_urb(dev->inturb);
-
-	return 0;
-}
-
 static int rmnet_usb_ctrl_alloc_rx(struct rmnet_ctrl_dev *dev)
 {
-	int	retval = -ENOMEM;
-
 	dev->rcvurb = usb_alloc_urb(0, GFP_KERNEL);
 	if (!dev->rcvurb) {
 		pr_err("%s: Error allocating read urb\n", __func__);
@@ -327,7 +371,7 @@ nomem:
 	kfree(dev->rcvbuf);
 	kfree(dev->in_ctlreq);
 
-	return retval;
+	return -ENOMEM;
 
 }
 static int rmnet_usb_ctrl_write_cmd(struct rmnet_ctrl_dev *dev)
@@ -487,6 +531,7 @@ static int rmnet_ctl_release(struct inode *inode, struct file *file)
 	struct ctrl_pkt_list_elem	*list_elem = NULL;
 	struct rmnet_ctrl_dev		*dev;
 	unsigned long			flag;
+	int				time;
 
 	dev = file->private_data;
 	if (!dev)
@@ -510,7 +555,9 @@ static int rmnet_ctl_release(struct inode *inode, struct file *file)
 	dev->is_opened = 0;
 	mutex_unlock(&dev->dev_lock);
 
-	if (is_dev_connected(dev))
+	time = usb_wait_anchor_empty_timeout(&dev->tx_submitted,
+			UNLINK_TIMEOUT_MS);
+	if (!time)
 		usb_kill_anchored_urbs(&dev->tx_submitted);
 
 	file->private_data = NULL;
@@ -737,20 +784,30 @@ static const struct file_operations ctrldev_fops = {
 };
 
 int rmnet_usb_ctrl_probe(struct usb_interface *intf,
-		struct usb_host_endpoint *int_in, struct rmnet_ctrl_dev *dev)
+			 struct usb_host_endpoint *int_in,
+			 unsigned long rmnet_devnum,
+			 struct rmnet_ctrl_dev **ctrldev)
 {
+	struct rmnet_ctrl_dev		*dev = NULL;
 	u16				wMaxPacketSize;
 	struct usb_endpoint_descriptor	*ep;
-	struct usb_device		*udev;
+	struct usb_device		*udev = interface_to_usbdev(intf);
 	int				interval;
-	int				ret = 0;
+	int				ret = 0, n;
 
-	udev = interface_to_usbdev(intf);
+	/* Find next available ctrl_dev */
+	for (n = 0; n < insts_per_dev; n++) {
+		dev = &ctrl_devs[rmnet_devnum][n];
+		if (!dev->claimed)
+			break;
+	}
 
-	if (!dev) {
-		pr_err("%s: Ctrl device not found\n", __func__);
+	if (!dev || n == insts_per_dev) {
+		pr_err("%s: No available ctrl devices for %lu\n", __func__,
+			rmnet_devnum);
 		return -ENODEV;
 	}
+
 	dev->int_pipe = usb_rcvintpipe(udev,
 		int_in->desc.bEndpointAddress & USB_ENDPOINT_NUMBER_MASK);
 
@@ -821,31 +878,34 @@ int rmnet_usb_ctrl_probe(struct usb_interface *intf,
 	if (!ret)
 		dev->is_connected = true;
 
-	return ret;
+	dev->claimed = true;
+	*ctrldev = dev;
+	return 0;
 }
 
 void rmnet_usb_ctrl_disconnect(struct rmnet_ctrl_dev *dev)
 {
-	rmnet_usb_ctrl_stop_rx(dev);
+	dev->claimed = false;
 
 	mutex_lock(&dev->dev_lock);
-
 	/*TBD: for now just update CD status*/
 	dev->cbits_tolocal = ~ACM_CTRL_CD;
-
 	dev->cbits_tomdm = ~ACM_CTRL_DTR;
 	dev->is_connected = false;
 	mutex_unlock(&dev->dev_lock);
 
 	wake_up(&dev->read_wait_queue);
 
+	cancel_work_sync(&dev->get_encap_work);
+
+	usb_kill_anchored_urbs(&dev->tx_submitted);
+	usb_kill_anchored_urbs(&dev->rx_submitted);
+
 	usb_free_urb(dev->inturb);
 	dev->inturb = NULL;
 
 	kfree(dev->intbuf);
 	dev->intbuf = NULL;
-
-	usb_kill_anchored_urbs(&dev->tx_submitted);
 }
 
 #if defined(CONFIG_DEBUG_FS)
@@ -856,48 +916,46 @@ static ssize_t rmnet_usb_ctrl_read_stats(struct file *file, char __user *ubuf,
 	struct rmnet_ctrl_dev	*dev;
 	char			*buf;
 	int			ret;
-	int			i;
+	int			i, n;
 	int			temp = 0;
 
 	buf = kzalloc(sizeof(char) * DEBUG_BUF_SIZE, GFP_KERNEL);
 	if (!buf)
 		return -ENOMEM;
 
-	for (i = 0; i < NUM_CTRL_CHANNELS; i++) {
-		dev = ctrl_dev[i];
-		if (!dev)
-			continue;
-
-		temp += scnprintf(buf + temp, DEBUG_BUF_SIZE - temp,
-				"\n#ctrl_dev: %p     Name: %s#\n"
-				"snd encap cmd cnt         %u\n"
-				"resp avail cnt:           %u\n"
-				"get encap resp cnt:       %u\n"
-				"set ctrl line state cnt:  %u\n"
-				"tx_err_cnt:               %u\n"
-				"cbits_tolocal:            %d\n"
-				"cbits_tomdm:              %d\n"
-				"mdm_wait_timeout:         %u\n"
-				"zlp_cnt:                  %u\n"
-				"dev opened:               %s\n",
-				dev, dev->name,
-				dev->snd_encap_cmd_cnt,
-				dev->resp_avail_cnt,
-				dev->get_encap_resp_cnt,
-				dev->set_ctrl_line_state_cnt,
-				dev->tx_ctrl_err_cnt,
-				dev->cbits_tolocal,
-				dev->cbits_tomdm,
-				dev->mdm_wait_timeout,
-				dev->zlp_cnt,
-				dev->is_opened ? "OPEN" : "CLOSE");
-
+	for (i = 0; i < num_devs; i++) {
+		for (n = 0; n < insts_per_dev; n++) {
+			dev = &ctrl_devs[i][n];
+			temp += scnprintf(buf + temp, DEBUG_BUF_SIZE - temp,
+					"\n#ctrl_dev: %p     Name: %s#\n"
+					"snd encap cmd cnt         %u\n"
+					"resp avail cnt:           %u\n"
+					"get encap resp cnt:       %u\n"
+					"set ctrl line state cnt:  %u\n"
+					"tx_err_cnt:               %u\n"
+					"cbits_tolocal:            %d\n"
+					"cbits_tomdm:              %d\n"
+					"mdm_wait_timeout:         %u\n"
+					"zlp_cnt:                  %u\n"
+					"get_encap_failure_cnt     %u\n"
+					"dev opened:               %s\n",
+					dev, dev->name,
+					dev->snd_encap_cmd_cnt,
+					dev->resp_avail_cnt,
+					dev->get_encap_resp_cnt,
+					dev->set_ctrl_line_state_cnt,
+					dev->tx_ctrl_err_cnt,
+					dev->cbits_tolocal,
+					dev->cbits_tomdm,
+					dev->mdm_wait_timeout,
+					dev->zlp_cnt,
+					dev->get_encap_failure_cnt,
+					dev->is_opened ? "OPEN" : "CLOSE");
+		}
 	}
 
 	ret = simple_read_from_buffer(ubuf, count, ppos, buf, temp);
-
 	kfree(buf);
-
 	return ret;
 }
 
@@ -905,19 +963,19 @@ static ssize_t rmnet_usb_ctrl_reset_stats(struct file *file, const char __user *
 		buf, size_t count, loff_t *ppos)
 {
 	struct rmnet_ctrl_dev	*dev;
-	int			i;
+	int			i, n;
 
-	for (i = 0; i < NUM_CTRL_CHANNELS; i++) {
-		dev = ctrl_dev[i];
-		if (!dev)
-			continue;
+	for (i = 0; i < num_devs; i++) {
+		for (n = 0; n < insts_per_dev; n++) {
+			dev = &ctrl_devs[i][n];
 
-		dev->snd_encap_cmd_cnt = 0;
-		dev->resp_avail_cnt = 0;
-		dev->get_encap_resp_cnt = 0;
-		dev->set_ctrl_line_state_cnt = 0;
-		dev->tx_ctrl_err_cnt = 0;
-		dev->zlp_cnt = 0;
+			dev->snd_encap_cmd_cnt = 0;
+			dev->resp_avail_cnt = 0;
+			dev->get_encap_resp_cnt = 0;
+			dev->set_ctrl_line_state_cnt = 0;
+			dev->tx_ctrl_err_cnt = 0;
+			dev->zlp_cnt = 0;
+		}
 	}
 	return count;
 }
@@ -952,134 +1010,150 @@ static void rmnet_usb_ctrl_debugfs_init(void) { }
 static void rmnet_usb_ctrl_debugfs_exit(void) { }
 #endif
 
-int rmnet_usb_ctrl_init(void)
+int rmnet_usb_ctrl_init(int no_rmnet_devs, int no_rmnet_insts_per_dev)
 {
 	struct rmnet_ctrl_dev	*dev;
-	int			n;
+	int			i, n;
 	int			status;
 
-	for (n = 0; n < NUM_CTRL_CHANNELS; ++n) {
+	num_devs = no_rmnet_devs;
+	insts_per_dev = no_rmnet_insts_per_dev;
 
-		dev = kzalloc(sizeof(*dev), GFP_KERNEL);
-		if (!dev) {
-			status = -ENOMEM;
-			goto error0;
-		}
-		/*for debug purpose*/
-		snprintf(dev->name, CTRL_DEV_MAX_LEN, "hsicctl%d", n);
+	ctrl_devs = kzalloc(num_devs * sizeof(*ctrl_devs), GFP_KERNEL);
+	if (!ctrl_devs)
+		return -ENOMEM;
 
-		mutex_init(&dev->dev_lock);
-		spin_lock_init(&dev->rx_lock);
-		init_waitqueue_head(&dev->read_wait_queue);
-		init_waitqueue_head(&dev->open_wait_queue);
-		INIT_LIST_HEAD(&dev->rx_list);
-		init_usb_anchor(&dev->tx_submitted);
+	for (i = 0; i < num_devs; i++) {
+		ctrl_devs[i] = kzalloc(insts_per_dev * sizeof(*ctrl_devs[i]),
+				       GFP_KERNEL);
+		if (!ctrl_devs[i])
+			return -ENOMEM;
 
-		status = rmnet_usb_ctrl_alloc_rx(dev);
-		if (status < 0) {
-			kfree(dev);
-			goto error0;
-		}
-
-		ctrl_dev[n] = dev;
-	}
-
-	status = alloc_chrdev_region(&ctrldev_num, 0, NUM_CTRL_CHANNELS,
-			DEVICE_NAME);
-	if (IS_ERR_VALUE(status)) {
-		pr_err("ERROR:%s: alloc_chrdev_region() ret %i.\n",
-		       __func__, status);
-		goto error0;
-	}
-
-	ctrldev_classp = class_create(THIS_MODULE, DEVICE_NAME);
-	if (IS_ERR(ctrldev_classp)) {
-		pr_err("ERROR:%s: class_create() ENOMEM\n", __func__);
-		status = -ENOMEM;
-		goto error1;
-	}
-	for (n = 0; n < NUM_CTRL_CHANNELS; ++n) {
-		cdev_init(&ctrl_dev[n]->cdev, &ctrldev_fops);
-		ctrl_dev[n]->cdev.owner = THIS_MODULE;
-
-		status = cdev_add(&ctrl_dev[n]->cdev, (ctrldev_num + n), 1);
-
+		status = alloc_chrdev_region(&ctrldev_num[i], 0, insts_per_dev,
+					     rmnet_dev_names[i]);
 		if (IS_ERR_VALUE(status)) {
-			pr_err("%s: cdev_add() ret %i\n", __func__, status);
-			kfree(ctrl_dev[n]);
-			goto error2;
+			pr_err("ERROR:%s: alloc_chrdev_region() ret %i.\n",
+				__func__, status);
+			return status;
 		}
 
-		ctrl_dev[n]->devicep =
-				device_create(ctrldev_classp, NULL,
-				(ctrldev_num + n), NULL,
-				DEVICE_NAME "%d", n);
+		ctrldev_classp[i] = class_create(THIS_MODULE,
+						 rmnet_dev_names[i]);
+		if (IS_ERR(ctrldev_classp[i])) {
+			pr_err("ERROR:%s: class_create() ENOMEM\n", __func__);
+			status = PTR_ERR(ctrldev_classp[i]);
+			return status;
+		}
 
-		if (IS_ERR(ctrl_dev[n]->devicep)) {
-			pr_err("%s: device_create() ENOMEM\n", __func__);
-			status = -ENOMEM;
-			cdev_del(&ctrl_dev[n]->cdev);
-			kfree(ctrl_dev[n]);
-			goto error2;
+		for (n = 0; n < insts_per_dev; n++) {
+			dev = &ctrl_devs[i][n];
+
+			/*for debug purpose*/
+			snprintf(dev->name, CTRL_DEV_MAX_LEN, "%s%d",
+				 rmnet_dev_names[i], n);
+
+			dev->wq = create_singlethread_workqueue(dev->name);
+			if (!dev->wq) {
+				pr_err("unable to allocate workqueue");
+				kfree(dev);
+				return -ENOMEM;
+			}
+
+			mutex_init(&dev->dev_lock);
+			spin_lock_init(&dev->rx_lock);
+			init_waitqueue_head(&dev->read_wait_queue);
+			init_waitqueue_head(&dev->open_wait_queue);
+			INIT_LIST_HEAD(&dev->rx_list);
+			init_usb_anchor(&dev->tx_submitted);
+			init_usb_anchor(&dev->rx_submitted);
+			INIT_WORK(&dev->get_encap_work, get_encap_work);
+
+			cdev_init(&dev->cdev, &ctrldev_fops);
+			dev->cdev.owner = THIS_MODULE;
+
+			status = cdev_add(&dev->cdev, (ctrldev_num[i] + n), 1);
+			if (status) {
+				pr_err("%s: cdev_add() ret %i\n", __func__,
+					status);
+				destroy_workqueue(dev->wq);
+				kfree(dev);
+				return status;
+			}
+
+			dev->devicep = device_create(ctrldev_classp[i], NULL,
+						     (ctrldev_num[i] + n), NULL,
+						     "%s%d", rmnet_dev_names[i],
+						     n);
+			if (IS_ERR(dev->devicep)) {
+				pr_err("%s: device_create() returned %ld\n",
+					__func__, PTR_ERR(dev->devicep));
+				cdev_del(&dev->cdev);
+				destroy_workqueue(dev->wq);
+				kfree(dev);
+				return PTR_ERR(dev->devicep);
+			}
+
+			/*create /sys/class/hsicctl/hsicctlx/modem_wait*/
+			status = device_create_file(dev->devicep,
+						    &dev_attr_modem_wait);
+			if (status) {
+				device_destroy(dev->devicep->class,
+					       dev->devicep->devt);
+				cdev_del(&dev->cdev);
+				destroy_workqueue(dev->wq);
+				kfree(dev);
+				return status;
+			}
+			dev_set_drvdata(dev->devicep, dev);
+
+			status = rmnet_usb_ctrl_alloc_rx(dev);
+			if (status) {
+				device_remove_file(dev->devicep,
+						   &dev_attr_modem_wait);
+				device_destroy(dev->devicep->class,
+					       dev->devicep->devt);
+				cdev_del(&dev->cdev);
+				destroy_workqueue(dev->wq);
+				kfree(dev);
+				return status;
+			}
 		}
-		/*create /sys/class/hsicctl/hsicctlx/modem_wait*/
-		status = device_create_file(ctrl_dev[n]->devicep,
-					&dev_attr_modem_wait);
-		if (status) {
-			device_destroy(ctrldev_classp,
-				MKDEV(MAJOR(ctrldev_num), n));
-			cdev_del(&ctrl_dev[n]->cdev);
-			kfree(ctrl_dev[n]);
-			goto error2;
-		}
-		dev_set_drvdata(ctrl_dev[n]->devicep, ctrl_dev[n]);
 	}
 
 	rmnet_usb_ctrl_debugfs_init();
 	pr_info("rmnet usb ctrl Initialized.\n");
 	return 0;
-
-error2:
-		while (--n >= 0) {
-			cdev_del(&ctrl_dev[n]->cdev);
-			device_destroy(ctrldev_classp,
-				MKDEV(MAJOR(ctrldev_num), n));
-		}
-
-		class_destroy(ctrldev_classp);
-		n = NUM_CTRL_CHANNELS;
-error1:
-	unregister_chrdev_region(MAJOR(ctrldev_num), NUM_CTRL_CHANNELS);
-error0:
-	while (--n >= 0)
-		kfree(ctrl_dev[n]);
-
-	return status;
 }
 
-void rmnet_usb_ctrl_exit(void)
+static void free_rmnet_ctrl_dev(struct rmnet_ctrl_dev *dev)
 {
-	int	i;
+	kfree(dev->in_ctlreq);
+	kfree(dev->rcvbuf);
+	kfree(dev->intbuf);
+	usb_free_urb(dev->rcvurb);
+	usb_free_urb(dev->inturb);
+	device_remove_file(dev->devicep, &dev_attr_modem_wait);
+	cdev_del(&dev->cdev);
+	destroy_workqueue(dev->wq);
+	device_destroy(dev->devicep->class,
+		       dev->devicep->devt);
+}
 
-	for (i = 0; i < NUM_CTRL_CHANNELS; ++i) {
-		if (!ctrl_dev[i])
-			return;
+void rmnet_usb_ctrl_exit(int no_rmnet_devs, int no_rmnet_insts_per_dev)
+{
+	int i, n;
 
-		kfree(ctrl_dev[i]->in_ctlreq);
-		kfree(ctrl_dev[i]->rcvbuf);
-		kfree(ctrl_dev[i]->intbuf);
-		usb_free_urb(ctrl_dev[i]->rcvurb);
-		usb_free_urb(ctrl_dev[i]->inturb);
-#if defined(DEBUG)
-		device_remove_file(ctrl_dev[i]->devicep, &dev_attr_modem_wait);
-#endif
-		cdev_del(&ctrl_dev[i]->cdev);
-		kfree(ctrl_dev[i]);
-		ctrl_dev[i] = NULL;
-		device_destroy(ctrldev_classp, MKDEV(MAJOR(ctrldev_num), i));
+	for (i = 0; i < no_rmnet_devs; i++) {
+		for (n = 0; n < no_rmnet_insts_per_dev; n++)
+			free_rmnet_ctrl_dev(&ctrl_devs[i][n]);
+
+		kfree(ctrl_devs[i]);
+
+		class_destroy(ctrldev_classp[i]);
+		if (ctrldev_num[i])
+			unregister_chrdev_region(ctrldev_num[i], insts_per_dev);
 	}
 
-	class_destroy(ctrldev_classp);
-	unregister_chrdev_region(MAJOR(ctrldev_num), NUM_CTRL_CHANNELS);
+	kfree(ctrl_devs);
 	rmnet_usb_ctrl_debugfs_exit();
 }

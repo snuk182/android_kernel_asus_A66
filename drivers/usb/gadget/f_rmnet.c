@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -10,7 +10,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
-
+//snuk182 !!
 #include <linux/slab.h>
 #include <linux/kernel.h>
 #include <linux/device.h>
@@ -610,6 +610,7 @@ static void frmnet_ctrl_response_available(struct f_rmnet *dev)
 	struct usb_cdc_notification	*event;
 	unsigned long			flags;
 	int				ret;
+	struct rmnet_ctrl_pkt	*cpkt;
 
 	pr_debug("%s:dev:%p portno#%d\n", __func__, dev, dev->port_num);
 
@@ -636,6 +637,14 @@ static void frmnet_ctrl_response_available(struct f_rmnet *dev)
 	ret = usb_ep_queue(dev->notify, dev->notify_req, GFP_ATOMIC);
 	if (ret) {
 		atomic_dec(&dev->notify_count);
+		spin_lock_irqsave(&dev->lock, flags);
+		cpkt = list_first_entry(&dev->cpkt_resp_q,
+					struct rmnet_ctrl_pkt, list);
+		if (cpkt) {
+			list_del(&cpkt->list);
+			rmnet_free_ctrl_pkt(cpkt);
+		}
+		spin_unlock_irqrestore(&dev->lock, flags);
 		pr_debug("ep enqueue error %d\n", ret);
 	}
 }
@@ -771,6 +780,8 @@ static void frmnet_notify_complete(struct usb_ep *ep, struct usb_request *req)
 {
 	struct f_rmnet *dev = req->context;
 	int status = req->status;
+	unsigned long		flags;
+	struct rmnet_ctrl_pkt	*cpkt;
 
 	pr_debug("%s: dev:%p port#%d\n", __func__, dev, dev->port_num);
 
@@ -793,6 +804,14 @@ static void frmnet_notify_complete(struct usb_ep *ep, struct usb_request *req)
 		status = usb_ep_queue(dev->notify, req, GFP_ATOMIC);
 		if (status) {
 			atomic_dec(&dev->notify_count);
+			spin_lock_irqsave(&dev->lock, flags);
+			cpkt = list_first_entry(&dev->cpkt_resp_q,
+						struct rmnet_ctrl_pkt, list);
+			if (cpkt) {
+				list_del(&cpkt->list);
+				rmnet_free_ctrl_pkt(cpkt);
+			}
+			spin_unlock_irqrestore(&dev->lock, flags);
 			pr_debug("ep enqueue error %d\n", status);
 		}
 		break;
@@ -1069,7 +1088,8 @@ static void frmnet_cleanup(void)
 	no_data_hsuart_ports = 0;
 }
 
-static int frmnet_init_port(const char *ctrl_name, const char *data_name)
+static int frmnet_init_port(const char *ctrl_name, const char *data_name,
+		const char *port_name)
 {
 	struct f_rmnet			*dev;
 	struct rmnet_ports		*rmnet_port;
@@ -1107,6 +1127,7 @@ static int frmnet_init_port(const char *ctrl_name, const char *data_name)
 		no_ctrl_smd_ports++;
 		break;
 	case USB_GADGET_XPORT_HSIC:
+		ghsic_ctrl_set_port_name(port_name, ctrl_name);
 		rmnet_port->ctrl_xport_num = no_ctrl_hsic_ports;
 		no_ctrl_hsic_ports++;
 		break;
@@ -1133,6 +1154,7 @@ static int frmnet_init_port(const char *ctrl_name, const char *data_name)
 		no_data_bam2bam_ports++;
 		break;
 	case USB_GADGET_XPORT_HSIC:
+		ghsic_data_set_port_name(port_name, data_name);
 		rmnet_port->data_xport_num = no_data_hsic_ports;
 		no_data_hsic_ports++;
 		break;

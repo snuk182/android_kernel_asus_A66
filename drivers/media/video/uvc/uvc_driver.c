@@ -22,7 +22,7 @@
  * Huffman tables (DHT marker), you will need to add it back if your JPEG
  * codec can't handle MJPEG data.
  */
-
+//snuk182 !!
 #include <linux/atomic.h>
 #include <linux/kernel.h>
 #include <linux/list.h>

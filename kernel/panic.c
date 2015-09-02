@@ -23,6 +23,8 @@
 #include <linux/init.h>
 #include <linux/nmi.h>
 #include <linux/dmi.h>
+#include <linux/coresight.h>
+#include <linux/console.h>
 
 #define PANIC_TIMER_STEP 100
 #define PANIC_BLINK_SPD 18
@@ -64,23 +66,6 @@ void __weak panic_smp_self_stop(void)
 		cpu_relax();
 }
 
-#if 0
-// jack for modem ramdump capture +++++
-static void PANIC_work_fn(struct work_struct *work);
-static DECLARE_WORK(PANIC_work, PANIC_work_fn);
-static int warning_count = 20;
-static char message[128];
-static void PANIC_work_fn(struct work_struct *work)
-{
- 
-    printk_lcd("APPs PANIC:%s, %d !!",message , warning_count);
-    msleep(2000);         
-    if(warning_count--)
-        schedule_work(&PANIC_work);
-    
-}
-// jack for modem ramdump capture -----
-
 /**
  *	panic - halt the system
  *	@fmt: The text string to print
@@ -89,9 +74,6 @@ static void PANIC_work_fn(struct work_struct *work)
  *
  *	This function never returns.
  */
- extern int app_die;
-int app_panic = 0; 
-#endif
 void panic(const char *fmt, ...)
 {
 	static DEFINE_SPINLOCK(panic_lock);
@@ -99,40 +81,8 @@ void panic(const char *fmt, ...)
 	va_list args;
 	long i, i_next = 0;
 	int state = 0;
-#if 0
-    if(app_panic)
-    {
-        while(1)
-        {
-            msleep(10000);
-            printk("System already panic-ed\n");
-        }
-    }      
-    app_panic = 1;
 
-//jack for modem ramdump capture +++++
-    va_start(args, fmt);
-    vsnprintf(buf, sizeof(buf), fmt, args);
-    va_end(args);
-    printk("Call Stack:for %s\n", buf); //added by jack
-    dump_stack();
-    if(strcmp("modem", buf) != 0 && app_die)
-    {
-        printk("APPS PANIC: %s\r\n", buf);
-        save_last_shutdown_log("APPS_PANIC");
-        schedule_work(&PANIC_work);
-        strncpy(message, buf, sizeof(message));
-        printk("APPS PANIC: Saving slow down log\r\n");
-        save_all_thread_info();
-        msleep(5000);
-        delta_all_thread_info();
-        save_phone_hang_log();
-        printk("APPS PANIC: slow log saved!!\r\n");
-        while(warning_count)
-            msleep(100);
-    }
-//jack for modem ramdump capture -----
-#endif    
+	coresight_abort();
 	/*
 	 * Disable local interrupts. This will prevent panic_smp_self_stop
 	 * from deadlocking the first cpu that invokes the panic, since
@@ -156,10 +106,17 @@ void panic(const char *fmt, ...)
 
 	console_verbose();
 	bust_spinlocks(1);
-	va_start(args, fmt);  //ASUS: by jack
+	va_start(args, fmt);
 	vsnprintf(buf, sizeof(buf), fmt, args);
 	va_end(args);
+#ifdef CONFIG_LGE_CRASH_HANDLER
+	set_kernel_crash_magic_number();
+	set_crash_store_enable();
+#endif
 	printk(KERN_EMERG "Kernel panic - not syncing: %s\n",buf);
+#ifdef CONFIG_LGE_CRASH_HANDLER
+	set_crash_store_disable();
+#endif
 #ifdef CONFIG_DEBUG_BUGVERBOSE
 	/*
 	 * Avoid nested stack-dumping if a panic occurs during oops processing
@@ -176,6 +133,10 @@ void panic(const char *fmt, ...)
 	crash_kexec(NULL);
 
 	kmsg_dump(KMSG_DUMP_PANIC);
+
+	/* print last_kmsg even after console suspend */
+	if (is_console_suspended())
+		resume_console();
 
 	/*
 	 * Note smp_send_stop is the usual smp shutdown function, which

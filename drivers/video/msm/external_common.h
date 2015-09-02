@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -10,6 +10,7 @@
  * GNU General Public License for more details.
  *
  */
+//snuk182 !!
 #ifndef __EXTERNAL_COMMON_H__
 #define __EXTERNAL_COMMON_H__
 #include <linux/switch.h>
@@ -110,8 +111,19 @@
 #define HDMI_VFRMT_720x480i240_16_9	58
 #define HDMI_VFRMT_1440x480i240_16_9	HDMI_VFRMT_720x480i240_16_9
 #define HDMI_VFRMT_1280x800p60_16_10 59 //Mickey
-#define HDMI_VFRMT_MAX          60  //59    //Mickey
+//#define HDMI_VFRMT_MAX          60  //59    //Mickey
 #define HDMI_VFRMT_FORCE_32BIT		0x7FFFFFFF
+
+/* Video Identification Codes from 65-127 are reserved for the future */
+#define HDMI_VFRMT_END			127
+
+/* VESA DMT TIMINGS */
+/* DMT ID: 23h, STD code: (81h, 80h), also a part of Established Timing III */
+#define HDMI_VFRMT_1280x1024p60_5_4	(HDMI_VFRMT_END + 1)
+#define DMT_VFRMT_END                   HDMI_VFRMT_1280x1024p60_5_4
+
+#define HDMI_VFRMT_MAX	                (DMT_VFRMT_END + 1)
+
 
 extern int ext_resolution;
 
@@ -186,6 +198,9 @@ struct hdmi_disp_mode_timing_type {
 #define HDMI_SETTINGS_1920x1080p30_16_9					\
 	{HDMI_VFRMT_1920x1080p30_16_9,   1920,  88,   44,  148,  FALSE,	\
 	 1080, 4, 5, 36, FALSE, 74250, 30000, FALSE, TRUE}
+#define HDMI_SETTINGS_1280x1024p60_5_4					\
+	{HDMI_VFRMT_1280x1024p60_5_4,   1280,  48,  112,  248,  FALSE, \
+	 1024, 1, 3, 38, FALSE, 108000, 60000, FALSE, TRUE}
 
 //Mickey+++,??
 #define HDMI_SETTINGS_1280x800p60_16_10                 \
@@ -212,12 +227,23 @@ struct hdmi_disp_mode_list_type {
 };
 #endif
 
+/*
+ * As per the CEA-861E spec, there can be a total of 10 short audio
+ * descriptors with each SAD being 3 bytes long.
+ * Thus, the maximum length of the audio data block would be 30 bytes
+ */
+#define MAX_AUDIO_DATA_BLOCK_SIZE	30
+#define MAX_SPKR_ALLOC_DATA_BLOCK_SIZE	3
+
 struct external_common_state_type {
 	boolean hpd_state;
+	boolean pre_suspend_hpd_state;
 	struct kobject *uevent_kobj;
 	uint32 video_resolution;
+	boolean default_res_supported;
 	struct device *dev;
 	struct switch_dev sdev;
+	struct switch_dev audio_sdev;
 #ifdef CONFIG_FB_MSM_HDMI_3D
 	boolean format_3d;
 	void (*switch_3d)(boolean on);
@@ -227,9 +253,7 @@ struct external_common_state_type {
 	boolean hpd_feature_on;
 	boolean hdmi_sink;
 	struct hdmi_disp_mode_list_type disp_mode_list;
-	uint8 speaker_allocation_block;
 	uint16 video_latency, audio_latency;
-	uint8 audio_data_block_cnt;
 	uint16 physical_address;
 	uint32 preferred_video_format;
 	uint8 pt_scan_info;
@@ -239,7 +263,10 @@ struct external_common_state_type {
 	uint8 spd_product_description[16];
 	boolean present_3d;
 	boolean present_hdcp;
-	uint32 audio_data_blocks[16];
+	uint8 audio_data_block[MAX_AUDIO_DATA_BLOCK_SIZE];
+	int adb_size;
+	uint8 spkr_alloc_data_block[MAX_SPKR_ALLOC_DATA_BLOCK_SIZE];
+	int sadb_size;
 	int (*read_edid_block)(int block, uint8 *edid_buf);
 	int (*hpd_feature)(int on);
 #endif

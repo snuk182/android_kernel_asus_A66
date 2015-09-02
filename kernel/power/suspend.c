@@ -7,7 +7,7 @@
  *
  * This file is released under the GPLv2.
  */
-
+//snuk182 !!
 #include <linux/string.h>
 #include <linux/delay.h>
 #include <linux/errno.h>
@@ -303,6 +303,7 @@ static int enter_state(suspend_state_t state)
 		return -EBUSY;
 
 	suspend_sys_sync_queue();
+
 	pr_debug("PM: Preparing system for %s sleep\n", pm_states[state]);
 	error = suspend_prepare();
 	if (error)

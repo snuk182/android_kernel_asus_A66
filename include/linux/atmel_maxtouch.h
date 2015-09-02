@@ -11,7 +11,7 @@
  *  for more details.
  *
  */
-
+//snuk182 !!
 #define	MXT224_I2C_ADDR1				0x4A
 #define	MXT224_I2C_ADDR2				0x4B
 #define	MXT1386_I2C_ADDR1				0x4C

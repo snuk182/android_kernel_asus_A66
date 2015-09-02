@@ -10,7 +10,7 @@
  * GNU General Public License for more details.
  *
  */
-
+//snuk182 - I gave up merging this with mako, fallback to a66
 /* #define DEBUG */
 #define DEV_DBG_PREFIX "HDMI: "
 /* #define REG_DUMP */
@@ -4490,7 +4490,7 @@ int hdmi_msm_clk(int on)
 
 	return 0;
 }
-extern int dtv_frame_rate;//Mickey+++
+//extern int dtv_frame_rate;//Mickey+++ (snuk182 - obsolete?)
 static void hdmi_msm_turn_on(void)
 {
 	uint32 audio_pkt_ctrl, audio_cfg;
@@ -4521,6 +4521,8 @@ static void hdmi_msm_turn_on(void)
 	mutex_unlock(&hdcp_auth_state_mutex);
 
 	hdmi_msm_init_phy(external_common_state->video_resolution);
+//snuk182 - obsolete?
+/*
     //Mickey+++,add for mark hdmi frame rate
     switch (external_common_state->video_resolution) {
         case HDMI_VFRMT_720x576p50_4_3:
@@ -4551,6 +4553,7 @@ static void hdmi_msm_turn_on(void)
             break;
     }
     //Mickey---
+*/
 
 	/* HDMI_USEC_REFTIMER[0x0208] */
 	HDMI_OUTP(0x0208, 0x0001001B);

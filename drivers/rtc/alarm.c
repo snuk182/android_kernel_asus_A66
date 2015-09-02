@@ -12,7 +12,7 @@
  * GNU General Public License for more details.
  *
  */
-
+//snuk182 !!
 #include <linux/module.h>
 #include <linux/android_alarm.h>
 #include <linux/device.h>
@@ -451,7 +451,7 @@ static int alarm_suspend(struct platform_device *pdev, pm_message_t state)
 		rtc_set_alarm(alarm_rtc_dev, &rtc_alarm);
 		rtc_read_time(alarm_rtc_dev, &rtc_current_rtc_time);
 		rtc_tm_to_time(&rtc_current_rtc_time, &rtc_current_time);
-		printk(
+		pr_alarm(SUSPEND,
 			"rtc alarm set at %ld, now %ld, rtc delta %ld.%09ld\n",
 			rtc_alarm_time, rtc_current_time,
 			rtc_delta.tv_sec, rtc_delta.tv_nsec);

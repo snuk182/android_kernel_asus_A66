@@ -2,7 +2,7 @@
 # linux/arch/arm/boot/compressed/Makefile
 #
 # create a compressed vmlinuz image from the original vmlinux
-#
+# snuk182 !!
 
 OBJS		=
 plus_sec := $(call as-instr,.arch_extension sec,+sec)

@@ -7,7 +7,7 @@
  * (C) Copyright 2001 Brad Hards (bhards@bigpond.net.au)
  *
  */
-
+//snuk182 !!
 #include <linux/kernel.h>
 #include <linux/errno.h>
 #include <linux/module.h>
@@ -25,6 +25,7 @@
 #include <linux/mutex.h>
 #include <linux/freezer.h>
 #include <linux/usb/otg.h>
+#include <linux/random.h>
 
 #include <asm/uaccess.h>
 #include <asm/byteorder.h>
@@ -1775,11 +1776,9 @@ static void show_string(struct usb_device *udev, char *id, char *string)
 
 static void announce_device(struct usb_device *udev)
 {
-	dev_info(&udev->dev, "New USB device found, idVendor=%04x, idProduct=%04x, bcdDevice=%04x\n",
+	dev_info(&udev->dev, "New USB device found, idVendor=%04x, idProduct=%04x\n",
 		le16_to_cpu(udev->descriptor.idVendor),
-		le16_to_cpu(udev->descriptor.idProduct),
-		le16_to_cpu(udev->descriptor.bcdDevice));
-
+		le16_to_cpu(udev->descriptor.idProduct));
      //ASUS_BSP +++ Jay "[A66][USB_Cam][NA][Others]add proc file for query USB Camera FW version"
 	if((le16_to_cpu(udev->descriptor.idVendor)==0x0c45)&&(le16_to_cpu(udev->descriptor.idProduct)==0x645a))
 	{
@@ -2050,6 +2049,14 @@ int usb_new_device(struct usb_device *udev)
 
 	/* Tell the world! */
 	announce_device(udev);
+
+	if (udev->serial)
+		add_device_randomness(udev->serial, strlen(udev->serial));
+	if (udev->product)
+		add_device_randomness(udev->product, strlen(udev->product));
+	if (udev->manufacturer)
+		add_device_randomness(udev->manufacturer,
+				      strlen(udev->manufacturer));
 
 	device_enable_async_suspend(&udev->dev);
 

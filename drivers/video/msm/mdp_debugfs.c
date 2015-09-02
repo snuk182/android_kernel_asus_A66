@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2009-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -314,11 +314,6 @@ static ssize_t mdp_stat_read(
 					mdp4_stat.intr_dma_e);
 	bp += len;
 	dlen -= len;
-
-    len = snprintf(bp, dlen, "hdmi wait:  %08lu\n",
-                    mdp4_stat.hdmi_pend_count);
-    bp += len;
-    dlen -= len;
 
 	len = snprintf(bp, dlen, "primary:   vsync: %08lu\t",
 					mdp4_stat.intr_vsync_p);

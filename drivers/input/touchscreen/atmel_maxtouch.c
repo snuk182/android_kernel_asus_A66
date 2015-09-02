@@ -25,7 +25,7 @@
  * Driver for Atmel maXTouch family of touch controllers.
  *
  */
-
+//snuk182 !
 #include <linux/i2c.h>
 #include <linux/interrupt.h>
 #include <linux/input.h>

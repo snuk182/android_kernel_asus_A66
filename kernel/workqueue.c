@@ -1210,8 +1210,13 @@ static void worker_enter_idle(struct worker *worker)
 	} else
 		wake_up_all(&gcwq->trustee_wait);
 
-	/* sanity check nr_running */
-	WARN_ON_ONCE(gcwq->nr_workers == gcwq->nr_idle &&
+	/*
+	 * Sanity check nr_running.  Because trustee releases gcwq->lock
+	 * between setting %WORKER_ROGUE and zapping nr_running, the
+	 * warning may trigger spuriously.  Check iff trustee is idle.
+	 */
+	WARN_ON_ONCE(gcwq->trustee_state == TRUSTEE_DONE &&
+		     gcwq->nr_workers == gcwq->nr_idle &&
 		     atomic_read(get_gcwq_nr_running(gcwq->cpu)));
 }
 
@@ -1380,11 +1385,6 @@ static struct worker *create_worker(struct global_cwq *gcwq, bool bind)
 	if (IS_ERR(worker->task))
 		goto fail;
 
-#ifndef ASUS_SHIP_BUILD
-	// printk("create_worker worker=%p\r\n", worker);
-	worker->task->pworker = (int*) worker;
-#endif
-
 	/*
 	 * A rogue worker will become a regular one if CPU comes
 	 * online later on.  Make sure every worker has
@@ -1439,8 +1439,6 @@ static void destroy_worker(struct worker *worker)
 {
 	struct global_cwq *gcwq = worker->gcwq;
 	int id = worker->id;
-
-	// printk("destroy_worker worker=%p\r\n", worker);
 
 	/* sanity check frenzy */
 	BUG_ON(worker->current_work);
@@ -1809,10 +1807,6 @@ __acquires(&gcwq->lock)
 	work_func_t f = work->func;
 	int work_color;
 	struct worker *collision;
-#if 0//ndef ASUS_SHIP_BUILD
-	unsigned long start;
-#endif
-
 #ifdef CONFIG_LOCKDEP
 	/*
 	 * It is permissible to free the struct work_struct from
@@ -1874,16 +1868,7 @@ __acquires(&gcwq->lock)
 	lock_map_acquire_read(&cwq->wq->lockdep_map);
 	lock_map_acquire(&lockdep_map);
 	trace_workqueue_execute_start(work);
-#if 0//ndef ASUS_SHIP_BUILD
-	start = jiffies;
-#endif
 	f(work);
-#if 0//ndef ASUS_SHIP_BUILD
-	if ( jiffies - start > (HZ/2) )
-		printk("[debugwq] work %pS take about %lums to finish\n", 
-			work->func, (jiffies - start)*1000/HZ);
-#endif
-
 	/*
 	 * While we must be careful to not use "work" after this, the trace
 	 * point will only record its address.

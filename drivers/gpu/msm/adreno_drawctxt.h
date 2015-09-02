@@ -1,4 +1,4 @@
-/* Copyright (c) 2002,2007-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2002,2007-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -16,36 +16,21 @@
 #include "adreno_pm4types.h"
 #include "a2xx_reg.h"
 
-/* Flags */
 
-#define CTXT_FLAGS_NOT_IN_USE		0x00000000
-#define CTXT_FLAGS_IN_USE		0x00000001
+/* Symbolic table for the adreno draw context type */
+#define ADRENO_DRAWCTXT_TYPES \
+	{ KGSL_CONTEXT_TYPE_ANY, "any" }, \
+	{ KGSL_CONTEXT_TYPE_GL, "GL" }, \
+	{ KGSL_CONTEXT_TYPE_CL, "CL" }, \
+	{ KGSL_CONTEXT_TYPE_C2D, "C2D" }, \
+	{ KGSL_CONTEXT_TYPE_RS, "RS" }
 
-/* state shadow memory allocated */
-#define CTXT_FLAGS_STATE_SHADOW		0x00000010
+#define ADRENO_CONTEXT_CMDQUEUE_SIZE 128
 
-/* gmem shadow memory allocated */
-#define CTXT_FLAGS_GMEM_SHADOW		0x00000100
-/* gmem must be copied to shadow */
-#define CTXT_FLAGS_GMEM_SAVE		0x00000200
-/* gmem can be restored from shadow */
-#define CTXT_FLAGS_GMEM_RESTORE		0x00000400
-/* preamble packed in cmdbuffer for context switching */
-#define CTXT_FLAGS_PREAMBLE		0x00000800
-/* shader must be copied to shadow */
-#define CTXT_FLAGS_SHADER_SAVE		0x00002000
-/* shader can be restored from shadow */
-#define CTXT_FLAGS_SHADER_RESTORE	0x00004000
-/* Context has caused a GPU hang */
-#define CTXT_FLAGS_GPU_HANG		0x00008000
-/* Specifies there is no need to save GMEM */
-#define CTXT_FLAGS_NOGMEMALLOC          0x00010000
-/* Trash state for context */
-#define CTXT_FLAGS_TRASHSTATE		0x00020000
-/* per context timestamps enabled */
-#define CTXT_FLAGS_PER_CONTEXT_TS	0x00040000
-/* Context has caused a GPU hang and recovered properly */
-#define CTXT_FLAGS_GPU_HANG_RECOVERED	0x00008000
+#define ADRENO_CONTEXT_DEFAULT_PRIORITY 1
+
+#define ADRENO_CONTEXT_STATE_ACTIVE 0
+#define ADRENO_CONTEXT_STATE_INVALID 1
 
 struct kgsl_device;
 struct adreno_device;
@@ -77,16 +62,83 @@ struct gmem_shadow_t {
 	struct kgsl_memdesc quad_vertices_restore;
 };
 
+struct adreno_context;
+
+/**
+ * struct adreno_context_ops - context state management functions
+ * @save: optional hook for saving context state
+ * @restore: required hook for restoring state,
+ *		adreno_context_restore() may be used directly here.
+ * @draw_workaround: optional hook for a workaround after every IB
+ * @detach: optional hook for freeing state tracking memory.
+ */
+struct adreno_context_ops {
+	int (*save)(struct adreno_device *, struct adreno_context *);
+	int (*restore)(struct adreno_device *, struct adreno_context *);
+	int (*draw_workaround)(struct adreno_device *,
+				struct adreno_context *);
+	void (*detach)(struct adreno_context *);
+};
+
+int adreno_context_restore(struct adreno_device *, struct adreno_context *);
+
+/* generic context ops for preamble context switch */
+extern const struct adreno_context_ops adreno_preamble_ctx_ops;
+
+/**
+ * struct adreno_context - Adreno GPU draw context
+ * @id: Unique integer ID of the context
+ * @timestamp: Last issued context-specific timestamp
+ * @internal_timestamp: Global timestamp of the last issued command
+ *			NOTE: guarded by device->mutex, not drawctxt->mutex!
+ * @state: Current state of the context
+ * @priv: Internal flags
+ * @type: Context type (GL, CL, RS)
+ * @mutex: Mutex to protect the cmdqueue
+ * @pagetable: Pointer to the GPU pagetable for the context
+ * @gpustate: Pointer to the GPU scratch memory for context save/restore
+ * @reg_restore: Command buffer for restoring context registers
+ * @shader_save: Command buffer for saving shaders
+ * @shader_restore: Command buffer to restore shaders
+ * @context_gmem_shadow: GMEM shadow structure for save/restore
+ * @reg_save: A2XX command buffer to save context registers
+ * @shader_fixup: A2XX command buffer to "fix" shaders on restore
+ * @chicken_restore: A2XX command buffer to "fix" register restore
+ * @bin_base_offset: Saved value of the A2XX BIN_BASE_OFFSET register
+ * @regconstant_save: A3XX command buffer to save some registers
+ * @constant_retore: A3XX command buffer to restore some registers
+ * @hslqcontrol_restore: A3XX command buffer to restore HSLSQ registers
+ * @save_fixup: A3XX command buffer to "fix" register save
+ * @restore_fixup: A3XX cmmand buffer to restore register save fixes
+ * @shader_load_commands: A3XX GPU memory descriptor for shader load IB
+ * @shader_save_commands: A3XX GPU memory descriptor for shader save IB
+ * @constantr_save_commands: A3XX GPU memory descriptor for constant save IB
+ * @constant_load_commands: A3XX GPU memory descriptor for constant load IB
+ * @cond_execs: A3XX GPU memory descriptor for conditional exec IB
+ * @hlsq_restore_commands: A3XX GPU memory descriptor for HLSQ restore IB
+ * @cmdqueue: Queue of command batches waiting to be dispatched for this context
+ * @cmdqueue_head: Head of the cmdqueue queue
+ * @cmdqueue_tail: Tail of the cmdqueue queue
+ * @pending: Priority list node for the dispatcher list of pending contexts
+ * @wq: Workqueue structure for contexts to sleep pending room in the queue
+ * @waiting: Workqueue structure for contexts waiting for a timestamp or event
+ * @queued: Number of commands queued in the cmdqueue
+ * @ops: Context switch functions for this context.
+ */
 struct adreno_context {
-	unsigned int id;
-	uint32_t flags;
-	struct kgsl_pagetable *pagetable;
+	struct kgsl_context base;
+	unsigned int ib_gpu_time_used;
+	unsigned int timestamp;
+	unsigned int internal_timestamp;
+	int state;
+	unsigned long priv;
+	unsigned int type;
+	struct mutex mutex;
 	struct kgsl_memdesc gpustate;
 	unsigned int reg_restore[3];
 	unsigned int shader_save[3];
 	unsigned int shader_restore[3];
 
-	/* Information of the GMEM shadow that is created in context create */
 	struct gmem_shadow_t context_gmem_shadow;
 
 	/* A2XX specific items */
@@ -107,22 +159,70 @@ struct adreno_context {
 	struct kgsl_memdesc constant_load_commands[3];
 	struct kgsl_memdesc cond_execs[4];
 	struct kgsl_memdesc hlsqcontrol_restore_commands[1];
+
+	/* Dispatcher */
+	struct kgsl_cmdbatch *cmdqueue[ADRENO_CONTEXT_CMDQUEUE_SIZE];
+	unsigned int cmdqueue_head;
+	unsigned int cmdqueue_tail;
+
+	struct plist_node pending;
+	wait_queue_head_t wq;
+	wait_queue_head_t waiting;
+
+	int queued;
+
+	const struct adreno_context_ops *ops;
 };
 
-int adreno_drawctxt_create(struct kgsl_device *device,
-			struct kgsl_pagetable *pagetable,
-			struct kgsl_context *context,
-			uint32_t flags);
+/**
+ * enum adreno_context_priv - Private flags for an adreno draw context
+ * @ADRENO_CONTEXT_FAULT - set if the context has faulted (and recovered)
+ * @ADRENO_CONTEXT_GMEM_SAVE - gmem must be copied to shadow
+ * @ADRENO_CONTEXT_GMEM_RESTORE - gmem can be restored from shadow
+ * @ADRENO_CONTEXT_SHADER_SAVE - shader must be copied to shadow
+ * @ADRENO_CONTEXT_SHADER_RESTORE - shader can be restored from shadow
+ * @ADRENO_CONTEXT_GPU_HANG - Context has caused a GPU hang
+ * @ADRENO_CONTEXT_GPU_HANG_FT - Context has caused a GPU hang
+ *      and fault tolerance was successful
+ * @ADRENO_CONTEXT_SKIP_EOF - Context skip IBs until the next end of frame
+ *      marker.
+ * @ADRENO_CONTEXT_FORCE_PREAMBLE - Force the preamble for the next submission.
+ */
+enum adreno_context_priv {
+	ADRENO_CONTEXT_FAULT = 0,
+	ADRENO_CONTEXT_GMEM_SAVE,
+	ADRENO_CONTEXT_GMEM_RESTORE,
+	ADRENO_CONTEXT_SHADER_SAVE,
+	ADRENO_CONTEXT_SHADER_RESTORE,
+	ADRENO_CONTEXT_GPU_HANG,
+	ADRENO_CONTEXT_GPU_HANG_FT,
+	ADRENO_CONTEXT_SKIP_EOF,
+	ADRENO_CONTEXT_FORCE_PREAMBLE,
+};
 
-void adreno_drawctxt_destroy(struct kgsl_device *device,
-			  struct kgsl_context *context);
+struct kgsl_context *adreno_drawctxt_create(struct kgsl_device_private *,
+			uint32_t *flags);
 
-void adreno_drawctxt_switch(struct adreno_device *adreno_dev,
+int adreno_drawctxt_detach(struct kgsl_context *context);
+
+void adreno_drawctxt_destroy(struct kgsl_context *context);
+
+void adreno_drawctxt_sched(struct kgsl_device *device,
+		struct kgsl_context *context);
+
+int adreno_drawctxt_switch(struct adreno_device *adreno_dev,
 				struct adreno_context *drawctxt,
 				unsigned int flags);
 void adreno_drawctxt_set_bin_base_offset(struct kgsl_device *device,
 					struct kgsl_context *context,
 					unsigned int offset);
+
+int adreno_drawctxt_wait(struct adreno_device *adreno_dev,
+		struct kgsl_context *context,
+		uint32_t timestamp, unsigned int timeout);
+
+void adreno_drawctxt_invalidate(struct kgsl_device *device,
+		struct kgsl_context *context);
 
 /* GPU context switch helper functions */
 

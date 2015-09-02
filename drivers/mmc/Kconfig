@@ -27,13 +27,6 @@ config MMC_PERF_PROFILING
 	  If you say Y here, support will be added for collecting
 	  performance numbers at the MMC Queue and Host layers.
 
-config SD_DETECT_WAKEUP
-	bool "enable sd detect can wakup system"
-	depends on MMC != n
-	help
-	  If you say Y here, support will be added to enable that
-	  sd detect can wakup system.
-
 if MMC
 
 source "drivers/mmc/core/Kconfig"

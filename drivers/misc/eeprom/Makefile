@@ -8,3 +8,4 @@ obj-$(CONFIG_EEPROM_DIGSY_MTC_CFG) += digsy_mtc_eeprom.o
 obj-$(CONFIG_EEPROM_NUVOTON)	+= microp_nuvoton.o
 obj-$(CONFIG_EEPROM_NUVOTON)    += AX_microp_api.o
 obj-$(CONFIG_EEPROM_NUVOTON)    += microp_notify.o
+#snuk182 !!

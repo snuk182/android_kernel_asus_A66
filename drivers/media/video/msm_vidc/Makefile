@@ -1,5 +1,4 @@
-KBUILD_CFLAGS += -Wframe-larger-than=2048
-obj-$(CONFIG_MSM_VIDC) := 	msm_v4l2_vidc.o \
+obj-$(CONFIG_MSM_VIDC_V4L2) := 	msm_v4l2_vidc.o \
 				msm_vidc_common.o \
 				msm_vidc.o \
 				msm_vdec.o \
