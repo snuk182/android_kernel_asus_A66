@@ -10,6 +10,7 @@
  * GNU General Public License for more details.
  *
  */
+//snuk182 !!
 #include <linux/clk.h>
 #include <mach/clk.h>
 #include "msm_fb.h"
@@ -818,7 +819,7 @@ void hdmi_msm_powerdown_phy(void)
 	HDMI_OUTP_ND(HDMI_PHY_REG_2, 0x7F); /*0b01111111*/
 }
 
-void hdmi_frame_ctrl_cfg(const struct hdmi_disp_mode_timing_type *timing)
+void hdmi_frame_ctrl_cfg(const struct msm_hdmi_mode_timing_info *timing)
 {
 	/*  0x02C8 HDMI_FRAME_CTRL
 	 *  31 INTERLACED_EN   Interlaced or progressive enable bit
