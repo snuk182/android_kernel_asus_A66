@@ -1,6 +1,6 @@
 #ifndef _MSM_VIDC_DEC_H_
 #define _MSM_VIDC_DEC_H_
-
+//snuk182 - copied from a68
 #include <linux/types.h>
 #include <linux/ioctl.h>
 
@@ -222,6 +222,10 @@ struct vdec_ioctl_msg {
 
 #define VDEC_IOCTL_GET_ENABLE_SEC_METADATA \
 	_IOR(VDEC_IOCTL_MAGIC, 41, struct vdec_ioctl_msg)
+
+/*IOCTL params:GET: InputData - NULL, OutputData - unsigned int.*/
+#define VDEC_IOCTL_GET_PERF_LEVEL \
+	_IOR(VDEC_IOCTL_MAGIC, 42, struct vdec_ioctl_msg)
 
 enum vdec_picture {
 	PICTURE_TYPE_I,
@@ -555,6 +559,8 @@ struct vdec_output_frameinfo {
 	enum vdec_interlaced_format interlaced_format;
 	struct vdec_aspectratioinfo aspect_ratio_info;
 	struct vdec_sep_metadatainfo metadata_info;
+	size_t metadata_len;
+	size_t metadata_offset;
 };
 
 union vdec_msgdata {

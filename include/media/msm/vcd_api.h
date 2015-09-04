@@ -10,6 +10,7 @@
  * GNU General Public License for more details.
  *
  */
+//snuk182 - copied from a68
 #ifndef _VCD_API_H_
 #define _VCD_API_H_
 #include "vcd_property.h"
@@ -78,6 +79,9 @@ struct vcd_frame_data {
 	u32 desc_size;
 	struct ion_handle *buff_ion_handle;
 	struct vcd_aspect_ratio aspect_ratio_info;
+	u32 metadata_len;
+	u32 metadata_offset;
+	u32 curr_ltr_id;
 };
 
 struct vcd_sequence_hdr {

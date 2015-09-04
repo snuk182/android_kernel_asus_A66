@@ -14,7 +14,7 @@
  * GNU General Public License for more details.
  *
  */
-
+//snuk182 !!
 #ifndef _LINUX_ION_H
 #define _LINUX_ION_H
 
@@ -510,12 +510,7 @@ static inline int msm_ion_do_cache_op(struct ion_client *client,
 struct ion_allocation_data {
 	size_t len;
 	size_t align;
-/* HACK: Kernel needs heap_mask, userspace needs heap_id_mask. Damn Google. */
-#ifdef __KERNEL__
 	unsigned int heap_mask;
-#else
-	unsigned int heap_id_mask;
-#endif
 	unsigned int flags;
 	struct ion_handle *handle;
 };
