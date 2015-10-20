@@ -9,7 +9,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
-//snuk182 !!
+
 #ifndef __HDMI_MSM_H__
 #define __HDMI_MSM_H__
 
@@ -56,16 +56,12 @@ struct hdmi_msm_state_type {
 #ifdef CONFIG_SUSPEND
 	boolean pm_suspended;
 #endif
-	int hpd_stable;
-	boolean hpd_prev_state;
-	boolean hpd_cable_chg_detected;
 	boolean full_auth_done;
 	boolean hpd_during_auth;
 	struct work_struct hpd_state_work;
-	struct timer_list hpd_state_timer;
 	struct completion ddc_sw_done;
 
-	//bool hdcp_enable;
+	bool hdcp_enable;
 	boolean hdcp_activating;
 	boolean reauth ;
 	struct work_struct hdcp_reauth_work, hdcp_work;
@@ -110,7 +106,7 @@ struct hdmi_msm_state_type {
 
 	struct external_common_state_type common;
 	boolean is_mhl_enabled;
-	//struct completion hpd_event_processed;
+	struct completion hpd_event_processed;
 };
 
 extern struct hdmi_msm_state_type *hdmi_msm_state;
