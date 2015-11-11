@@ -813,6 +813,11 @@ config FB_MSM_HDMI_MSM_PANEL
 	---help---
 	  Support for 480p/720p/1080i/1080p output through MSM HDMI
 
+config FB_HDMI_JELLYBEAN_API
+	depends on FB_MSM_HDMI_MSM_PANEL
+	bool "JellyBean HDMI API"
+	default n
+
 config FB_MSM_HDMI_MSM_PANEL_DVI_SUPPORT
 	depends on FB_MSM_HDMI_MSM_PANEL
 	bool "Use DVI mode"

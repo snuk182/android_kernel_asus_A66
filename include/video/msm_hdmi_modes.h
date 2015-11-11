@@ -2,7 +2,7 @@
 #define __MSM_HDMI_MODES_H__
 #include <linux/types.h>
 //snuk182 !!?
-struct hdmi_disp_mode_timing_type {
+struct msm_hdmi_mode_timing_info {
 	uint32_t	video_format;
 	uint32_t	active_h;
 	uint32_t	front_porch_h;
@@ -165,23 +165,23 @@ struct hdmi_disp_mode_timing_type {
 //Mickey---
 
 #define MSM_HDMI_MODES_SET_TIMING(LUT, MODE) do {		\
-	struct hdmi_disp_mode_timing_type mode = MODE##_TIMING;	\
+	struct msm_hdmi_mode_timing_info mode = MODE##_TIMING;	\
 	LUT[MODE] = mode;\
 	} while (0)
 
 static inline void MSM_HDMI_MODES_INIT_TIMINGS(
-	struct hdmi_disp_mode_timing_type *lut)
+	struct msm_hdmi_mode_timing_info *lut)
 {
   uint32_t i;
 
 	for (i = 0; i < HDMI_VFRMT_MAX; i++) {
-		struct hdmi_disp_mode_timing_type mode = VFRMT_NOT_SUPPORTED(i);
+		struct msm_hdmi_mode_timing_info mode = VFRMT_NOT_SUPPORTED(i);
 		lut[i] = mode;
 	}
 }
 
 static inline void MSM_HDMI_MODES_SET_SUPP_TIMINGS(
-	struct hdmi_disp_mode_timing_type *lut, int type)
+	struct msm_hdmi_mode_timing_info *lut, int type)
 {
 	MSM_HDMI_MODES_SET_TIMING(lut, HDMI_VFRMT_640x480p60_4_3);
 	MSM_HDMI_MODES_SET_TIMING(lut, HDMI_VFRMT_720x480p60_4_3);

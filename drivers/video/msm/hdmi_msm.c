@@ -3435,9 +3435,13 @@ static void hdmi_msm_video_setup(int video_format)
 	uint32 end_h     = 0;
 	uint32 start_v   = 0;
 	uint32 end_v     = 0;
+#ifdef CONFIG_FB_HDMI_JELLYBEAN_API
 	const struct hdmi_disp_mode_timing_type *timing =
 		hdmi_common_get_supported_mode(video_format);
-
+#else
+	const struct msm_hdmi_mode_timing_info *timing =
+		hdmi_common_get_supported_mode(video_format);
+#endif
 	/* timing register setup */
 	if (timing == NULL) {
 		DEV_ERR("video format not supported: %d\n", video_format);
@@ -3538,8 +3542,13 @@ static void hdmi_msm_audio_acr_setup(boolean enabled, int video_format,
 	uint32 acr_pck_ctrl_reg = HDMI_INP(0x0024);
 
 	if (enabled) {
+#ifdef CONFIG_FB_HDMI_JELLYBEAN_API
 		const struct hdmi_disp_mode_timing_type *timing =
 			hdmi_common_get_supported_mode(video_format);
+#else
+		const struct msm_hdmi_mode_timing_info *timing =
+			hdmi_common_get_supported_mode(video_format);
+#endif
 		const struct hdmi_msm_audio_arcs *audio_arc =
 			&hdmi_msm_audio_acr_lut[0];
 		const int lut_size = sizeof(hdmi_msm_audio_acr_lut)

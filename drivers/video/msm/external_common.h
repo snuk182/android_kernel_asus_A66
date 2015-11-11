@@ -30,10 +30,32 @@
 
 extern int ext_resolution;
 
+#ifdef CONFIG_FB_HDMI_JELLYBEAN_API
+struct hdmi_disp_mode_timing_type {
+	uint32	video_format;
+	uint32	active_h;
+	uint32	front_porch_h;
+	uint32	pulse_width_h;
+	uint32	back_porch_h;
+	boolean	active_low_h;
+	uint32	active_v;
+	uint32	front_porch_v;
+	uint32	pulse_width_v;
+	uint32	back_porch_v;
+	boolean	active_low_v;
+	/* Must divide by 1000 to get the actual frequency in MHZ */
+	uint32	pixel_freq;
+	/* Must divide by 1000 to get the actual frequency in HZ */
+	uint32	refresh_rate;
+	boolean	interlaced;
+	boolean	supported;
+};
+#endif
+
 /* A lookup table for all the supported display modes by the HDMI
  * hardware and driver.  Use HDMI_SETUP_LUT in the module init to
  * setup the LUT with the supported modes. */
-extern struct hdmi_disp_mode_timing_type
+extern struct msm_hdmi_mode_timing_info
 	hdmi_common_supported_video_mode_lut[HDMI_VFRMT_MAX];
 
 /* Structure that encapsulates all the supported display modes by the HDMI sink
@@ -91,12 +113,21 @@ extern struct mutex hdmi_msm_state_mutex;
 int hdmi_common_read_edid(void);
 const char *video_format_2string(uint32 format);
 bool hdmi_common_get_video_format_from_drv_data(struct msm_fb_data_type *mfd);
+#ifdef CONFIG_FB_HDMI_JELLYBEAN_API
 const struct hdmi_disp_mode_timing_type *hdmi_common_get_mode(uint32 mode);
 const struct hdmi_disp_mode_timing_type *hdmi_common_get_supported_mode(
 	uint32 mode);
 const struct hdmi_disp_mode_timing_type *hdmi_mhl_get_mode(uint32 mode);
 const struct hdmi_disp_mode_timing_type *hdmi_mhl_get_supported_mode(
 	uint32 mode);
+#else
+const struct msm_hdmi_mode_timing_info *hdmi_common_get_mode(uint32 mode);
+const struct msm_hdmi_mode_timing_info *hdmi_common_get_supported_mode(
+	uint32 mode);
+const struct msm_hdmi_mode_timing_info *hdmi_mhl_get_mode(uint32 mode);
+const struct msm_hdmi_mode_timing_info *hdmi_mhl_get_supported_mode(
+	uint32 mode);
+#endif
 void hdmi_common_init_panel_info(struct msm_panel_info *pinfo);
 
 ssize_t video_3d_format_2string(uint32 format, char *buf);

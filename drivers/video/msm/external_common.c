@@ -122,11 +122,11 @@ static ssize_t external_common_rda_video_mode_str(struct device *dev,
 }
 
 #ifdef CONFIG_FB_MSM_HDMI_COMMON
-struct hdmi_disp_mode_timing_type
+struct msm_hdmi_mode_timing_info
 	hdmi_common_supported_video_mode_lut[HDMI_VFRMT_MAX];
 EXPORT_SYMBOL(hdmi_common_supported_video_mode_lut);
 
-struct hdmi_disp_mode_timing_type
+struct msm_hdmi_mode_timing_info
 	hdmi_mhl_supported_video_mode_lut[HDMI_VFRMT_MAX] = {
 	HDMI_VFRMT_640x480p60_4_3_TIMING,
 	VFRMT_NOT_SUPPORTED(HDMI_VFRMT_720x480p60_4_3),
@@ -640,7 +640,11 @@ static ssize_t external_common_wta_video_mode(struct device *dev,
 	ssize_t ret = strnlen(buf, PAGE_SIZE);
 	uint32 video_mode;
 #ifdef CONFIG_FB_MSM_HDMI_COMMON
+#ifdef CONFIG_FB_HDMI_JELLYBEAN_API
 	const struct hdmi_disp_mode_timing_type *disp_mode;
+#else
+	const struct msm_hdmi_mode_timing_info *disp_mode;
+#endif
 #endif
 	mutex_lock(&external_common_state_hpd_mutex);
 	if (!external_common_state->hpd_state) {
@@ -1289,8 +1293,13 @@ static void add_supported_video_format(
 	struct hdmi_disp_mode_list_type *disp_mode_list,
 	uint32 video_format)
 {
+#ifdef CONFIG_FB_HDMI_JELLYBEAN_API
 	const struct hdmi_disp_mode_timing_type *timing =
 		hdmi_common_get_supported_mode(video_format);
+#else
+	const struct msm_hdmi_mode_timing_info *timing =
+		hdmi_common_get_supported_mode(video_format);
+#endif
 	boolean supported = timing != NULL;
 
 	if (video_format >= HDMI_VFRMT_MAX)
@@ -1301,8 +1310,13 @@ static void add_supported_video_format(
 		supported ? "Supported" : "Not-Supported");
 	if (supported) {
 		if (mhl_is_connected()) {
+#ifdef CONFIG_FB_HDMI_JELLYBEAN_API
 			const struct hdmi_disp_mode_timing_type *mhl_timing =
 				hdmi_mhl_get_supported_mode(video_format);
+#else
+			const struct msm_hdmi_mode_timing_info *mhl_timing =
+				hdmi_mhl_get_supported_mode(video_format);
+#endif
 			boolean mhl_supported = mhl_timing != NULL;
 			DEV_DBG("EDID: format: %d [%s], %s by MHL\n",
 			video_format, video_format_2string(video_format),
@@ -1989,12 +2003,13 @@ bool hdmi_common_get_video_format_from_drv_data(struct msm_fb_data_type *mfd)
 }
 EXPORT_SYMBOL(hdmi_common_get_video_format_from_drv_data);
 
+#ifdef CONFIG_FB_HDMI_JELLYBEAN_API
 const struct hdmi_disp_mode_timing_type *hdmi_common_get_mode(uint32 mode)
 {
 	if (mode >= HDMI_VFRMT_MAX)
 		return NULL;
 
-	return &hdmi_common_supported_video_mode_lut[mode];
+	return (struct hdmi_disp_mode_timing_type *)&hdmi_common_supported_video_mode_lut[mode];
 }
 EXPORT_SYMBOL(hdmi_common_get_mode);
 
@@ -2006,7 +2021,7 @@ const struct hdmi_disp_mode_timing_type *hdmi_common_get_supported_mode(
 
 	if (ret == NULL || !ret->supported)
 		return NULL;
-	return ret;
+	return (struct hdmi_disp_mode_timing_type *)ret;
 }
 EXPORT_SYMBOL(hdmi_common_get_supported_mode);
 
@@ -2015,7 +2030,7 @@ const struct hdmi_disp_mode_timing_type *hdmi_mhl_get_mode(uint32 mode)
 	if (mode >= HDMI_VFRMT_MAX)
 		return NULL;
 
-	return &hdmi_mhl_supported_video_mode_lut[mode];
+	return (struct hdmi_disp_mode_timing_type *)&hdmi_mhl_supported_video_mode_lut[mode];
 }
 EXPORT_SYMBOL(hdmi_mhl_get_mode);
 
@@ -2027,16 +2042,63 @@ const struct hdmi_disp_mode_timing_type *hdmi_mhl_get_supported_mode(
 
 	if (ret == NULL || !ret->supported)
 		return NULL;
+	return (struct hdmi_disp_mode_timing_type *)ret;
+}
+EXPORT_SYMBOL(hdmi_mhl_get_supported_mode);
+#else
+const struct msm_hdmi_mode_timing_info *hdmi_common_get_mode(uint32 mode)
+{
+	if (mode >= HDMI_VFRMT_MAX)
+		return NULL;
+
+	return &hdmi_common_supported_video_mode_lut[mode];
+}
+EXPORT_SYMBOL(hdmi_common_get_mode);
+
+const struct msm_hdmi_mode_timing_info *hdmi_common_get_supported_mode(
+	uint32 mode)
+{
+	const struct msm_hdmi_mode_timing_info *ret
+		= hdmi_common_get_mode(mode);
+
+	if (ret == NULL || !ret->supported)
+		return NULL;
+	return ret;
+}
+EXPORT_SYMBOL(hdmi_common_get_supported_mode);
+
+const struct msm_hdmi_mode_timing_info *hdmi_mhl_get_mode(uint32 mode)
+{
+	if (mode >= HDMI_VFRMT_MAX)
+		return NULL;
+
+	return &hdmi_mhl_supported_video_mode_lut[mode];
+}
+EXPORT_SYMBOL(hdmi_mhl_get_mode);
+
+const struct msm_hdmi_mode_timing_info *hdmi_mhl_get_supported_mode(
+	uint32 mode)
+{
+	const struct msm_hdmi_mode_timing_info *ret
+		= hdmi_mhl_get_mode(mode);
+
+	if (ret == NULL || !ret->supported)
+		return NULL;
 	return ret;
 }
 EXPORT_SYMBOL(hdmi_mhl_get_supported_mode);
-
+#endif
 void hdmi_common_init_panel_info(struct msm_panel_info *pinfo)
 {
+#ifdef CONFIG_FB_HDMI_JELLYBEAN_API
 	const struct hdmi_disp_mode_timing_type *timing =
 		hdmi_common_get_supported_mode(
 		external_common_state->video_resolution);
-
+#else
+	const struct msm_hdmi_mode_timing_info *timing =
+		hdmi_common_get_supported_mode(
+		external_common_state->video_resolution);
+#endif
 	if (timing == NULL)
 		return;
 

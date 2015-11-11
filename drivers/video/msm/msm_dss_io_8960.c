@@ -778,7 +778,7 @@ void hdmi_msm_powerdown_phy(void)
 	/* Power down PHY */
 	HDMI_OUTP_ND(HDMI_PHY_REG_2, 0x7F); /*0b01111111*/
 }
-
+#ifdef CONFIG_FB_HDMI_JELLYBEAN_API
 void hdmi_frame_ctrl_cfg(const struct hdmi_disp_mode_timing_type *timing)
 {
 	/*  0x02C8 HDMI_FRAME_CTRL
@@ -798,6 +798,27 @@ void hdmi_frame_ctrl_cfg(const struct hdmi_disp_mode_timing_type *timing)
 		| ((timing->active_low_h << 29) & 0x20000000)
 		| ((timing->active_low_v << 28) & 0x10000000));
 }
+#else
+void hdmi_frame_ctrl_cfg(const struct msm_hdmi_mode_timing_info *timing)
+{
+	/*  0x02C8 HDMI_FRAME_CTRL
+	 *  31 INTERLACED_EN   Interlaced or progressive enable bit
+	 *    0: Frame in progressive
+	 *    1: Frame is interlaced
+	 *  29 HSYNC_HDMI_POL  HSYNC polarity fed to HDMI core
+	 *     0: Active Hi Hsync, detect the rising edge of hsync
+	 *     1: Active lo Hsync, Detect the falling edge of Hsync
+	 *  28 VSYNC_HDMI_POL  VSYNC polarity fed to HDMI core
+	 *     0: Active Hi Vsync, detect the rising edge of vsync
+	 *     1: Active Lo Vsync, Detect the falling edge of Vsync
+	 *  12 RGB_MUX_SEL     ALPHA mdp4 input is RGB, mdp4 input is BGR
+	 */
+	HDMI_OUTP(0x02C8,
+		  ((timing->interlaced << 31) & 0x80000000)
+		| ((timing->active_low_h << 29) & 0x20000000)
+		| ((timing->active_low_v << 28) & 0x10000000));
+}
+#endif
 
 void hdmi_msm_phy_status_poll(void)
 {
