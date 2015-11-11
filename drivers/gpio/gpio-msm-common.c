@@ -662,10 +662,7 @@ void msm_gpio_show_resume_irq(void)
 		if (intstat) {
 			irq = msm_gpio_to_irq(&msm_gpio.gpio_chip, i);
 			pr_warning("[PM]GPIO triggered: %d\n", irq-NR_MSM_IRQS);
-//++Ledger
-                        gpio_resume_irq[gpio_irq_cnt]=irq-NR_MSM_IRQS;
-                        gpio_irq_cnt++;
-//--Ledger
+
 		}
 	}
 	spin_unlock_irqrestore(&tlmm_lock, irq_flags);

@@ -140,9 +140,9 @@ struct apr_client {
 
 struct apr_svc *apr_register(char *dest, char *svc_name, apr_fn svc_fn,
 					uint32_t src_port, void *priv);
-inline int apr_fill_hdr(void *handle, uint32_t *buf, uint16_t src_port,
+/*inline int apr_fill_hdr(void *handle, uint32_t *buf, uint16_t src_port,
 			uint16_t msg_type, uint16_t dest_port,
-			uint32_t token, uint32_t opcode, uint16_t len);
+			uint32_t token, uint32_t opcode, uint16_t len); */
 
 int apr_send_pkt(void *handle, uint32_t *buf);
 int apr_deregister(void *handle);

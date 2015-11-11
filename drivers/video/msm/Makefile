@@ -1,5 +1,3 @@
-KBUILD_CFLAGS += -Wno-sizeof-pointer-memaccess
-
 ifeq ($(CONFIG_FB_MSM_MDSS),y)
 obj-y += mdss/
 else

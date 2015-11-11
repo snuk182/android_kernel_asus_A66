@@ -162,10 +162,6 @@ enum {
 #define MDP_SECURE_OVERLAY_SESSION      0x00008000
 #define MDP_MEMORY_ID_TYPE_FB		0x00001000
 
-// snuk182
-#define MDP_OVERLAY_PP_CFG_EN  MDP_DPP_HSIC
-//snuk182
-
 #define MDP_TRANSP_NOP 0xffffffff
 #define MDP_ALPHA_NOP 0xff
 
@@ -286,14 +282,6 @@ struct dpp_ctrl {
 	 */
 	int8_t sharp_strength;
 	int8_t hsic_params[NUM_HSIC_PARAM];
-};
-
-enum {
-	BLEND_OP_NOT_DEFINED = 0,
-	BLEND_OP_OPAQUE,
-	BLEND_OP_PREMULTIPLIED,
-	BLEND_OP_COVERAGE,
-	BLEND_OP_MAX,
 };
 
 struct mdp_overlay {
@@ -540,4 +528,3 @@ int msm_fb_writeback_terminate(struct fb_info *info);
 #endif
 
 #endif /*_MSM_MDP_H_*/
-
