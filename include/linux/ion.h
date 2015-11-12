@@ -532,41 +532,6 @@ struct ion_custom_data {
 	unsigned int cmd;
 	unsigned long arg;
 };
-
-
-/* struct ion_flush_data - data passed to ion for flushing caches
- *
- * @handle:	handle with data to flush
- * @fd:		fd to flush
- * @vaddr:	userspace virtual address mapped with mmap
- * @offset:	offset into the handle to flush
- * @length:	length of handle to flush
- *
- * Performs cache operations on the handle. If p is the start address
- * of the handle, p + offset through p + offset + length will have
- * the cache operations performed
- */
-struct ion_flush_data {
-	struct ion_handle *handle;
-	int fd;
-	void *vaddr;
-	unsigned int offset;
-	unsigned int length;
-};
-
-/* struct ion_flag_data - information about flags for this buffer
- *
- * @handle:	handle to get flags from
- * @flags:	flags of this handle
- *
- * Takes handle as an input and outputs the flags from the handle
- * in the flag field.
- */
-struct ion_flag_data {
-	struct ion_handle *handle;
-	unsigned long flags;
-};
-
 #define ION_IOC_MAGIC		'I'
 
 /**
