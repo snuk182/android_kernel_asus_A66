@@ -33,6 +33,7 @@
 #include <linux/uaccess.h>
 #include <linux/debugfs.h>
 #include <linux/dma-buf.h>
+#include <linux/msm_ion.h>
 
 #include <mach/iommu_domains.h>
 #include "ion_priv.h"

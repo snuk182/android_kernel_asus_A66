@@ -498,6 +498,14 @@ struct mdp_mixer_info {
 	int z_order;
 };
 
+#define MDP_DISPLAY_COMMIT_OVERLAY 0x00000001
+
+struct mdp_display_commit {
+	uint32_t flags;
+	uint32_t wait_for_finish;
+	struct fb_var_screeninfo var;
+};
+
 #define MAX_PIPE_PER_MIXER  4
 
 struct msmfb_mixer_info_req {

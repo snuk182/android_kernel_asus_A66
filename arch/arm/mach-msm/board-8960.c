@@ -103,7 +103,7 @@ static int sensor_platform_init(void);
 //ASUS_BSP --- Jason Chang "9-axis sensor porting"
 
 #include <linux/smsc3503.h>
-#include <linux/ion.h>
+#include <linux/msm_ion.h>
 #include <mach/ion.h>
 #include <mach/mdm2.h>
 #include <mach/mdm-peripheral.h>
