@@ -92,9 +92,9 @@ static void show_type(struct seq_file *m, struct super_block *sb)
 static int show_vfsmnt(struct seq_file *m, struct vfsmount *mnt)
 {
 	struct mount *r = real_mount(mnt);
-	int err = 0;
 	struct path mnt_path = { .dentry = mnt->mnt_root, .mnt = mnt };
 	struct super_block *sb = mnt_path.dentry->d_sb;
+	int err;
 
 	if (sb->s_op->show_devname) {
 		err = sb->s_op->show_devname(m, mnt_path.dentry);
