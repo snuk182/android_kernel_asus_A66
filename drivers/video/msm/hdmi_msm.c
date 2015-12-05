@@ -903,67 +903,54 @@ static void hdmi_msm_send_event(boolean on)
 {
 	char *envp[2];
 
-    if (g_skipHPD && g_p01State && hdmi_exist_realtime())
-    {
-        g_skipHPD =false;
-        kobject_uevent(external_common_state->uevent_kobj,
-			KOBJ_ONLINE);
-		return;
-    }
-
-    /* QDSP OFF preceding the HPD event notification */
+	hdmi_exist_realtime();//Mickey+++, update hdmi status
+	
+	/* QDSP OFF preceding the HPD event notification */
 	envp[0] = "HDCP_STATE=FAIL";
 	envp[1] = NULL;
 	DEV_ERR("hdmi: HDMI HPD: QDSP OFF\n");
 	kobject_uevent_env(external_common_state->uevent_kobj,
 			   KOBJ_CHANGE, envp);
 
-	hdmi_exist_realtime();//Mickey+++, update hdmi status
-	if (on) {
+	if (on) { // && hdmi_exist_realtime()) {//Mickey+++, double check if hdmi exist by reading interrupt pin status
+		if (!g_pad_virtual_remove)
+            hdmi_msm_state->pd->ddc_switch(false,true);//Mickey, turn on GSBI level shifter
+        else
+            hdmi_msm_state->pd->ddc_switch(true,true);//Mickey, turn on DDC level shifter
+
 		/* Build EDID table */
 		hdmi_msm_read_edid();
-		switch_set_state(&external_common_state->sdev, 1);
-		DEV_INFO("%s: hdmi state switched to %d\n", __func__,
-				external_common_state->sdev.state);
-
-		if (hdmi_exist_realtime()) {
-			if (!g_pad_virtual_remove)
-                hdmi_msm_state->pd->ddc_switch(false,true);//Mickey, turn on GSBI level shifter
-            else
-                hdmi_msm_state->pd->ddc_switch(true,true);//Mickey, turn on DDC level shifter
-
-			/* Build EDID table */
-			hdmi_msm_read_edid();
 #ifdef CONFIG_EEPROM_NUVOTON
-            if (g_p01State)
+        if (g_p01State)
+        {
+            if (!g_disableMicroPNotify)
             {
-                if (!g_disableMicroPNotify)
-                {
-                    notify_microp_hdmi_insert();//Mickey+++
-                    g_disableMicroPNotify = true;
-                    asus_fb0_screen_suspend(true);
-                    g_fb0_off = true;
-                }
-                if (g_hdmi_isr)
-                    g_pad_insert_count++;
-                envp[0] = "PAD_STATE=P03_LR_ONLINE";
+                notify_microp_hdmi_insert();//Mickey+++
+                g_disableMicroPNotify = true;
+                asus_fb0_screen_suspend(true);
+                g_fb0_off = true;
             }
-            else
-                envp[0] = "PAD_STATE=OFFLINE";
-                envp[1] = NULL;
+            if (g_hdmi_isr)
+                g_pad_insert_count++;
+            envp[0] = "PAD_STATE=P03_LR_ONLINE";
+        }
+        else
+            envp[0] = "PAD_STATE=OFFLINE";
+            envp[1] = NULL;
 #endif
-            g_hdmi_status = 1;//joe1_++
-            g_pad_virtual_remove = false;//Mickey+++
-
-			if (g_hdmi_isr)
-            {
-                g_hdmi_insert_count++;
-                g_hdmi_isr = false;
-            }
-            g_firs_hdmi = true;		
-		}
+        g_hdmi_status = 1;//joe1_++
+        g_pad_virtual_remove = false;//Mickey+++
+		//switch_set_state(&external_common_state->sdev, 1);
+		//DEV_INFO("%s: hdmi state switched to %d\n", __func__,
+		//		external_common_state->sdev.state);
 
 		DEV_INFO("HDMI HPD: CONNECTED: send ONLINE\n");
+		if (g_hdmi_isr)
+        {
+            g_hdmi_insert_count++;
+            g_hdmi_isr = false;
+        }
+        g_firs_hdmi = true;
 		kobject_uevent(external_common_state->uevent_kobj, KOBJ_ONLINE);
 		if (!hdmi_msm_state->hdcp_enable) {
 			/* Send Audio for HDMI Compliance Cases*/
@@ -972,14 +959,20 @@ static void hdmi_msm_send_event(boolean on)
 			DEV_INFO("HDMI HPD: sense : send HDCP_PASS\n");
 			kobject_uevent_env(external_common_state->uevent_kobj,
 				KOBJ_CHANGE, envp);
+			switch_set_state(&external_common_state->sdev, 1);
+			DEV_INFO("%s: hdmi state switched to %d\n", __func__,
+					external_common_state->sdev.state);
 		}
 	} else {
+#if 0
 		switch_set_state(&external_common_state->sdev, 0);
 		DEV_INFO("%s: hdmi state switch to %d\n", __func__,
 				external_common_state->sdev.state);
-
-		if (!hdmi_exist_realtime()) {
-			//Mickey+++
+		DEV_INFO("hdmi: HDMI HPD: sense DISCONNECTED: send OFFLINE\n");
+		kobject_uevent(external_common_state->uevent_kobj,
+			KOBJ_OFFLINE);
+#else
+		//Mickey+++
             if (!g_pad_virtual_remove)
             {
                 if (g_p01State)
@@ -1002,14 +995,20 @@ static void hdmi_msm_send_event(boolean on)
                     g_hdmi_remove_count++;
                     g_hdmi_isr = false;
                 }
-			}
+				//switch_set_state(&external_common_state->sdev, 0);
+				//DEV_INFO("Hdmi state switched to %d: %s\n",
+				//	external_common_state->sdev.state,  __func__);
+
+				switch_set_state(&external_common_state->sdev, 0);
+				DEV_INFO("%s: hdmi state switch to %d\n", __func__,
+						external_common_state->sdev.state);
+				DEV_INFO("hdmi: HDMI HPD: sense DISCONNECTED: send OFFLINE\n");
+				kobject_uevent(external_common_state->uevent_kobj,
+					KOBJ_OFFLINE);
+            }
             g_hdmi_status = 0;//joe1_++
             //Mickey---
-		}
-
-		DEV_INFO("hdmi: HDMI HPD: sense DISCONNECTED: send OFFLINE\n");
-		kobject_uevent(external_common_state->uevent_kobj,
-			KOBJ_OFFLINE);
+#endif
 	}
 	write_hdmi_counter();
 }
@@ -1020,6 +1019,12 @@ static void hdmi_msm_hpd_state_work(struct work_struct *work)
 		DEV_ERR("hdmi: %s: ignored, probe failed\n", __func__);
 		return;
 	}
+
+	if (g_skipHPD && g_p01State && hdmi_exist_realtime())
+    {
+        g_skipHPD =false;
+        return;
+    }
 
 	hdmi_msm_send_event(external_common_state->hpd_state);
 }
@@ -4656,7 +4661,7 @@ static int hdmi_msm_hpd_on(void)
 			}
 			g_hdp_feature_changed = false;
 	    }
-    //Mickey---
+    	//Mickey---
 		hdmi_msm_dump_regs("HDMI-INIT: ");
 
 		hdmi_msm_set_mode(FALSE);

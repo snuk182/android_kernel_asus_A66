@@ -72,4 +72,5 @@ obj-$(CONFIG_QFP_FUSE) += qfp_fuse.o
 obj-$(CONFIG_HALL_SENSOR) += hall_sensor.o
 obj-$(CONFIG_MPU_SENSORS_MPU3050)	+= mpu3050/
 obj-$(CONFIG_MPU_SENSORS_MPU6050B1)	+= mpu6050/
+obj-$(CONFIG_UID_CPUTIME) += uid_cputime.o
 #snuk182 !!
