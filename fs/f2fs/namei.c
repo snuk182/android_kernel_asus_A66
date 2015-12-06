@@ -262,6 +262,21 @@ static struct dentry *f2fs_lookup(struct inode *dir, struct dentry *dentry,
 	int err = 0;
 	unsigned int root_ino = F2FS_ROOT_INO(F2FS_I_SB(dir));
 
+	if (f2fs_encrypted_inode(dir)) {
+		int res = fscrypt_get_encryption_info(dir);
+
+		/*
+		 * DCACHE_ENCRYPTED_WITH_KEY is set if the dentry is
+		 * created while the directory was encrypted and we
+		 * don't have access to the key.
+		 */
+		if (fscrypt_has_encryption_key(dir))
+			fscrypt_set_encrypted_dentry(dentry);
+		fscrypt_set_d_op(dentry);
+		if (res && res != -ENOKEY)
+			return ERR_PTR(res);
+	}
+
 	if (dentry->d_name.len > F2FS_NAME_LEN)
 		return ERR_PTR(-ENAMETOOLONG);
 
@@ -288,10 +303,18 @@ static struct dentry *f2fs_lookup(struct inode *dir, struct dentry *dentry,
 		if (err)
 			goto err_out;
 	}
+	if (!IS_ERR(inode) && f2fs_encrypted_inode(dir) &&
+			(S_ISDIR(inode->i_mode) || S_ISLNK(inode->i_mode)) &&
+			!fscrypt_has_permitted_context(dir, inode)) {
+		bool nokey = f2fs_encrypted_inode(inode) &&
+			!fscrypt_has_encryption_key(inode);
+		err = nokey ? -ENOKEY : -EPERM;
+		goto err_out;
+	}
 	return d_splice_alias(inode, dentry);
 
 err_out:
-	iget_failed(inode);
+	iput(inode);
 	return ERR_PTR(err);
 }
 
@@ -738,12 +761,6 @@ static void *f2fs_encrypted_follow_link(struct dentry *dentry,
 		goto errout;
 	}
 
-	/* this is broken symlink case */
-	if (unlikely(cstr.name[0] == 0)) {
-		res = -ENOENT;
-		goto errout;
-	}
-
 	if ((cstr.len + sizeof(struct fscrypt_symlink_data) - 1) > max_size) {
 		/* Symlink data on the disk is corrupted */
 		res = -EIO;
@@ -756,6 +773,12 @@ static void *f2fs_encrypted_follow_link(struct dentry *dentry,
 	res = fscrypt_fname_disk_to_usr(inode, 0, 0, &cstr, &pstr);
 	if (res < 0)
 		goto errout;
+
+	/* this is broken symlink case */
+	if (unlikely(pstr.name[0] == 0)) {
+		res = -ENOENT;
+		goto errout;
+	}
 
 	paddr = pstr.name;
 

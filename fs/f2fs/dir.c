@@ -17,8 +17,8 @@
 
 static unsigned long dir_blocks(struct inode *inode)
 {
-	return ((unsigned long long) (i_size_read(inode) + PAGE_CACHE_SIZE - 1))
-							>> PAGE_CACHE_SHIFT;
+	return ((unsigned long long) (i_size_read(inode) + PAGE_SIZE - 1))
+							>> PAGE_SHIFT;
 }
 
 static unsigned int dir_buckets(unsigned int level, int dir_level)
@@ -101,11 +101,6 @@ static struct f2fs_dir_entry *find_in_block(struct page *dentry_page,
 	else
 		kunmap(dentry_page);
 
-	/*
-	 * For the most part, it should be a bug when name_len is zero.
-	 * We stop here for figuring out where the bugs has occurred.
-	 */
-	f2fs_bug_on(F2FS_P_SB(dentry_page), d.max < 0);
 	return de;
 }
 
@@ -130,6 +125,11 @@ struct f2fs_dir_entry *find_target_dentry(struct fscrypt_name *fname,
 
 		de = &d->dentry[bit_pos];
 
+		if (unlikely(!de->name_len)) {
+			bit_pos++;
+			continue;
+		}
+
 		/* encrypted case */
 		de_name.name = d->filename[bit_pos];
 		de_name.len = le16_to_cpu(de->name_len);
@@ -146,10 +146,6 @@ struct f2fs_dir_entry *find_target_dentry(struct fscrypt_name *fname,
 		if (max_slots && max_len > *max_slots)
 			*max_slots = max_len;
 		max_len = 0;
-
-		/* remain bug on condition */
-		if (unlikely(!de->name_len))
-			d->max = -1;
 
 		bit_pos += GET_DENTRY_SLOTS(le16_to_cpu(de->name_len));
 	}
@@ -347,24 +343,14 @@ int update_dent_inode(struct inode *inode, struct inode *to,
 void do_make_empty_dir(struct inode *inode, struct inode *parent,
 					struct f2fs_dentry_ptr *d)
 {
-	struct f2fs_dir_entry *de;
+	struct qstr dot = QSTR_INIT(".", 1);
+	struct qstr dotdot = QSTR_INIT("..", 2);
 
-	de = &d->dentry[0];
-	de->name_len = cpu_to_le16(1);
-	de->hash_code = 0;
-	de->ino = cpu_to_le32(inode->i_ino);
-	memcpy(d->filename[0], ".", 1);
-	set_de_type(de, inode->i_mode);
+	/* update dirent of "." */
+	f2fs_update_dentry(inode->i_ino, inode->i_mode, d, &dot, 0, 0);
 
-	de = &d->dentry[1];
-	de->hash_code = 0;
-	de->name_len = cpu_to_le16(2);
-	de->ino = cpu_to_le32(parent->i_ino);
-	memcpy(d->filename[1], "..", 2);
-	set_de_type(de, parent->i_mode);
-
-	test_and_set_bit_le(0, (void *)d->bitmap);
-	test_and_set_bit_le(1, (void *)d->bitmap);
+	/* update dirent of ".." */
+	f2fs_update_dentry(parent->i_ino, parent->i_mode, d, &dotdot, 0, 1);
 }
 
 static int make_empty_dir(struct inode *inode,
@@ -405,9 +391,14 @@ struct page *init_inode_metadata(struct inode *inode, struct inode *dir,
 			return page;
 
 		if (S_ISDIR(inode->i_mode)) {
+			/* in order to handle error case */
+			get_page(page);
 			err = make_empty_dir(inode, dir, page);
-			if (err)
-				goto error;
+			if (err) {
+				lock_page(page);
+				goto put_error;
+			}
+			put_page(page);
 		}
 
 		err = f2fs_init_acl(inode, dir, page, dpage);
@@ -451,13 +442,12 @@ struct page *init_inode_metadata(struct inode *inode, struct inode *dir,
 	return page;
 
 put_error:
-	f2fs_put_page(page, 1);
-error:
-	/* once the failed inode becomes a bad inode, i_mode is S_IFREG */
+	/* truncate empty dir pages */
 	truncate_inode_pages(&inode->i_data, 0);
-	truncate_blocks(inode, 0, false);
-	remove_dirty_inode(inode);
-	remove_inode_page(inode);
+
+	clear_nlink(inode);
+	update_inode(inode, page);
+	f2fs_put_page(page, 1);
 	return ERR_PTR(err);
 }
 
@@ -551,6 +541,10 @@ int f2fs_add_regular_entry(struct inode *dir, const struct qstr *new_name,
 	}
 
 start:
+#ifdef CONFIG_F2FS_FAULT_INJECTION
+	if (time_to_inject(FAULT_DIR_DEPTH))
+		return -ENOSPC;
+#endif
 	if (unlikely(current_depth == MAX_DIR_HASH_DEPTH))
 		return -ENOSPC;
 
@@ -866,7 +860,7 @@ static int f2fs_readdir(struct file *file, void *dirent, filldir_t filldir)
 
 	if (f2fs_encrypted_inode(inode)) {
 		err = fscrypt_get_encryption_info(inode);
-		if (err)
+		if (err && err != -ENOKEY)
 			return err;
 
 		err = fscrypt_fname_alloc_buffer(inode, F2FS_NAME_LEN, &fstr);
@@ -913,6 +907,7 @@ static int f2fs_readdir(struct file *file, void *dirent, filldir_t filldir)
 		kunmap(dentry_page);
 		f2fs_put_page(dentry_page, 1);
 	}
+	err = 0;
 out:
 	fscrypt_fname_free_buffer(&fstr);
 	return err;

@@ -51,7 +51,7 @@ void read_inline_data(struct page *page, struct page *ipage)
 
 	f2fs_bug_on(F2FS_P_SB(page), page->index);
 
-	zero_user_segment(page, MAX_INLINE_DATA, PAGE_CACHE_SIZE);
+	zero_user_segment(page, MAX_INLINE_DATA, PAGE_SIZE);
 
 	/* Copy the whole inline data block */
 	src_addr = inline_data_addr(ipage);
@@ -93,7 +93,7 @@ int f2fs_read_inline_data(struct inode *inode, struct page *page)
 	}
 
 	if (page->index)
-		zero_user_segment(page, 0, PAGE_CACHE_SIZE);
+		zero_user_segment(page, 0, PAGE_SIZE);
 	else
 		read_inline_data(page, ipage);
 
@@ -161,7 +161,7 @@ int f2fs_convert_inline_inode(struct inode *inode)
 	if (!f2fs_has_inline_data(inode))
 		return 0;
 
-	page = grab_cache_page(inode->i_mapping, 0);
+	page = f2fs_grab_cache_page(inode->i_mapping, 0, false);
 	if (!page)
 		return -ENOMEM;
 
@@ -303,11 +303,6 @@ struct f2fs_dir_entry *find_in_inline_dir(struct inode *dir,
 	else
 		f2fs_put_page(ipage, 0);
 
-	/*
-	 * For the most part, it should be a bug when name_len is zero.
-	 * We stop here for figuring out where the bugs has occurred.
-	 */
-	f2fs_bug_on(sbi, d.max < 0);
 	return de;
 }
 
@@ -363,7 +358,7 @@ static int f2fs_move_inline_dirents(struct inode *dir, struct page *ipage,
 	struct f2fs_dentry_block *dentry_blk;
 	int err;
 
-	page = grab_cache_page(dir->i_mapping, 0);
+	page = f2fs_grab_cache_page(dir->i_mapping, 0, false);
 	if (!page) {
 		f2fs_put_page(ipage, 1);
 		return -ENOMEM;
@@ -375,7 +370,7 @@ static int f2fs_move_inline_dirents(struct inode *dir, struct page *ipage,
 		goto out;
 
 	f2fs_wait_on_page_writeback(page, DATA, true);
-	zero_user_segment(page, MAX_INLINE_DATA, PAGE_CACHE_SIZE);
+	zero_user_segment(page, MAX_INLINE_DATA, PAGE_SIZE);
 
 	dentry_blk = kmap_atomic(page);
 
@@ -405,8 +400,9 @@ static int f2fs_move_inline_dirents(struct inode *dir, struct page *ipage,
 	stat_dec_inline_dir(dir);
 	clear_inode_flag(F2FS_I(dir), FI_INLINE_DENTRY);
 
-	if (i_size_read(dir) < PAGE_CACHE_SIZE) {
-		i_size_write(dir, PAGE_CACHE_SIZE);
+	F2FS_I(dir)->i_current_depth = 1;
+	if (i_size_read(dir) < PAGE_SIZE) {
+		i_size_write(dir, PAGE_SIZE);
 		set_inode_flag(F2FS_I(dir), FI_UPDATE_DIR);
 	}
 
@@ -437,6 +433,12 @@ static int f2fs_add_inline_entries(struct inode *dir,
 		}
 
 		de = &d.dentry[bit_pos];
+
+		if (unlikely(!de->name_len)) {
+			bit_pos++;
+			continue;
+		}
+
 		new_name.name = d.filename[bit_pos];
 		new_name.len = de->name_len;
 
@@ -447,9 +449,6 @@ static int f2fs_add_inline_entries(struct inode *dir,
 							ino, fake_mode);
 		if (err)
 			goto punch_dentry_pages;
-
-		if (unlikely(!de->name_len))
-			d.max = -1;
 
 		bit_pos += GET_DENTRY_SLOTS(le16_to_cpu(de->name_len));
 	}
@@ -465,12 +464,15 @@ static int f2fs_move_rehashed_dirents(struct inode *dir, struct page *ipage,
 				struct f2fs_inline_dentry *inline_dentry)
 {
 	struct f2fs_inline_dentry *backup_dentry;
+	struct f2fs_inode_info *fi = F2FS_I(dir);
 	int err;
 
 	backup_dentry = f2fs_kmalloc(sizeof(struct f2fs_inline_dentry),
 							GFP_F2FS_ZERO);
-	if (!backup_dentry)
+	if (!backup_dentry) {
+		f2fs_put_page(ipage, 1);
 		return -ENOMEM;
+	}
 
 	memcpy(backup_dentry, inline_dentry, MAX_INLINE_DATA);
 	truncate_inline_inode(ipage, 0);
@@ -484,13 +486,14 @@ static int f2fs_move_rehashed_dirents(struct inode *dir, struct page *ipage,
 	lock_page(ipage);
 
 	stat_dec_inline_dir(dir);
-	clear_inode_flag(F2FS_I(dir), FI_INLINE_DENTRY);
+	clear_inode_flag(fi, FI_INLINE_DENTRY);
 	update_inode(dir, ipage);
 	kfree(backup_dentry);
 	return 0;
 recover:
 	lock_page(ipage);
 	memcpy(inline_dentry, backup_dentry, MAX_INLINE_DATA);
+	fi->i_current_depth = 0;
 	i_size_write(dir, MAX_INLINE_DATA);
 	update_inode(dir, ipage);
 	f2fs_put_page(ipage, 1);
