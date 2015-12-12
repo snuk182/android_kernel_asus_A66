@@ -61,7 +61,6 @@
 #include <linux/microp_pin_def.h>
 #include <linux/microp.h>
 #include <linux/fs.h>
-#include <linux/earlysuspend.h>
 #include <linux/mutex.h>
 #ifdef CONFIG_ASUSEC
 #include <linux/asus_ec_info.h>
@@ -493,58 +492,6 @@ static void msm_otg_late_resume_work(struct work_struct *w)
 	
 	
 }
-
-static void usb_pad_hub_early_suspend(struct early_suspend *h)
-{
-	struct msm_otg *motg = the_msm_otg;
-	struct usb_phy *phy = &motg->phy;
-
-	if (g_host_mode && AX_MicroP_IsP01Connected() && hdmi_exist()) {
-		dev_info(phy->dev, "%s()+++\n", __func__);
-		printk("%s()+++\n", __func__);
-		wake_lock_timeout(&early_suspend_wlock, 5 * HZ);
-		cancel_work_sync(&late_resume_work);
-		queue_delayed_work_on(0, early_suspend_delay_wq, &early_suspend_delay_work, 4 * HZ);
-		printk("%s()---\n", __func__);
-		dev_info(phy->dev, "%s()---\n", __func__);
-	}
-}
-
-static void usb_pad_hub_late_resume(struct early_suspend *h)
-{
-	struct msm_otg *motg = the_msm_otg;
-	struct usb_phy *phy = &motg->phy;
-
-	if (g_host_mode && AX_MicroP_IsP01Connected() && hdmi_exist()) {
-		dev_info(phy->dev, "%s()+++\n", __func__);
-		printk("%s()+++\n", __func__);
-		cancel_delayed_work_sync(&early_suspend_delay_work);
-		if (g_suspend_delay_work_run) {
-			queue_work(system_nrt_wq, &late_resume_work);
-			g_suspend_delay_work_run = 0;
-		}
-
-//		msm_otg_set_microp_mode(MICROP_ACTIVE);
-/*
-		if (!msm_otg_get_pad_cbus_en()) {
-			msm_otg_set_pad_cbus_en(1);
-		}
-*/
-		msm_otg_set_pad_hub_power(1);
-		msm_otg_set_pad_camera_power(1);
-#ifdef CONFIG_ASUSEC
-		asusec_sus_res_callback(1);
-#endif
-		printk("%s()---\n", __func__);
-		dev_info(phy->dev, "%s()---\n", __func__);
-	}
-}
-
-struct early_suspend usb_pad_hub_early_suspend_handler = {
-    .level = EARLY_SUSPEND_LEVEL_BLANK_SCREEN,
-    .suspend = usb_pad_hub_early_suspend,
-    .resume = usb_pad_hub_late_resume,
-};
 //ASUS_BSP--- BennyCheng "usb host porting for pad mode"
 
 static struct regulator *hsusb_3p3;
@@ -4818,7 +4765,6 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 
 	motg->otg_mode = USB_AUTO;
 	register_microp_notifier(&usb_otg_microp_notifier);
-	register_early_suspend(&usb_pad_hub_early_suspend_handler);
 
 	//ASUS_BSP--- BennyCheng "usb host porting for pad mode"
 
@@ -5031,7 +4977,6 @@ static int __devexit msm_otg_remove(struct platform_device *pdev)
 	destroy_workqueue(microp_cb_delay_wq);
 
 	unregister_microp_notifier(&usb_otg_microp_notifier);
-	unregister_early_suspend(&usb_pad_hub_early_suspend_handler);
 
 	wake_lock_destroy(&early_suspend_wlock);
 

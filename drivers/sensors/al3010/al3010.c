@@ -11,10 +11,6 @@
 #include <linux/miscdevice.h>
 #include <linux/switch.h>
 
-#ifdef CONFIG_HAS_EARLYSUSPEND
-#include <linux/earlysuspend.h> 
-#endif
-
 #define AL3010_DRV_NAME	"al3010_light_sensor"
 #define DRIVER_VERSION		"1.0"
 
@@ -81,8 +77,6 @@ bool g_al3010_switch_on = false;
 static int g_AlsP01ProbeError = 0xff;
 
 static int g_last_report_lux = 0;
-static int g_al3010_switch_earlysuspend = 0;
-static int g_ambient_suspended = 0;
 static int g_al3010_light = 0;
 static int g_last_al3010_light = 0;
 static u16 g_al3010_light_calibration_fval_x1000 = 5120;
@@ -851,59 +845,6 @@ static int al3010_init_client(struct i2c_client *client)
 	return 0;
 }
 
-#ifdef CONFIG_HAS_EARLYSUSPEND
-static void al3010_early_suspend(struct early_suspend *handler)
-{
-    printk(DBGMSK_PRX_G2"[als_P01] ++al3010_early_suspend, als:%d\n", g_al3010_switch_on);
-
-    g_al3010_switch_earlysuspend = 1;
-    g_polling_count = 0;
-
-    if(1 == g_al3010_switch_on) {
-        //In case upper layer doesn't switch off ambient before early_suspend.
-        g_ambient_suspended = 1;
-
-        printk(DBGMSK_PRX_G2"[als_P01] al3010_early_suspend, turn off ambient\n");
-
-        set_als_power_state_of_P01(0);
-    }
-
-    printk(DBGMSK_PRX_G2"[als_P01] --al3010_early_suspend\n");
-}
-
-
-static void al3010_late_resume(struct early_suspend *handler)
-{
-    printk(DBGMSK_PRX_G2"[als_P01] ++al3010_late_resume, als:%d\n", g_al3010_switch_on);
-
-    if(1 == g_ambient_suspended) {
-        printk(DBGMSK_PRX_G2"[als_P01] al3010_late_resume, P01 attached: %d\n", g_bIsP01Attached);
-
-        if(g_bIsP01Attached) {
-           printk(DBGMSK_PRX_G2"[als_P01] al3010_late_resume, turn on ALS\n");
-           set_als_power_state_of_P01(1);
-
-            //[SCR] Fix bug that causes exception
-            //printk(DBGMSK_PRX_G2"[als_P01] al3010_late_resume: start light_poll_work\n");
-        }
-
-        printk(DBGMSK_PRX_G2"[als_P01] al3010_late_resume, P01 not attached\n");
-        g_ambient_suspended = 0;
-    }
-
-    g_al3010_switch_earlysuspend=0;
-
-    printk(DBGMSK_PRX_G2"[als_P01]--al3010_late_resume\n");
-}
-
-
-static struct early_suspend al3010_early_suspend_desc = {
-    .level = EARLY_SUSPEND_LEVEL_BLANK_SCREEN,
-    .suspend = al3010_early_suspend,
-    .resume = al3010_late_resume,
-};
-#endif
-
 /*
  * I2C layer
  */
@@ -978,10 +919,6 @@ static int __devinit al3010_probe(struct i2c_client *client,
         }
 //--Louis
 */
-#ifdef CONFIG_HAS_EARLYSUSPEND
-    register_early_suspend( &al3010_early_suspend_desc );
-#endif
-
     g_AlsP01ProbeError = 0;
 
 
@@ -1005,10 +942,6 @@ static int __devexit al3010_remove(struct i2c_client *client)
 	al3010_set_power_state(client, 0);
     switch_dev_unregister(&ls_switch_dev);
 	kfree(i2c_get_clientdata(client));
-
-#ifdef CONFIG_HAS_EARLYSUSPEND
-    unregister_early_suspend( &al3010_early_suspend_desc );
-#endif
 	return 0;
 }
 

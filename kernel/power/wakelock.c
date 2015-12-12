@@ -228,10 +228,6 @@ void print_active_locks(int type)
 			if (timeout > 0) {
 				pr_info("[PM]active wake lock %s, time left %ld\n",
 					lock->name, timeout);
-//++Ledger
-                                if (pm_new_state==PM_SUSPEND_MEM)
-                                        ASUSEvtlog("[PM]active wake lock: %s, time left %ld\n", lock->name, timeout);
-//--Ledger
                         }
 			else if (print_expired)
 				pr_info("[PM]wake lock %s, expired\n", lock->name);
@@ -239,8 +235,6 @@ void print_active_locks(int type)
 			pr_info("[PM]active wake lock %s\n", lock->name);
 //++Ledger
                         active_wake_lock=lock->name;
-                        if (pm_new_state==PM_SUSPEND_MEM)
-                                ASUSEvtlog("[PM]active wake lock: %s\n", lock->name);
 //--Ledger
 			if (!(debug_mask & DEBUG_EXPIRE))
 				print_expired = false;
@@ -264,7 +258,7 @@ static long has_wake_lock_locked(int type)
 			}
 			else if (timeout > max_timeout) {
 				//[CY][+++]Modify for wakelock workaround
-				if ((b_is_power_manager_lock==1) && (pm_new_state==PM_SUSPEND_MEM) && (strcmp(lock->name, "PowerManagerService")==0)) {
+				if ((b_is_power_manager_lock==1) && (strcmp(lock->name, "PowerManagerService")==0)) {
 					IsPowerManager=1;
 				}
 				//[CY][---]Modify for wakelock workaround
@@ -273,7 +267,7 @@ static long has_wake_lock_locked(int type)
 		} 
 		else {
 			//[CY][+++]Modify for wakelock workaroundtimeout
-			if ((b_is_power_manager_lock==1) && (pm_new_state==PM_SUSPEND_MEM) && (strcmp(lock->name, "PowerManagerService")==0)) {
+			if ((b_is_power_manager_lock==1) && (strcmp(lock->name, "PowerManagerService")==0)) {
 				IsPowerManager=1;
 			}				
 			else {

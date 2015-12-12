@@ -16,7 +16,6 @@
 #include <linux/list.h>
 //#include <linux/asus_ver.h>
 #include <linux/syscalls.h>
-#include <linux/earlysuspend.h> 
 #include <linux/delay.h>
 #include <linux/module.h>
 #include <asm/uaccess.h>
@@ -1223,24 +1222,6 @@ static const struct file_operations proc_asusdebug_operations = {
     .release    = asusdebug_release,
 };
 
-static void asusdebug_early_suspend(struct early_suspend *h)
-{
-    entering_suspend = 1;
-    
-}
-
-static void asusdebug_early_resume(struct early_suspend *h)
-{
-    entering_suspend = 0;
-}
-EXPORT_SYMBOL(entering_suspend);
-
-struct early_suspend asusdebug_early_suspend_handler = {
-    .level = EARLY_SUSPEND_LEVEL_BLANK_SCREEN,
-    .suspend = asusdebug_early_suspend,
-    .resume = asusdebug_early_resume,
-};
-
 static int __init proc_asusdebug_init(void)
 {
 
@@ -1251,8 +1232,6 @@ static int __init proc_asusdebug_init(void)
     mutex_init(&mA);
     //spin_lock_init(&spinlock_eventlog);
     ASUSEvtlog_workQueue  = create_singlethread_workqueue("ASUSEVTLOG_WORKQUEUE");
-
-    register_early_suspend(&asusdebug_early_suspend_handler);
     
     return 0;
 }

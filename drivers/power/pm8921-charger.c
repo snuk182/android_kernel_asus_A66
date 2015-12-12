@@ -42,7 +42,6 @@
 #endif /* CONFIG_EEPROM_NUVOTON */
 #include <linux/asus_bat.h>
 #include <linux/asus_chg.h>
-#include <linux/earlysuspend.h> 
 //#include <linux/mutex.h>
 #define CHK_STATUS_CHECK_PERIOD_S	100 //100 S
 #define DELAY_FOR_CHK_STATUS	5// 5S, because the temp state of pmic, will be stable in 2 sec
@@ -5563,57 +5562,6 @@ static int pm8921_charger_suspend(struct device *dev)
 
 	return 0;
 }
-
-//ASUS_BSP+++ 
-static void pm8921_early_suspend(struct early_suspend *h)
-{
-    printk("%s+++\r\n",__FUNCTION__);
-    if(g_A60K_hwID >=A66_HW_ID_ER2){
-
-            return;
-    }
-    
-    if(is_chg_plugged_in(the_chip)){
-        if (delayed_work_pending(&the_chip->chg_status_check_work)){
-            
-            cancel_delayed_work_sync(&the_chip->chg_status_check_work);
-        }
-    }
-    printk("%s---\r\n",__FUNCTION__);
-}
-
-static void pm8921_late_resume(struct early_suspend *h)
-{
-    printk("%s+++\r\n",__FUNCTION__);
-
-    if(g_A60K_hwID >=A66_HW_ID_ER2){
-
-            return;
-    }
-
-    
-    if(is_chg_plugged_in(the_chip)){
-        if (!delayed_work_pending(&the_chip->chg_status_check_work)){
-
-
-            printk("Re-sche checking state worker...\r\n");
-            schedule_delayed_work(&the_chip->chg_status_check_work,
-                          DELAY_FOR_CHK_STATUS_IN_RESUME*HZ);
-
-        }
-    }
-    printk("%s---\r\n",__FUNCTION__);
-
-}
-
-struct early_suspend pm8921_early_suspend_handler = {
-    .level = EARLY_SUSPEND_LEVEL_BLANK_SCREEN,
-    .suspend = pm8921_early_suspend,
-    .resume = pm8921_late_resume,
-};
-//ASUS BSP---  
-
-
 static int __devinit pm8921_charger_probe(struct platform_device *pdev)
 {
 	int rc = 0;
@@ -5888,8 +5836,6 @@ if (is_chg_plugged_in(chip)==1 && asus_chg_get_chg_mode()!=2){
     chip->chgdone_reported  = false;
 
     chip->fastchg_done = false;
-
-    register_early_suspend(&pm8921_early_suspend_handler);
 
 //ASUS BSP--- Eason notify BatteryService 
 //ASUS BSP +++ Eason Chang add BAT global variable

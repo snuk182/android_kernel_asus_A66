@@ -30,9 +30,6 @@
 //ASUS_BSP  +++ Eason_Chang "add BAT info time"
 #include <linux/rtc.h>
 //ASUS_BSP  --- Eason_Chang "add BAT info time"
-//ASUS_BSP  +++ Eason_Chang "add BAT earlysuspend"
-#include <linux/earlysuspend.h> 
-//ASUS_BSP  --- Eason_Chang "add BAT earlysuspend"
 
 //ASUS_BSP +++ Josh_Liao "sw gauge v2"
 #include "../power/gauge/test_gauge.h"
@@ -1975,10 +1972,6 @@ static void asus_onBatteryRemoved(int Batmov_state)
     loService->onBatteryRemoved(loService,Batmov_state);
 }
 */
-static void asus_onBatteryDockSuspend(void)
-{
-    loService->dockSuspend(loService);
-}
 static void asus_onBatterySuspend(void)
 {
     loService->suspend(loService);
@@ -1988,12 +1981,6 @@ static void asus_onBatteryResume(void)
 {
     loService->resume(loService, 0);
 }
-
-static void asus_onBatteryForceResume(void)
-{
-    loService->forceResume(loService, 0);
-}
-
 void AfterthawProcessResumeBatteryService(void)
 {   
     printk("[BAT]thaw Process\n");
@@ -3109,25 +3096,6 @@ static int asus_battery_resume(struct device *dev)
       
     return 0;
 }
-//ASUS BSP+++  Eason_Chang  SW gauge resume
-static void asus_battery_early_suspend(struct early_suspend *h)
-{
-	//printk("[BAT]asus_battery_early_suspend\r\n");
-	asus_onBatteryDockSuspend();
-}
-
-static void asus_battery_late_resume(struct early_suspend *h)
-{
-	printk("[BAT]late_resume\r\n");
-	asus_onBatteryForceResume();
-}
-
-struct early_suspend asus_battery_early_suspend_handler = {
-    .level = EARLY_SUSPEND_LEVEL_BLANK_SCREEN,
-    .suspend = asus_battery_early_suspend,
-    .resume = asus_battery_late_resume,
-};
-//ASUS BSP---  Eason_Chang SW gauge resume
 
 /* Network device notifier chain handler. */
 static int bat_low_alarm(struct notifier_block *this, unsigned long event,
@@ -3333,10 +3301,6 @@ printk("!!!!! loService.forceResume = %p\n", loService->forceResume);
     //Eason Calculate Cap after judge BatLow---
     
 	asus_bat_create_bat_proc_file();
-
-//ASUS BSP+++  Eason_Chang  SW gauge resume
-    register_early_suspend(&asus_battery_early_suspend_handler);
-//ASUS BSP---  Eason_Chang  SW gauge resume
 
 //ASUS BSP Eason Chang coincell+++
     pm8xxx_coincell_chg_config(&bat_chg_config);

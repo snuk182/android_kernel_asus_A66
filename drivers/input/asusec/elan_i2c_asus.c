@@ -10,7 +10,6 @@
 #include <linux/workqueue.h>
 #include <linux/cdev.h>
 #include <linux/gpio_event.h>
-#include <linux/earlysuspend.h>
 #include <linux/freezer.h>
 #include <linux/time.h>
 #include <linux/timer.h>

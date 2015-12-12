@@ -35,11 +35,6 @@
 #include <linux/proc_fs.h>
 #include <linux/microp_notify.h>
 
-#if defined(CONFIG_HAS_EARLYSUSPEND)
-#include <linux/earlysuspend.h>
-#endif
-
-
 static int g_driver_initialized=0;
 static int g_p01_status=0;
 static int g_p01_pre_status=0;
@@ -355,22 +350,6 @@ static int hall_sensor_resume(struct platform_device *pdev)
 	return 0;
 }
 
-#if defined(CONFIG_HAS_EARLYSUSPEND)
-struct early_suspend early_suspend;
-
-static void hs_early_suspend(struct early_suspend *h)
-{
-	printk("[hallsensor] early suspend ++\r\n");
-	g_is_suspend = 1;
-}
-
-static void hs_late_resume(struct early_suspend *h)
-{
-	printk("[hallsensor] late resume ++\r\n");
-	g_is_suspend = 0;
-}
-#endif
-
 static int __devinit hall_sensor_probe(struct platform_device *pdev)
 {
 	struct resource *res;
@@ -513,11 +492,6 @@ static int __devinit hall_sensor_probe(struct platform_device *pdev)
 		entry->read_proc = rf_switch_read_proc;
 		entry->write_proc = rf_switch_write_proc;
 	}
-	
-	early_suspend.level = 1;
-	early_suspend.suspend = hs_early_suspend;
-	early_suspend.resume = hs_late_resume;
-	register_early_suspend(&early_suspend);
 	
 	register_microp_notifier(&hs_mp_notifier);
 	
