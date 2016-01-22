@@ -514,7 +514,7 @@ void mdp4_writeback_overlay(struct msm_fb_data_type *mfd)
 	struct vsycn_ctrl *vctrl;
 	struct mdp4_overlay_pipe *pipe;
 
-	if (mfd && mdp_fb_is_power_off(mfd))
+	if (!mfd || mdp_fb_is_power_off(mfd))
 		return;
 
 	pr_debug("%s:+ mfd=%x\n", __func__, (int)mfd);
@@ -558,7 +558,7 @@ static struct msmfb_writeback_data_list *get_if_registered(
 		list_for_each_entry(temp,
 				&mfd->writeback_register_queue,
 				registered_entry) {
-			if (temp && temp->buf_info.iova == data->iova) {
+			if (temp->buf_info.iova == data->iova) {
 				found = true;
 				break;
 			}
@@ -792,7 +792,7 @@ static int mdp4_wfd_dequeue_update(struct msm_fb_data_type *mfd,
 	struct mdp4_overlay_pipe *pipe;
 	struct msmfb_writeback_data_list *node = NULL;
 
-	if (mfd && mdp_fb_is_power_off(mfd))
+	if (!mfd || mdp_fb_is_power_off(mfd))
 		return -EPERM;
 
 	pr_debug("%s:+ mfd=%x\n", __func__, (int)mfd);
@@ -846,7 +846,7 @@ static void mdp4_wfd_queue_wakeup(struct msm_fb_data_type *mfd,
 			struct msmfb_writeback_data_list *node)
 {
 
-	if (mfd && mdp_fb_is_power_off(mfd))
+	if (!mfd || mdp_fb_is_power_off(mfd))
 		return;
 
 	if (node == NULL)
