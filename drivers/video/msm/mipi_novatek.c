@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2012, 2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -778,7 +778,8 @@ static void mipi_novatek_set_backlight(struct msm_fb_data_type *mfd)
 		printk("[backlight] input=%d, value=%d, index=%d\n", mfd->bl_level, value, index);
 	}
 	return;	// +++ ASUS_BSP : miniporting
-	if ((mipi_novatek_pdata->enable_wled_bl_ctrl)
+
+	if ((mipi_novatek_pdata && mipi_novatek_pdata->enable_wled_bl_ctrl)
 	    && (wled_trigger_initialized)) {
 		led_trigger_event(bkl_led_trigger, mfd->bl_level);
 		return;
