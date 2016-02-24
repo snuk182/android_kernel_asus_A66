@@ -1064,7 +1064,6 @@ asmlinkage int vprintk(const char *fmt, va_list args)
 		p[1]='8';
 		p[2]='>';
 	}
-// ASUS_BSP ---
 
 	/* Read log level and handle special printk prefix */
 	plen = log_prefix(p, &current_log_level, &special);

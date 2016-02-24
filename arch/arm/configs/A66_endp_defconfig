@@ -348,6 +348,7 @@ CONFIG_MSM_REMOTE_SPINLOCK_SFPB=y
 #
 # MSM Board Selection
 #
+<<<<<<< HEAD:arch/arm/configs/A66_endp_defconfig
 CONFIG_MACH_MSM8960_SIM=y
 CONFIG_MACH_MSM8960_RUMI3=y
 CONFIG_MACH_MSM8960_CDP=y
@@ -367,6 +368,42 @@ CONFIG_MACH_APQ8064_LIQUID=y
 CONFIG_MACH_MPQ8064_CDP=y
 CONFIG_MACH_MPQ8064_HRD=y
 CONFIG_MACH_MPQ8064_DTV=y
+||||||| parent of 2c8e1fc30b0... Revert "mako: lge crash handler":arch/arm/configs/cm_viskan_huashan_defconfig
+# CONFIG_MACH_MSM8960_CDP is not set
+# CONFIG_MACH_MSM8960_MTP is not set
+# CONFIG_MACH_MSM8960_FLUID is not set
+# CONFIG_MACH_MSM8960_LIQUID is not set
+CONFIG_MACH_VISKAN_HUASHAN=y
+# CONFIG_MACH_MSM_DUMMY is not set
+
+#
+# LGE Board Selection
+#
+CONFIG_BOARD_HEADER_FILE=""
+# CONFIG_MACH_LGE_DUMMY is not set
+
+#
+# LGE Specific Patches
+#
+# CONFIG_LGE_CRASH_HANDLER is not set
+=======
+# CONFIG_MACH_MSM8960_CDP is not set
+# CONFIG_MACH_MSM8960_MTP is not set
+# CONFIG_MACH_MSM8960_FLUID is not set
+# CONFIG_MACH_MSM8960_LIQUID is not set
+CONFIG_MACH_VISKAN_HUASHAN=y
+# CONFIG_MACH_MSM_DUMMY is not set
+
+#
+# LGE Board Selection
+#
+CONFIG_BOARD_HEADER_FILE=""
+# CONFIG_MACH_LGE_DUMMY is not set
+
+#
+# LGE Specific Patches
+#
+>>>>>>> 2c8e1fc30b0... Revert "mako: lge crash handler":arch/arm/configs/cm_viskan_huashan_defconfig
 # CONFIG_MSM_STACKED_MEMORY is not set
 CONFIG_KERNEL_PMEM_EBI_REGION=y
 CONFIG_MSM_AMSS_VERSION=6225

@@ -41,9 +41,16 @@
 #include <trace/events/exception.h>
 #include <linux/stacktrace.h>
 
-static const char *handler[]= { "prefetch abort", "data abort", "address exception", "interrupt" };
 static int asus_save_stack = 0;
 static struct stack_trace *asus_strace = NULL;
+static const char *handler[]= {
+	"prefetch abort",
+	"data abort",
+	"address exception",
+	"interrupt",
+	"undefined instruction",
+};
+
 void *vectors_page;
 
 #ifdef CONFIG_DEBUG_USER
