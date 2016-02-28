@@ -2,7 +2,7 @@
 #include <linux/suspend_ioctls.h>
 #include <linux/utsname.h>
 #include <linux/freezer.h>
-
+//snuk182 !!
 struct swsusp_info {
 	struct new_utsname	uts;
 	u32			version_code;

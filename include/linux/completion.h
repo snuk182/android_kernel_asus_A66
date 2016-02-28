@@ -7,7 +7,7 @@
  * Atomic wait-for-completion handler data structures.
  * See kernel/sched.c for details.
  */
-
+//snuk182 !!
 #include <linux/wait.h>
 
 /*

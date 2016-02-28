@@ -12,7 +12,7 @@
  * GNU General Public License for more details.
  *
  */
-
+//snuk182 !!!!
 #include <linux/module.h>
 #include <linux/platform_device.h>
 #include <linux/rtc.h>
@@ -445,10 +445,8 @@ static void expire_wake_locks(unsigned long data)
 	has_lock = has_wake_lock_locked(WAKE_LOCK_SUSPEND);
 	if (debug_mask & DEBUG_EXPIRE)
 		pr_info("expire_wake_locks: done, has_lock %ld\n", has_lock);
-	if (has_lock == 0) {
-        printk(DBGMSK_PWR_G2 "[PM]expire, start suspend_work\n");
+	if (has_lock == 0)
 		queue_work(suspend_work_queue, &suspend_work);
-    }
 	spin_unlock_irqrestore(&list_lock, irqflags);
 }
 static DEFINE_TIMER(expire_timer, expire_wake_locks, 0, 0);
@@ -544,9 +542,8 @@ static void wake_lock_internal(
 	BUG_ON(!(lock->flags & WAKE_LOCK_INITIALIZED));
 #ifdef CONFIG_WAKELOCK_STAT
 	if (type == WAKE_LOCK_SUSPEND && wait_for_wakeup) {
-		if (debug_mask & DEBUG_WAKEUP) {
-			pr_info("wakeup wake lock: %s, %ld, %d\n", lock->name, timeout, has_timeout);
-		}
+		if (debug_mask & DEBUG_WAKEUP)
+			pr_info("wakeup wake lock: %s\n", lock->name);
 		wait_for_wakeup = 0;
 		lock->stat.wakeup_count++;
 	}
@@ -600,10 +597,8 @@ static void wake_lock_internal(
 				if (debug_mask & DEBUG_EXPIRE)
 					pr_info("wake_lock: %s, stop expire timer\n",
 						lock->name);
-			if (expire_in == 0) {
-                printk(DBGMSK_PWR_G2 "[PM]wakelock_internal, start suspend_work\n");
+			if (expire_in == 0)
 				queue_work(suspend_work_queue, &suspend_work);
-            }
 		}
 	}
 	spin_unlock_irqrestore(&list_lock, irqflags);
@@ -647,15 +642,12 @@ void wake_unlock(struct wake_lock *lock)
 				if (debug_mask & DEBUG_EXPIRE)
 					pr_info("wake_unlock: %s, stop expire "
 						"timer\n", lock->name);
-			if (has_lock == 0) {
-                printk(DBGMSK_PWR_G2 "[PM]wake_unlock: 0 lock, start suspend_work\n");
+			if (has_lock == 0)
 				queue_work(suspend_work_queue, &suspend_work);
-            }
 		}
 		if (lock == &main_wake_lock) {
-            //[CR] printf active wakelock while failing to suspend
-			//if (debug_mask & DEBUG_SUSPEND)
-			print_active_locks(WAKE_LOCK_SUSPEND);
+			if (debug_mask & DEBUG_SUSPEND)
+				print_active_locks(WAKE_LOCK_SUSPEND);
 #ifdef CONFIG_WAKELOCK_STAT
 			update_sleep_wait_stats_locked(0);
 #endif
@@ -733,8 +725,8 @@ static int __init wakelocks_init(void)
 
 	return 0;
 
-err_suspend_work_queue:
 err_suspend_sys_sync_work_queue:
+err_suspend_work_queue:
 	platform_driver_unregister(&power_driver);
 err_platform_driver_register:
 	platform_device_unregister(&power_device);

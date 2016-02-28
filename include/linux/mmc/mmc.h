@@ -141,7 +141,6 @@ static inline bool mmc_op_multi(u32 opcode)
 #define R1_SWITCH_ERROR		(1 << 7)	/* sx, c */
 #define R1_EXCEPTION_EVENT	(1 << 6)	/* sx, a */
 #define R1_APP_CMD		(1 << 5)	/* sr, c */
-#define R1_EXP_EVENT		(1 << 6)	/* sr, a */
 
 #define R1_STATE_IDLE	0
 #define R1_STATE_READY	1
@@ -346,7 +345,6 @@ struct _mmc_csd {
 
 #define EXT_CSD_PART_CONFIG_ACC_MASK	(0x7)
 #define EXT_CSD_PART_CONFIG_ACC_BOOT0	(0x1)
-#define EXT_CSD_PART_CONFIG_ACC_BOOT1	(0x2)
 #define EXT_CSD_PART_CONFIG_ACC_GP0	(0x4)
 
 #define EXT_CSD_PART_SUPPORT_PART_EN	(0x1)
@@ -387,18 +385,22 @@ struct _mmc_csd {
 #define EXT_CSD_POWER_OFF_SHORT		2
 #define EXT_CSD_POWER_OFF_LONG		3
 
-#define EXT_CSD_RST_N_EN_MASK	0x3
-#define EXT_CSD_RST_N_ENABLED	1	/* RST_n is enabled on card */
-
-#define EXT_CSD_NO_POWER_NOTIFICATION	0
-#define EXT_CSD_POWER_ON		1
-#define EXT_CSD_POWER_OFF_SHORT		2
-#define EXT_CSD_POWER_OFF_LONG		3
-
 #define EXT_CSD_PWR_CL_8BIT_MASK	0xF0	/* 8 bit PWR CLS */
 #define EXT_CSD_PWR_CL_4BIT_MASK	0x0F	/* 8 bit PWR CLS */
 #define EXT_CSD_PWR_CL_8BIT_SHIFT	4
 #define EXT_CSD_PWR_CL_4BIT_SHIFT	0
+
+/*
+ * EXCEPTION_EVENT_STATUS field
+ */
+#define EXT_CSD_URGENT_BKOPS		BIT(0)
+#define EXT_CSD_DYNCAP_NEEDED		BIT(1)
+#define EXT_CSD_SYSPOOL_EXHAUSTED	BIT(2)
+
+/*
+ * BKOPS status level
+ */
+#define EXT_CSD_BKOPS_LEVEL_2		0x2
 
 #define EXT_CSD_PACKED_EVENT_EN	(1 << 3)
 
@@ -415,24 +417,5 @@ struct _mmc_csd {
 #define MMC_SWITCH_MODE_SET_BITS	0x01	/* Set bits which are 1 in value */
 #define MMC_SWITCH_MODE_CLEAR_BITS	0x02	/* Clear bits which are 1 in value */
 #define MMC_SWITCH_MODE_WRITE_BYTE	0x03	/* Set target to value */
-
-/*
- * MMC Poweroff Notify types
- */
-#define MMC_PW_OFF_NOTIFY_NONE		0
-#define MMC_PW_OFF_NOTIFY_SHORT		1
-#define MMC_PW_OFF_NOTIFY_LONG		2
-
-/*
- * BKOPS status level
- */
-#define EXT_CSD_BKOPS_LEVEL_2		0x2
-
-/*
- * EXCEPTION_EVENT_STATUS field (eMMC4.5)
- */
-#define EXT_CSD_URGENT_BKOPS		BIT(0)
-#define EXT_CSD_DYNCAP_NEEDED		BIT(1)
-#define EXT_CSD_SYSPOOL_EXHAUSTED	BIT(2)
 
 #endif /* LINUX_MMC_MMC_H */

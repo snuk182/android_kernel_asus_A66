@@ -1884,11 +1884,6 @@ typedef int (*transfer_f)(struct snd_pcm_substream *substream, unsigned int hwof
 			  unsigned long data, unsigned int off,
 			  snd_pcm_uframes_t size);
 
-extern int gRingtone_state;     //Bruno++
-extern int galarm_state;         //Tim++
-extern bool g_dtv_start;
-extern int g_playing_hdmi;
-#include <linux/delay.h>
 static snd_pcm_sframes_t snd_pcm_lib_write1(struct snd_pcm_substream *substream, 
 					    unsigned long data,
 					    snd_pcm_uframes_t size,
@@ -1919,36 +1914,8 @@ static snd_pcm_sframes_t snd_pcm_lib_write1(struct snd_pcm_substream *substream,
 		err = -EBADFD;
 		goto _end_unlock;
 	}
-    
+
 	runtime->twake = runtime->control->avail_min ? : 1;
-#if 0 //sherry
-    //printk("HDMI g_dtv_start %d, size=%ld, g_playing_hdmi=%d\r\n", g_dtv_start, size, g_playing_hdmi);    
-    if(g_playing_hdmi == 1 && g_dtv_start == 0)
-    {
-        if (gRingtone_state || galarm_state) {
-            snd_pcm_stream_unlock_irq(substream);
-            while (!g_dtv_start)
-            {
-                if (gRingtone_state || galarm_state) {
-                    printk("Wait dtv start, then play RingTone.\n");
-                    msleep(400);
-                } else {
-                    printk("No need Ring, return fail.\n");
-                    //xfer = size; 
-                    err = -EIO;
-                    snd_pcm_stream_lock_irq(substream);
-                    goto _end_unlock;
-                }
-            }
-            snd_pcm_stream_lock_irq(substream);            
-        } else {
-            printk("HDMI g_dtv_start %d, size=%ld, g_playing_hdmi=%d, return fail.\n", g_dtv_start, size, g_playing_hdmi);
-            //xfer = size; 
-            err = -EIO;
-            goto _end_unlock;
-        }
-    }
-	#endif //sherry++
 	while (size > 0) {
 		snd_pcm_uframes_t frames, appl_ptr, appl_ofs;
 		snd_pcm_uframes_t avail;

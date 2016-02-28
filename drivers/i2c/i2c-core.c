@@ -24,7 +24,7 @@
    Jean Delvare <khali@linux-fr.org>
    Mux support by Rodolfo Giometti <giometti@enneenne.com> and
    Michael Lawnick <michael.lawnick.ext@nsn.com> */
-
+//snuk182 !!
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/errno.h>
@@ -1428,26 +1428,15 @@ int i2c_transfer(struct i2c_adapter *adap, struct i2c_msg *msgs, int num)
 				(msgs[ret].flags & I2C_M_RECV_LEN) ? "+" : "");
 		}
 #endif
-       	i2c_debug(DEBUG_TRACE, adap->nr, "[bus=%d] I2C transfer %c, addr=0x%02x, reg=0x%02x, len=%d, mutex owner addr=0x%02x\n", 
-				adap->nr, (msgs[0].flags & I2C_M_RD) ? 'R' : 'W', msgs[0].addr, (msgs[0].buf) ? msgs[0].buf[0] : 0, msgs[0].len , adap->mutex_i2c_addr);
 
 		if (in_atomic() || irqs_disabled()) {
 			ret = i2c_trylock_adapter(adap);
 			if (!ret)
-			{
-				i2c_debug(DEBUG_ERROR , adap->nr,"[bus=%d] I2C mutex error %c, addr=0x%02x, reg=0x%02x, len=%d, mutex owner addr=0x%02x\n", 
-				adap->nr, (msgs[0].flags & I2C_M_RD) ? 'R' : 'W', msgs[0].addr, (msgs[0].buf) ? msgs[0].buf[0] : 0, msgs[0].len , adap->mutex_i2c_addr);
-
-				i2c_debug(DEBUG_INFO , adap->nr, "[bus=%d] mutex error  in_atomic()=%d, irqs_disabled()=%d, mutex_trylock()=%d\n", adap->nr, in_atomic(), irqs_disabled(), ret );
-
-
 				/* I2C activity is ongoing. */
 				return -EAGAIN;
-			}
 		} else {
 			i2c_lock_adapter(adap);
 		}
-		adap->mutex_i2c_addr = (unsigned int) msgs[0].addr;
 
 		/* Retry automatically on arbitration loss */
 		orig_jiffies = jiffies;
@@ -1459,15 +1448,7 @@ int i2c_transfer(struct i2c_adapter *adap, struct i2c_msg *msgs, int num)
 				break;
 		}
 		i2c_unlock_adapter(adap);
-		adap->mutex_i2c_addr = 0;  // clear the mutex debug i2c addr;
-		if (ret < 0)
-		{
-			i2c_debug(DEBUG_ERROR , adap->nr, "[bus=%d] [i2c Error] i2c_transfer (%c) addr=0x%02x, reg=0x%02x, ret=%d\n", adap->nr, (msgs[0].flags & I2C_M_RD) ? 'R' : 'W', msgs[0].addr, (msgs[0].buf) ? msgs[0].buf[0] : 0, ret);
-		}
-		else
-		{
-			i2c_debug(DEBUG_TRACE , adap->nr, "[bus=%d] --i2c_transfer (%c) I2C mutex_unlock addr=0x%02x, ret=%d\n", adap->nr, (msgs[0].flags & I2C_M_RD) ? 'R' : 'W', msgs[0].addr, ret);
-		}
+
 		return ret;
 	} else {
 		dev_dbg(&adap->dev, "I2C level transfers not supported\n");

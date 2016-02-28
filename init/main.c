@@ -8,7 +8,7 @@
  *  Moan early if gcc is old, avoiding bogus kernels - Paul Gortmaker, May '96
  *  Simplified starting of init:  Michael A. Griffith <grif@acm.org> 
  */
-
+//snuk182 !!
 #include <linux/types.h>
 #include <linux/module.h>
 #include <linux/proc_fs.h>
@@ -1235,25 +1235,15 @@ static int __init_or_module do_one_initcall_debug(initcall_t fn)
 	unsigned long long duration;
 	int ret;
 
-	if (initcall_debug)
-		printk(KERN_DEBUG "calling  %pF @ %i\n", fn, task_pid_nr(current));
+	printk(KERN_DEBUG "calling  %pF @ %i\n", fn, task_pid_nr(current));
 	calltime = ktime_get();
 	ret = fn();
 	rettime = ktime_get();
 	delta = ktime_sub(rettime, calltime);
 	duration = (unsigned long long) ktime_to_ns(delta) >> 10;
-	if (initcall_debug)
-		printk(KERN_DEBUG "initcall %pF returned %d after %lld usecs\n", fn,
-			ret, duration);
+	printk(KERN_DEBUG "initcall %pF returned %d after %lld usecs\n", fn,
+		ret, duration);
 
-#ifndef ASUS_SHIP_BUILD
-	if (initcall_debug==0)
-	{
-		if (duration > 100000)
-			printk(KERN_WARNING "[debuginit] initcall %pF returned %d after %lld usecs\n", fn,
-				ret, duration);
-	}
-#endif
 	return ret;
 }
 
@@ -1262,14 +1252,10 @@ int __init_or_module do_one_initcall(initcall_t fn)
 	int count = preempt_count();
 	int ret;
 
-#ifndef ASUS_SHIP_BUILD
-	ret = do_one_initcall_debug(fn);
-#else
 	if (initcall_debug)
 		ret = do_one_initcall_debug(fn);
 	else
 		ret = fn();
-#endif
 
 	msgbuf[0] = 0;
 

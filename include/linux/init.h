@@ -3,7 +3,7 @@
 
 #include <linux/compiler.h>
 #include <linux/types.h>
-
+//snuk182 !!
 /* These macros are used to mark some functions or 
  * initialized data (doesn't apply to uninitialized data)
  * as `initialization' functions. The kernel can take this

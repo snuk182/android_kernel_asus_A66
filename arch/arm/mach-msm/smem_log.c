@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2008-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2008,25 +2008,23 @@ static int smem_log_initialize(void)
 	return ret;
 }
 
-static int smsm_driver_state_notifier(struct notifier_block *this,
-				      unsigned long code,
-				      void *_cmd)
+static int smd_module_init_notifier(struct notifier_block *this,
+				    unsigned long code,
+				    void *_cmd)
 {
 	int ret = 0;
-	if (code & SMSM_INIT) {
-		if (!smem_log_initialized)
-			ret = smem_log_initialize();
-	}
+	if (!smem_log_initialized)
+		ret = smem_log_initialize();
 	return ret;
 }
 
 static struct notifier_block nb = {
-	.notifier_call = smsm_driver_state_notifier,
+	.notifier_call = smd_module_init_notifier,
 };
 
 static int __init smem_log_init(void)
 {
-	return smsm_driver_state_notifier_register(&nb);
+	return smd_module_init_notifier_register(&nb);
 }
 
 

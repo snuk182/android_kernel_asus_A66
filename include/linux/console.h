@@ -10,7 +10,7 @@
  * Changed:
  * 10-Mar-94: Arno Griffioen: Conversion for vt100 emulator port from PC LINUX
  */
-
+//snuk182 !!
 #ifndef _LINUX_CONSOLE_H_
 #define _LINUX_CONSOLE_H_ 1
 
@@ -153,6 +153,7 @@ extern int braille_register_console(struct console *, int index,
 extern int braille_unregister_console(struct console *);
 extern void console_sysfs_notify(void);
 extern bool console_suspend_enabled;
+extern int is_console_suspended(void);
 
 /* Suspend and resume console messages over PM events */
 extern void suspend_console(void);

@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2011, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -226,6 +226,8 @@ static int apr_smd_probe(struct platform_device *pdev)
 	int dest;
 	int clnt;
 
+        pr_info("apr_tal: probe %s (%d)\n", pdev->name, pdev->id);
+
 	if (pdev->id == APR_DEST_MODEM) {
 		pr_info("apr_tal:Modem Is Up\n");
 		dest = APR_DEST_MODEM;
@@ -272,6 +274,8 @@ static int __init apr_tal_init(void)
 				spin_lock_init(&apr_svc_ch[i][j][k].lock);
 				spin_lock_init(&apr_svc_ch[i][j][k].w_lock);
 				mutex_init(&apr_svc_ch[i][j][k].m_lock);
+
+                                pr_info("apr_tal: init %d/%d/%d\n", i,j,k);
 			}
 	platform_driver_register(&apr_q6_driver);
 	platform_driver_register(&apr_modem_driver);

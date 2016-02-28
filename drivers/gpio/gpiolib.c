@@ -634,7 +634,7 @@ static ssize_t export_store(struct class *class,
 
 done:
 	if (status)
-		pr_info("%s: status %d\n", __func__, status);
+		pr_debug("%s: status %d\n", __func__, status);
 	return status ? : len;
 }
 

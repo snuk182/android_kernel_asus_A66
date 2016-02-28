@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -11,7 +11,6 @@
  *
  */
 
-#include <linux/module.h>
 #include "msm_sensor.h"
 #include "msm.h"
 #define SENSOR_NAME "ov8825"
@@ -237,6 +236,7 @@ static struct msm_camera_i2c_reg_conf ov8825_recommend_settings[] = {
 	{0x3619, 0x00},
 	{0x361a, 0xB0},
 	{0x361b, 0x04},
+	{0x361c, 0x07},
 	{0x3701, 0x44},
 	{0x370b, 0x01},
 	{0x370c, 0x50},

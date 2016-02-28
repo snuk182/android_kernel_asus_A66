@@ -10,7 +10,7 @@
  *
  *  You may use this code as per GPL version 2
  */
-
+//snuk182 !!
 #include <linux/ctype.h>
 #include <linux/device.h>
 #include <linux/power_supply.h>
@@ -46,14 +46,18 @@ static ssize_t power_supply_show_property(struct device *dev,
 	static char *type_text[] = {
 		"Unknown", "Battery", "UPS", "Mains", "USB",
 		"USB_DCP", "USB_CDP", "USB_ACA"
+#ifdef CONFIG_WIRELESS_CHARGER
+		, "Wireless"
+#else
 //ASUS_BSP +++ Eason_Chang A68_101033 porting 
-		,"BMS"
+		, "BMS"
 //ASUS_BSP --- Eason_Chang A68_101033 porting 		
 //ASUS_BSP +++ Josh_Liao "add asus battery driver"
 #ifdef CONFIG_BATTERY_ASUS
 		, "PadBattery", "DockBattery", "PadAC", "DockAC"
 #endif /* CONFIG_BATTERY_ASUS */
 //ASUS_BSP --- Josh_Liao "add asus battery driver"
+#endif
 	};
 	static char *status_text[] = {
 		"Unknown", "Charging", "Discharging", "Not charging", "Full"
