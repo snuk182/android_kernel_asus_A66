@@ -1208,6 +1208,8 @@ static bool __qseecom_is_fw_image_valid(const struct firmware *fw_entry)
 {
 	struct elf32_hdr *ehdr;
 
+        pr_info("QSEECOOM Attemt to get %s", qseecom.pdev->init_name);
+
 	if (fw_entry->size < sizeof(*ehdr)) {
 		pr_err("%s: Not big enough to be an elf header\n",
 				 qseecom.pdev->init_name);
