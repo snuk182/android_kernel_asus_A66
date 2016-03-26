@@ -12,7 +12,7 @@
  * GNU General Public License for more details.
  *
  */
-
+//snuk182 !!
 #include <linux/earlysuspend.h>
 #include <linux/module.h>
 #include <linux/mutex.h>

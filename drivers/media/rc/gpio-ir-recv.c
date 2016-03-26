@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -26,7 +26,7 @@
 
 struct gpio_rc_dev {
 	struct rc_dev *rcdev;
-	unsigned int gpio_nr;
+	int gpio_nr;
 	bool active_low;
 	int can_sleep;
 };
@@ -34,7 +34,7 @@ struct gpio_rc_dev {
 static irqreturn_t gpio_ir_recv_irq(int irq, void *dev_id)
 {
 	struct gpio_rc_dev *gpio_dev = dev_id;
-	unsigned int gval;
+	int gval;
 	int rc = 0;
 	enum raw_event_type type = IR_SPACE;
 

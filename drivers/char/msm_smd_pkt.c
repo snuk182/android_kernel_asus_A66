@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2008-2010, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -433,6 +433,7 @@ clean_cdevs:
 	class_destroy(smd_pkt_classp);
 unreg_chardev:
 	unregister_chrdev_region(MAJOR(smd_pkt_number), NUM_SMD_PKT_PORTS);
+        pr_info("SMD Packet Port Driver NOT Initialized.\n");
 	return r;
 }
 module_init(smd_pkt_init);

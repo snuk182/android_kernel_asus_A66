@@ -1230,7 +1230,7 @@ EXPORT_SYMBOL(install_exec_creds);
 /*
  * determine how safe it is to execute the proposed program
  * - the caller must hold ->cred_guard_mutex to protect against
- *   PTRACE_ATTACH
+ *   PTRACE_ATTACH or seccomp thread-sync
  */
 static int check_unsafe_exec(struct linux_binprm *bprm)
 {
@@ -1244,6 +1244,13 @@ static int check_unsafe_exec(struct linux_binprm *bprm)
 		else
 			bprm->unsafe |= LSM_UNSAFE_PTRACE;
 	}
+
+	/*
+	 * This isn't strictly necessary, but it makes it harder for LSMs to
+	 * mess up.
+	 */
+	if (task_no_new_privs(current))
+		bprm->unsafe |= LSM_UNSAFE_NO_NEW_PRIVS;
 
 	n_fs = 1;
 	spin_lock(&p->fs->lock);
@@ -1288,7 +1295,8 @@ int prepare_binprm(struct linux_binprm *bprm)
 	bprm->cred->euid = current_euid();
 	bprm->cred->egid = current_egid();
 
-	if (!(bprm->file->f_path.mnt->mnt_flags & MNT_NOSUID)) {
+	if (!(bprm->file->f_path.mnt->mnt_flags & MNT_NOSUID) &&
+	    !task_no_new_privs(current)) {
 		/* Set-uid? */
 		if (mode & S_ISUID) {
 			bprm->per_clear |= PER_CLEAR_ON_SETID;
@@ -2093,44 +2101,26 @@ void do_coredump(long signr, int exit_code, struct pt_regs *regs)
 	struct coredump_params cprm = {
 		.signr = signr,
 		.regs = regs,
-#ifndef ASUS_SHIP_BUILD   
-		.limit = RLIM_INFINITY,
-#else
 		.limit = rlimit(RLIMIT_CORE),
-#endif
 		/*
 		 * We must use the same mm->flags while dumping core to avoid
 		 * inconsistency of bit flags, since this flag is not protected
 		 * by any locks.
 		 */
-#ifndef ASUS_SHIP_BUILD  
-		.mm_flags = mm->flags | 2,
-#else
 		.mm_flags = mm->flags,
-#endif
 	};
-#ifndef ASUS_SHIP_BUILD  
-	printk(KERN_ALERT "exter do_coredump signr %ld\n", signr);
-#endif
+
 	audit_core_dumps(signr);
 
 	binfmt = mm->binfmt;
 	if (!binfmt || !binfmt->core_dump)
 		goto fail;
-#ifndef ASUS_SHIP_BUILD  
-	printk(KERN_ALERT "do_coredump -1\n");	
-#endif
 	if (!__get_dumpable(cprm.mm_flags))
 		goto fail;
-#ifndef ASUS_SHIP_BUILD  
-	printk(KERN_ALERT "do_coredump 0\n");
-#endif
+
 	cred = prepare_creds();
 	if (!cred)
 		goto fail;
-#ifndef ASUS_SHIP_BUILD  
-	printk(KERN_ALERT "do_coredump 1\n");	
-#endif
 	/*
 	 *	We cannot trust fsuid as being the "true" uid of the
 	 *	process nor do we know its entire history. We only know it
@@ -2145,9 +2135,7 @@ void do_coredump(long signr, int exit_code, struct pt_regs *regs)
 	retval = coredump_wait(exit_code, &core_state);
 	if (retval < 0)
 		goto fail_creds;
-#ifndef ASUS_SHIP_BUILD  
-	printk(KERN_ALERT "do_coredump 2\n");
-#endif
+
 	old_cred = override_creds(cred);
 
 	/*
@@ -2220,11 +2208,7 @@ void do_coredump(long signr, int exit_code, struct pt_regs *regs)
 
 		if (cprm.limit < binfmt->min_coredump)
 			goto fail_unlock;
-#ifndef ASUS_SHIP_BUILD  
-        /* Always create a known core */
-        sprintf(cn.corename, "/data/log/core.dump.%d.%d_%s", task_tgid_vnr(current), task_pid_nr(current),current->comm);
-        printk(KERN_ALERT "Dump Core to %s\n",cn.corename);
-#endif		
+
 		cprm.file = filp_open(cn.corename,
 				 O_CREAT | 2 | O_NOFOLLOW | O_LARGEFILE | flag,
 				 0600);
@@ -2255,9 +2239,6 @@ void do_coredump(long signr, int exit_code, struct pt_regs *regs)
 	}
 
 	retval = binfmt->core_dump(&cprm);
-#ifndef ASUS_SHIP_BUILD  
-	printk(KERN_ALERT "Dump Core returned %d (1 if has dumped)\n",retval);
-#endif
 	if (retval)
 		current->signal->group_exit_code |= 0x80;
 

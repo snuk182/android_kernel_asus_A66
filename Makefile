@@ -1,5 +1,3 @@
-CONFIG_FRAME_WARN=2048
-
 VERSION = 3
 PATCHLEVEL = 4
 SUBLEVEL = 0
@@ -370,11 +368,10 @@ LINUXINCLUDE    := -I$(srctree)/arch/$(hdr-arch)/include \
 
 KBUILD_CPPFLAGS := -D__KERNEL__
 
-KBUILD_CFLAGS   := -Wno-sizeof-pointer-memaccess -Wno-uninitialized -Wno-maybe-uninitialized -Wall -Wundef -Wstrict-prototypes -Wno-trigraphs \
+KBUILD_CFLAGS   := -Wall -Wundef -Wstrict-prototypes -Wno-trigraphs \
 		   -fno-strict-aliasing -fno-common \
 		   -Werror-implicit-function-declaration \
 		   -Wno-format-security \
-                   -ffreestanding \
 		   -fno-delete-null-pointer-checks
 KBUILD_AFLAGS_KERNEL :=
 KBUILD_CFLAGS_KERNEL :=

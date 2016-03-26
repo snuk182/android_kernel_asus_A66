@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -41,9 +41,7 @@ static uint32_t adsp_version;
 static wait_queue_head_t bus_bw_req_wait;
 static u32 bus_bw_resp_received;
 
-#ifdef CONFIG_DEBUG_FS
 static struct dentry *dentry;
-#endif
 static char l_buf[4096];
 
 static int32_t aprv2_core_fn_q(struct apr_client_data *data, void *priv)
@@ -251,8 +249,6 @@ static ssize_t apr_debug_write(struct file *file, const char __user *buf,
 	int len;
 	static int t_len;
 
-	if (count < 0)
-		return 0;
 	len = count > 63 ? 63 : count;
 	if (copy_from_user(l_buf + 20 , buf, len)) {
 		pr_info("Unable to copy data from user space\n");
@@ -339,7 +335,7 @@ static ssize_t apr_debug_write(struct file *file, const char __user *buf,
 		if (apr_handle_q)
 			apr_deregister(apr_handle_q);
 	} else if (!strncmp(l_buf + 20, "loaded", 64)) {
-		change_q6_state(APR_Q6_LOADED);
+		apr_set_q6_state(APR_SUBSYS_LOADED);
 	} else if (!strncmp(l_buf + 20, "boom", 64)) {
 		q6audio_dsp_not_responding();
 	} else if (!strncmp(l_buf + 20, "dsp_ver", 64)) {

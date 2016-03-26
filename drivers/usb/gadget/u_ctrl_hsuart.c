@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -289,7 +289,7 @@ static void ghsuart_ctrl_disconnect_w(struct work_struct *w)
 
 void ghsuart_ctrl_disconnect(void *gptr, int port_num)
 {
-	struct gctrl_port	*port;
+	struct ghsuart_ctrl_port	*port;
 	struct grmnet		*gr = NULL;
 	unsigned long		flags;
 
@@ -300,7 +300,7 @@ void ghsuart_ctrl_disconnect(void *gptr, int port_num)
 		return;
 	}
 
-	port = gctrl_ports[port_num].port;
+	port = ghsuart_ctrl_ports[port_num].port;
 
 	if (!gptr || !port) {
 		pr_err("%s: grmnet port is null\n", __func__);
@@ -372,7 +372,7 @@ not_ready:
 static void ghsuart_ctrl_port_free(int portno)
 {
 	struct ghsuart_ctrl_port	*port = ghsuart_ctrl_ports[portno].port;
-	struct platform_driver	*pdrv = &gctrl_ports[portno].pdrv;
+	struct platform_driver	*pdrv = &ghsuart_ctrl_ports[portno].pdrv;
 
 	destroy_workqueue(port->wq);
 	if (pdrv)
@@ -460,7 +460,6 @@ free_ports:
 	return ret;
 }
 
-#if defined(CONFIG_DEBUG_FS)
 #define DEBUG_BUF_SIZE	1024
 static ssize_t ghsuart_ctrl_read_stats(struct file *file, char __user *ubuf,
 		size_t count, loff_t *ppos)
@@ -553,11 +552,6 @@ static void ghsuart_ctrl_debugfs_exit(void)
 {
 	debugfs_remove_recursive(ghsuart_ctrl_dent);
 }
-
-#else
-static int ghsuart_ctrl_debugfs_init(void) { return 0; }
-static void ghsuart_ctrl_debugfs_exit(void) { }
-#endif
 
 static int __init ghsuart_ctrl_init(void)
 {

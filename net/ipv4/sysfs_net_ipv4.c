@@ -16,7 +16,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
-
+//snuk182 !!
 #include <linux/kobject.h>
 #include <linux/string.h>
 #include <linux/sysfs.h>

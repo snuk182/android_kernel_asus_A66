@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -10,7 +10,7 @@
  * GNU General Public License for more details.
  *
  */
-
+//snuk182 !!
 #ifdef CONFIG_SPI_QUP
 #include <linux/spi/spi.h>
 #endif
@@ -492,22 +492,23 @@ static char manufacture_id[2] = {0x04, 0x00}; /* DTYPE_DCS_READ */
 static struct dsi_cmd_desc novatek_manufacture_id_cmd = {
 	DTYPE_DCS_READ, 1, 0, 1, 5, sizeof(manufacture_id), manufacture_id};
 
-struct dcs_cmd_req cmdreq;
 static u32 manu_id;
 
-static void mipi_novatek_manufature_cb(u32 data)
+static void mipi_novatek_manufacture_cb(u32 data)
 {
 	manu_id = data & 0xff; // 0xff for samsung, 0xffffff for novatek
-	pr_info("%s: manufature_id=%x\n", __func__, manu_id);
+	pr_info("%s: manufacture_id=%x\n", __func__, manu_id);
 }
 
 static uint32 mipi_novatek_manufacture_id(struct msm_fb_data_type *mfd)
 {
+	struct dcs_cmd_req cmdreq;
+
 	cmdreq.cmds = &novatek_manufacture_id_cmd;
 	cmdreq.cmds_cnt = 1;
 	cmdreq.flags = CMD_REQ_RX | CMD_REQ_COMMIT;
 	cmdreq.rlen = 3;
-	cmdreq.cb = mipi_novatek_manufature_cb;
+	cmdreq.cb = mipi_novatek_manufacture_cb; /* call back */
 	mipi_dsi_cmdlist_put(&cmdreq);
 
 	return manu_id;
@@ -515,6 +516,8 @@ static uint32 mipi_novatek_manufacture_id(struct msm_fb_data_type *mfd)
 
 static uint32 mipi_samsung_panel_id(struct msm_fb_data_type *mfd)
 {
+	struct dcs_cmd_req cmdreq;
+
 	char amoled_id[] = {0xDB};
 	struct dsi_cmd_desc samsung_amoled_id_cmd = {
    		DTYPE_DCS_READ, 1, 0, 1, 5, sizeof(amoled_id), amoled_id};
@@ -523,7 +526,7 @@ static uint32 mipi_samsung_panel_id(struct msm_fb_data_type *mfd)
 	cmdreq.cmds_cnt = 1;
 	cmdreq.flags = CMD_REQ_RX | CMD_REQ_COMMIT;
 	cmdreq.rlen = 1;
-	cmdreq.cb = mipi_novatek_manufature_cb;
+	cmdreq.cb = mipi_novatek_manufacture_cb;
 	mipi_dsi_cmdlist_put(&cmdreq);
 
 	return manu_id;
@@ -598,6 +601,7 @@ static int mipi_novatek_lcd_on(struct platform_device *pdev)
 	struct msm_fb_data_type *mfd;
 	struct mipi_panel_info *mipi;
 	struct msm_panel_info *pinfo;
+	struct dcs_cmd_req cmdreq;
 
 	mfd = platform_get_drvdata(pdev);
 	if (!mfd)
@@ -664,6 +668,7 @@ static int mipi_novatek_lcd_on(struct platform_device *pdev)
 static int mipi_novatek_lcd_off(struct platform_device *pdev)
 {
 	struct msm_fb_data_type *mfd;
+	struct dcs_cmd_req cmdreq;
 
 	mfd = platform_get_drvdata(pdev);
 
@@ -688,6 +693,11 @@ static int mipi_novatek_lcd_off(struct platform_device *pdev)
 	return 0;
 }
 
+static int mipi_novatek_lcd_late_init(struct platform_device *pdev)
+{
+	return 0;
+}
+
 DEFINE_LED_TRIGGER(bkl_led_trigger);
 
 static char led_pwm1[2] = {0x51, 0x0};	/* DTYPE_DCS_WRITE1 */
@@ -700,8 +710,12 @@ static void mipi_novatek_set_backlight(struct msm_fb_data_type *mfd)
 	int value = mfd->bl_level;
 	int index = -1;
 	
-	if (value == 0 || value == 1000 || value == 2000){
-		// TODO: close screen
+	struct dcs_cmd_req cmdreq;
+
+	if (mipi_novatek_pdata &&
+	    mipi_novatek_pdata->gpio_set_backlight) {
+		mipi_novatek_pdata->gpio_set_backlight(mfd->bl_level);
+		return;
 	}
 	
 	if (value < 0 || value > 2255 ||
@@ -739,7 +753,7 @@ static void mipi_novatek_set_backlight(struct msm_fb_data_type *mfd)
 			return;
 		}
 		
-		if (mdp4_overlay_dsi_state_get() == ST_DSI_SUSPEND || g_fb0_dsi_block) {
+		if (g_fb0_dsi_block) {
 			printk("[Display] %s: unable to send DCS command due to ST_DSI_SUSPEND, g_fb0_dsi_block(%d)\n", __func__, g_fb0_dsi_block);
 			return ;
 		}
@@ -774,7 +788,7 @@ static void mipi_novatek_set_backlight(struct msm_fb_data_type *mfd)
 
 	cmdreq.cmds = &backlight_cmd;
 	cmdreq.cmds_cnt = 1;
-	cmdreq.flags = CMD_REQ_COMMIT;
+	cmdreq.flags = CMD_REQ_COMMIT | CMD_CLK_CTRL;
 	cmdreq.rlen = 0;
 	cmdreq.cb = NULL;
 
@@ -783,13 +797,17 @@ static void mipi_novatek_set_backlight(struct msm_fb_data_type *mfd)
 
 void amoled_display_on(void)
 {
-   struct mipi_panel_info *mipi;
+    struct dcs_cmd_req cmdreq;
+
+	struct mipi_panel_info *mipi;
     mipi  = &g_mfd->panel_info.mipi;
 
+/*
     if (mdp4_overlay_dsi_state_get() == ST_DSI_SUSPEND) {
         printk("[Display] %s: unable to send DCS command due to ST_DSI_SUSPEND\n", __func__);
         return;
     }
+*/
     
     mipi_set_tx_power_mode(1);
     samsung_display_on[0].dlen = sizeof(ss_brightness_set[g_brightness_index]);
@@ -879,6 +897,7 @@ static struct platform_driver this_driver = {
 static struct msm_fb_panel_data novatek_panel_data = {
 	.on		= mipi_novatek_lcd_on,
 	.off		= mipi_novatek_lcd_off,
+	.late_init	= mipi_novatek_lcd_late_init,
 	.set_backlight = mipi_novatek_set_backlight,
 };
 
@@ -886,7 +905,7 @@ static ssize_t mipi_dsi_3d_barrier_read(struct device *dev,
 				struct device_attribute *attr,
 				char *buf)
 {
-	return snprintf((char *)buf, sizeof(buf), "%u\n", barrier_mode);
+	return snprintf((char *)buf, sizeof(*buf), "%u\n", barrier_mode);
 }
 
 static ssize_t mipi_dsi_3d_barrier_write(struct device *dev,

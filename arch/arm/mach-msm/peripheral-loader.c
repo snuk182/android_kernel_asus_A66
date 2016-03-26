@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -9,7 +9,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
-
+//snuk182 !!
 #include <linux/module.h>
 #include <linux/string.h>
 #include <linux/device.h>
@@ -34,6 +34,15 @@
 
 #include "peripheral-loader.h"
 
+/**
+ * proxy_timeout - Override for proxy vote timeouts
+ * -1: Use driver-specified timeout
+ *  0: Hold proxy votes until shutdown
+ * >0: Specify a custom timeout in ms
+ */
+static int proxy_timeout_ms = -1;
+module_param(proxy_timeout_ms, int, S_IRUGO | S_IWUSR);
+
 enum pil_state {
 	PIL_OFFLINE,
 	PIL_ONLINE,
@@ -57,7 +66,6 @@ struct pil_device {
 	struct delayed_work proxy;
 	struct wake_lock wlock;
 	char wake_name[32];
-	bool is_opened;
 };
 
 #define to_pil_device(d) container_of(d, struct pil_device, dev)
@@ -128,7 +136,10 @@ static int pil_proxy_vote(struct pil_device *pil)
 
 static void pil_proxy_unvote(struct pil_device *pil, unsigned long timeout)
 {
-	if (pil->desc->ops->proxy_unvote)
+	if (proxy_timeout_ms >= 0)
+		timeout = proxy_timeout_ms;
+
+	if (timeout && pil->desc->ops->proxy_unvote)
 		schedule_delayed_work(&pil->proxy, msecs_to_jiffies(timeout));
 }
 
@@ -248,6 +259,7 @@ static int load_image(struct pil_device *pil)
 
 	down_read(&pil_pm_rwsem);
 	snprintf(fw_name, sizeof(fw_name), "%s.mdt", pil->desc->name);
+        pr_info(" ==> getting fw %s\n", fw_name);
 	ret = request_firmware(&fw, fw_name, &pil->dev);
 	if (ret) {
 		dev_err(&pil->dev, "%s: Failed to locate %s\n",
@@ -369,14 +381,13 @@ void *pil_get(const char *name)
 	}
 
 	mutex_lock(&pil->lock);
-	if (!pil->is_opened) {
+	if (!pil->count) {
 		ret = load_image(pil);
 		if (ret) {
 			retval = ERR_PTR(ret);
 			goto err_load;
 		}
 	}
-	pil->is_opened = true;
 	pil->count++;
 	pil_set_state(pil, PIL_ONLINE);
 	mutex_unlock(&pil->lock);
@@ -395,7 +406,11 @@ EXPORT_SYMBOL(pil_get);
 static void pil_shutdown(struct pil_device *pil)
 {
 	pil->desc->ops->shutdown(pil->desc);
-	flush_delayed_work(&pil->proxy);
+	if (proxy_timeout_ms == 0 && pil->desc->ops->proxy_unvote)
+		pil->desc->ops->proxy_unvote(pil->desc);
+	else
+		flush_delayed_work(&pil->proxy);
+
 	pil_set_state(pil, PIL_OFFLINE);
 }
 
@@ -567,18 +582,6 @@ static int msm_pil_debugfs_add(struct pil_device *pil) { return 0; }
 static void msm_pil_debugfs_remove(struct pil_device *pil) { }
 #endif
 
-static int __msm_pil_shutdown(struct device *dev, void *data)
-{
-	pil_shutdown(to_pil_device(dev));
-	return 0;
-}
-
-static int msm_pil_shutdown_at_boot(void)
-{
-	return bus_for_each_dev(&pil_bus_type, NULL, NULL, __msm_pil_shutdown);
-}
-late_initcall(msm_pil_shutdown_at_boot);
-
 static void pil_device_release(struct device *dev)
 {
 	struct pil_device *pil = to_pil_device(dev);
@@ -608,7 +611,6 @@ struct pil_device *msm_pil_register(struct pil_desc *desc)
 
 	mutex_init(&pil->lock);
 	pil->desc = desc;
-	pil->is_opened = false;
 	pil->owner = desc->owner;
 	pil->dev.parent = desc->dev;
 	pil->dev.bus = &pil_bus_type;

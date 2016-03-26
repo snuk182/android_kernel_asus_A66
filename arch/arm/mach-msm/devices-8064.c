@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -15,6 +15,7 @@
 #include <linux/list.h>
 #include <linux/platform_device.h>
 #include <linux/msm_rotator.h>
+#include <linux/gpio.h>
 #include <linux/clkdev.h>
 #include <linux/dma-mapping.h>
 #include <linux/coresight.h>
@@ -25,8 +26,11 @@
 #include <mach/msm_sps.h>
 #include <mach/dma.h>
 #include <mach/msm_dsps.h>
+#include <mach/clk-provider.h>
 #include <sound/msm-dai-q6.h>
 #include <sound/apr_audio.h>
+#include <mach/msm_tsif.h>
+#include <mach/msm_tspp.h>
 #include <mach/msm_bus_board.h>
 #include <mach/rpm.h>
 #include <mach/mdm2.h>
@@ -46,6 +50,7 @@
 
 /* Address of GSBI blocks */
 #define MSM_GSBI1_PHYS		0x12440000
+#define MSM_GSBI2_PHYS		0x13440000
 #define MSM_GSBI3_PHYS		0x16200000
 #define MSM_GSBI4_PHYS		0x16300000
 #define MSM_GSBI5_PHYS		0x1A200000
@@ -55,10 +60,13 @@
 /* GSBI UART devices */
 #define MSM_UART1DM_PHYS	(MSM_GSBI1_PHYS + 0x10000)
 #define MSM_UART3DM_PHYS	(MSM_GSBI3_PHYS + 0x40000)
+#define MSM_UART4DM_PHYS	(MSM_GSBI4_PHYS + 0x40000)
+#define MSM_UART6DM_PHYS	(MSM_GSBI6_PHYS + 0x40000)
 #define MSM_UART7DM_PHYS	(MSM_GSBI7_PHYS + 0x40000)
 
 /* GSBI QUP devices */
 #define MSM_GSBI1_QUP_PHYS	(MSM_GSBI1_PHYS + 0x20000)
+#define MSM_GSBI2_QUP_PHYS	(MSM_GSBI2_PHYS + 0x20000)
 #define MSM_GSBI3_QUP_PHYS	(MSM_GSBI3_PHYS + 0x80000)
 #define MSM_GSBI4_QUP_PHYS	(MSM_GSBI4_PHYS + 0x80000)
 #define MSM_GSBI5_QUP_PHYS	(MSM_GSBI5_PHYS + 0x80000)
@@ -94,12 +102,39 @@
 /* Address of PCIE20 */
 #define PCIE20_PHYS   0x1b500000
 #define PCIE20_SIZE   SZ_4K
+#define MSM8064_RPM_MASTER_STATS_BASE	0x10BB00
+#define MSM8064_PC_CNTR_PHYS	(APQ8064_IMEM_PHYS + 0x664)
+#define MSM8064_PC_CNTR_SIZE		0x40
+
+static struct resource msm8064_resources_pccntr[] = {
+	{
+		.start	= MSM8064_PC_CNTR_PHYS,
+		.end	= MSM8064_PC_CNTR_PHYS + MSM8064_PC_CNTR_SIZE,
+		.flags	= IORESOURCE_MEM,
+	},
+};
+
+struct platform_device msm8064_pc_cntr = {
+	.name		= "pc-cntr",
+	.id		= -1,
+	.num_resources	= ARRAY_SIZE(msm8064_resources_pccntr),
+	.resource	= msm8064_resources_pccntr,
+};
 
 static struct msm_watchdog_pdata msm_watchdog_pdata = {
 	.pet_time = 10000,
-	.bark_time = 11000,
+	.bark_time = 45000,
 	.has_secure = true,
 	.needs_expired_enable = true,
+	.base = MSM_TMR0_BASE + WDT0_OFFSET,
+};
+
+static struct resource msm_watchdog_resources[] = {
+	{
+		.start	= WDT0_ACCSCSSNBARK_INT,
+		.end	= WDT0_ACCSCSSNBARK_INT,
+		.flags	= IORESOURCE_IRQ,
+	},
 };
 
 struct platform_device msm8064_device_watchdog = {
@@ -108,6 +143,8 @@ struct platform_device msm8064_device_watchdog = {
 	.dev = {
 		.platform_data = &msm_watchdog_pdata,
 	},
+	.num_resources	= ARRAY_SIZE(msm_watchdog_resources),
+	.resource	= msm_watchdog_resources,
 };
 
 static struct resource msm_dmov_resource[] = {
@@ -135,6 +172,10 @@ struct platform_device apq8064_device_dmov = {
 	.dev = {
 		.platform_data = &msm_dmov_pdata,
 	},
+};
+struct platform_device adsp_loader_device = {
+	.name	= "adsp-loader",
+	.id	= -1,
 };
 
 static struct resource resources_uart_gsbi1[] = {
@@ -269,6 +310,33 @@ struct platform_device apq8064_device_qup_i2c_gsbi3 = {
 	.id		= 3,
 	.num_resources	= ARRAY_SIZE(resources_qup_i2c_gsbi3),
 	.resource	= resources_qup_i2c_gsbi3,
+};
+
+static struct resource resources_uart_gsbi4[] = {
+	{
+		.start = GSBI4_UARTDM_IRQ,
+		.end = GSBI4_UARTDM_IRQ,
+		.flags = IORESOURCE_IRQ,
+	},
+	{
+		.start = MSM_UART4DM_PHYS,
+		.end = MSM_UART4DM_PHYS + PAGE_SIZE - 1,
+		.name = "uartdm_resource",
+		.flags = IORESOURCE_MEM,
+	},
+	{
+		.start = MSM_GSBI4_PHYS,
+		.end = MSM_GSBI4_PHYS + PAGE_SIZE - 1,
+		.name = "gsbi_resource",
+		.flags = IORESOURCE_MEM,
+	},
+};
+
+struct platform_device apq8064_device_uart_gsbi4 = {
+	.name = "msm_serial_hsl",
+	.id = 0,
+	.num_resources = ARRAY_SIZE(resources_uart_gsbi4),
+	.resource = resources_uart_gsbi4,
 };
 
 static struct resource resources_qup_i2c_gsbi4[] = {
@@ -464,6 +532,196 @@ struct platform_device apq_cpudai_slim_4_tx = {
 	.id     = 0x4009,
 };
 
+#define MSM_TSIF0_PHYS       (0x18200000)
+#define MSM_TSIF1_PHYS       (0x18201000)
+#define MSM_TSIF_SIZE        (0x200)
+
+#define TSIF_0_CLK       GPIO_CFG(55, 1, GPIO_CFG_INPUT, \
+	GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA)
+#define TSIF_0_EN        GPIO_CFG(56, 1, GPIO_CFG_INPUT, \
+	GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA)
+#define TSIF_0_DATA      GPIO_CFG(57, 1, GPIO_CFG_INPUT, \
+	GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA)
+#define TSIF_0_SYNC      GPIO_CFG(62, 1, GPIO_CFG_INPUT, \
+	GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA)
+#define TSIF_1_CLK       GPIO_CFG(59, 1, GPIO_CFG_INPUT, \
+	GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA)
+#define TSIF_1_EN        GPIO_CFG(60, 1, GPIO_CFG_INPUT, \
+	GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA)
+#define TSIF_1_DATA      GPIO_CFG(61, 1, GPIO_CFG_INPUT, \
+	GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA)
+#define TSIF_1_SYNC      GPIO_CFG(58, 1, GPIO_CFG_INPUT, \
+	GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA)
+
+static const struct msm_gpio tsif0_gpios[] = {
+	{ .gpio_cfg = TSIF_0_CLK,  .label =  "tsif_clk", },
+	{ .gpio_cfg = TSIF_0_EN,   .label =  "tsif_en", },
+	{ .gpio_cfg = TSIF_0_DATA, .label =  "tsif_data", },
+	{ .gpio_cfg = TSIF_0_SYNC, .label =  "tsif_sync", },
+};
+
+static const struct msm_gpio tsif1_gpios[] = {
+	{ .gpio_cfg = TSIF_1_CLK,  .label =  "tsif_clk", },
+	{ .gpio_cfg = TSIF_1_EN,   .label =  "tsif_en", },
+	{ .gpio_cfg = TSIF_1_DATA, .label =  "tsif_data", },
+	{ .gpio_cfg = TSIF_1_SYNC, .label =  "tsif_sync", },
+};
+
+struct msm_tsif_platform_data tsif1_8064_platform_data = {
+	.num_gpios = ARRAY_SIZE(tsif1_gpios),
+	.gpios = tsif1_gpios,
+	.tsif_pclk = "iface_clk",
+	.tsif_ref_clk = "ref_clk",
+};
+
+struct resource tsif1_8064_resources[] = {
+	[0] = {
+		.flags = IORESOURCE_IRQ,
+		.start = TSIF2_IRQ,
+		.end   = TSIF2_IRQ,
+	},
+	[1] = {
+		.flags = IORESOURCE_MEM,
+		.start = MSM_TSIF1_PHYS,
+		.end   = MSM_TSIF1_PHYS + MSM_TSIF_SIZE - 1,
+	},
+	[2] = {
+		.flags = IORESOURCE_DMA,
+		.start = DMOV8064_TSIF_CHAN,
+		.end   = DMOV8064_TSIF_CRCI,
+	},
+};
+
+struct msm_tsif_platform_data tsif0_8064_platform_data = {
+	.num_gpios = ARRAY_SIZE(tsif0_gpios),
+	.gpios = tsif0_gpios,
+	.tsif_pclk = "iface_clk",
+	.tsif_ref_clk = "ref_clk",
+};
+
+struct resource tsif0_8064_resources[] = {
+	[0] = {
+		.flags = IORESOURCE_IRQ,
+		.start = TSIF1_IRQ,
+		.end   = TSIF1_IRQ,
+	},
+	[1] = {
+		.flags = IORESOURCE_MEM,
+		.start = MSM_TSIF0_PHYS,
+		.end   = MSM_TSIF0_PHYS + MSM_TSIF_SIZE - 1,
+	},
+	[2] = {
+		.flags = IORESOURCE_DMA,
+		.start = DMOV_TSIF_CHAN,
+		.end   = DMOV_TSIF_CRCI,
+	},
+};
+
+struct platform_device msm_8064_device_tsif[2] = {
+	{
+		.name          = "msm_tsif",
+		.id            = 0,
+		.num_resources = ARRAY_SIZE(tsif0_8064_resources),
+		.resource      = tsif0_8064_resources,
+		.dev = {
+			.platform_data = &tsif0_8064_platform_data
+		},
+	},
+	{
+		.name          = "msm_tsif",
+		.id            = 1,
+		.num_resources = ARRAY_SIZE(tsif1_8064_resources),
+		.resource      = tsif1_8064_resources,
+		.dev = {
+			.platform_data = &tsif1_8064_platform_data
+		},
+	}
+};
+
+#define MSM_TSPP_PHYS			(0x18202000)
+#define MSM_TSPP_SIZE			(0x1000)
+#define MSM_TSPP_BAM_PHYS		(0x18204000)
+#define MSM_TSPP_BAM_SIZE		(0x2000)
+
+static const struct msm_gpio tspp_gpios[] = {
+	{ .gpio_cfg = TSIF_0_CLK,  .label =  "tsif_clk", },
+	{ .gpio_cfg = TSIF_0_EN,   .label =  "tsif_en", },
+	{ .gpio_cfg = TSIF_0_DATA, .label =  "tsif_data", },
+	{ .gpio_cfg = TSIF_0_SYNC, .label =  "tsif_sync", },
+	{ .gpio_cfg = TSIF_1_CLK,  .label =  "tsif_clk", },
+	{ .gpio_cfg = TSIF_1_EN,   .label =  "tsif_en", },
+	{ .gpio_cfg = TSIF_1_DATA, .label =  "tsif_data", },
+	{ .gpio_cfg = TSIF_1_SYNC, .label =  "tsif_sync", },
+};
+
+static struct resource tspp_resources[] = {
+	[0] = {
+		.name = "TSIF_TSPP_IRQ",
+		.flags = IORESOURCE_IRQ,
+		.start = TSIF_TSPP_IRQ,
+		.end   = TSIF_TSPP_IRQ,
+	},
+	[1] = {
+		.name = "TSIF0_IRQ",
+		.flags = IORESOURCE_IRQ,
+		.start = TSIF1_IRQ,
+		.end   = TSIF1_IRQ,
+	},
+	[2] = {
+		.name = "TSIF1_IRQ",
+		.flags = IORESOURCE_IRQ,
+		.start = TSIF2_IRQ,
+		.end   = TSIF2_IRQ,
+	},
+	[3] = {
+		.name = "TSIF_BAM_IRQ",
+		.flags = IORESOURCE_IRQ,
+		.start = TSIF_BAM_IRQ,
+		.end   = TSIF_BAM_IRQ,
+	},
+	[4] = {
+		.name = "MSM_TSIF0_PHYS",
+		.flags = IORESOURCE_MEM,
+		.start = MSM_TSIF0_PHYS,
+		.end   = MSM_TSIF0_PHYS + MSM_TSIF_SIZE - 1,
+	},
+	[5] = {
+		.name = "MSM_TSIF1_PHYS",
+		.flags = IORESOURCE_MEM,
+		.start = MSM_TSIF1_PHYS,
+		.end   = MSM_TSIF1_PHYS + MSM_TSIF_SIZE - 1,
+	},
+	[6] = {
+		.name = "MSM_TSPP_PHYS",
+		.flags = IORESOURCE_MEM,
+		.start = MSM_TSPP_PHYS,
+		.end   = MSM_TSPP_PHYS + MSM_TSPP_SIZE - 1,
+	},
+	[7] = {
+		.name = "MSM_TSPP_BAM_PHYS",
+		.flags = IORESOURCE_MEM,
+		.start = MSM_TSPP_BAM_PHYS,
+		.end   = MSM_TSPP_BAM_PHYS + MSM_TSPP_BAM_SIZE - 1,
+	},
+};
+
+static struct msm_tspp_platform_data tspp_platform_data = {
+	.num_gpios = ARRAY_SIZE(tspp_gpios),
+	.gpios = tspp_gpios,
+	.tsif_pclk = "iface_clk",
+	.tsif_ref_clk = "ref_clk",
+};
+
+struct platform_device msm_8064_device_tspp = {
+	.name          = "msm_tspp",
+	.id            = 0,
+	.num_resources = ARRAY_SIZE(tspp_resources),
+	.resource      = tspp_resources,
+	.dev = {
+		.platform_data = &tspp_platform_data
+	},
+};
+
 /*
  * Machine specific data for AUX PCM Interface
  * which the driver will  be unware of.
@@ -552,6 +810,11 @@ struct platform_device apq_compr_dsp = {
 
 struct platform_device apq_multi_ch_pcm = {
 	.name   = "msm-multi-ch-pcm-dsp",
+	.id     = -1,
+};
+
+struct platform_device apq_lowlatency_pcm = {
+	.name   = "msm-lowlatency-pcm-dsp",
 	.id     = -1,
 };
 
@@ -1190,6 +1453,7 @@ struct msm_vidc_platform_data apq8064_vidc_platform_data = {
 	.disable_fullhd = 0,
 	.cont_mode_dpb_count = 18,
 	.fw_addr = 0x9fe00000,
+	.enable_sec_metadata = 1,
 };
 
 struct platform_device apq8064_msm_device_vidc = {
@@ -1229,19 +1493,19 @@ static struct resource resources_sdc1[] = {
 	},
 #ifdef CONFIG_MMC_MSM_SPS_SUPPORT
 	{
-		.name   = "sdcc_dml_addr",
+		.name   = "dml_mem",
 		.start	= MSM_SDC1_DML_BASE,
 		.end	= MSM_SDC1_BAM_BASE - 1,
 		.flags	= IORESOURCE_MEM,
 	},
 	{
-		.name   = "sdcc_bam_addr",
+		.name   = "bam_mem",
 		.start	= MSM_SDC1_BAM_BASE,
 		.end	= MSM_SDC1_BAM_BASE + (2 * SZ_4K) - 1,
 		.flags	= IORESOURCE_MEM,
 	},
 	{
-		.name   = "sdcc_bam_irq",
+		.name   = "bam_irq",
 		.start	= SDC1_BAM_IRQ,
 		.end	= SDC1_BAM_IRQ,
 		.flags	= IORESOURCE_IRQ,
@@ -1264,19 +1528,19 @@ static struct resource resources_sdc2[] = {
 	},
 #ifdef CONFIG_MMC_MSM_SPS_SUPPORT
 	{
-		.name   = "sdcc_dml_addr",
+		.name   = "dml_mem",
 		.start	= MSM_SDC2_DML_BASE,
 		.end	= MSM_SDC2_BAM_BASE - 1,
 		.flags	= IORESOURCE_MEM,
 	},
 	{
-		.name   = "sdcc_bam_addr",
+		.name   = "bam_mem",
 		.start	= MSM_SDC2_BAM_BASE,
 		.end	= MSM_SDC2_BAM_BASE + (2 * SZ_4K) - 1,
 		.flags	= IORESOURCE_MEM,
 	},
 	{
-		.name   = "sdcc_bam_irq",
+		.name   = "bam_irq",
 		.start	= SDC2_BAM_IRQ,
 		.end	= SDC2_BAM_IRQ,
 		.flags	= IORESOURCE_IRQ,
@@ -1299,19 +1563,19 @@ static struct resource resources_sdc3[] = {
 	},
 #ifdef CONFIG_MMC_MSM_SPS_SUPPORT
 	{
-		.name   = "sdcc_dml_addr",
+		.name   = "dml_mem",
 		.start	= MSM_SDC3_DML_BASE,
 		.end	= MSM_SDC3_BAM_BASE - 1,
 		.flags	= IORESOURCE_MEM,
 	},
 	{
-		.name   = "sdcc_bam_addr",
+		.name   = "bam_mem",
 		.start	= MSM_SDC3_BAM_BASE,
 		.end	= MSM_SDC3_BAM_BASE + (2 * SZ_4K) - 1,
 		.flags	= IORESOURCE_MEM,
 	},
 	{
-		.name   = "sdcc_bam_irq",
+		.name   = "bam_irq",
 		.start	= SDC3_BAM_IRQ,
 		.end	= SDC3_BAM_IRQ,
 		.flags	= IORESOURCE_IRQ,
@@ -1334,19 +1598,19 @@ static struct resource resources_sdc4[] = {
 	},
 #ifdef CONFIG_MMC_MSM_SPS_SUPPORT
 	{
-		.name   = "sdcc_dml_addr",
+		.name   = "dml_mem",
 		.start	= MSM_SDC4_DML_BASE,
 		.end	= MSM_SDC4_BAM_BASE - 1,
 		.flags	= IORESOURCE_MEM,
 	},
 	{
-		.name   = "sdcc_bam_addr",
+		.name   = "bam_mem",
 		.start	= MSM_SDC4_BAM_BASE,
 		.end	= MSM_SDC4_BAM_BASE + (2 * SZ_4K) - 1,
 		.flags	= IORESOURCE_MEM,
 	},
 	{
-		.name   = "sdcc_bam_irq",
+		.name   = "bam_irq",
 		.start	= SDC4_BAM_IRQ,
 		.end	= SDC4_BAM_IRQ,
 		.flags	= IORESOURCE_IRQ,
@@ -2074,6 +2338,37 @@ struct platform_device apq8064_rpm_stat_device = {
 	},
 };
 
+static struct resource resources_rpm_master_stats[] = {
+	{
+		.start	= MSM8064_RPM_MASTER_STATS_BASE,
+		.end	= MSM8064_RPM_MASTER_STATS_BASE + SZ_256,
+		.flags	= IORESOURCE_MEM,
+	},
+};
+
+static char *master_names[] = {
+	"KPSS",
+	"MPSS",
+	"LPASS",
+	"RIVA",
+	"DSPS",
+};
+
+static struct msm_rpm_master_stats_platform_data msm_rpm_master_stat_pdata = {
+	.masters = master_names,
+	.nomasters = ARRAY_SIZE(master_names),
+};
+
+struct platform_device apq8064_rpm_master_stat_device = {
+	.name = "msm_rpm_master_stat",
+	.id = -1,
+	.num_resources	= ARRAY_SIZE(resources_rpm_master_stats),
+	.resource	= resources_rpm_master_stats,
+	.dev = {
+		.platform_data = &msm_rpm_master_stat_pdata,
+	},
+};
+
 static struct msm_rpm_log_platform_data msm_rpm_log_pdata = {
 	.phys_addr_base = 0x0010C000,
 	.reg_offsets = {
@@ -2095,17 +2390,18 @@ struct platform_device apq8064_rpm_log_device = {
 
 /* Sensors DSPS platform data */
 
-#define PPSS_DSPS_TCM_CODE_BASE 0x12000000
-#define PPSS_DSPS_TCM_CODE_SIZE 0x28000
-#define PPSS_DSPS_TCM_BUF_BASE  0x12040000
-#define PPSS_DSPS_TCM_BUF_SIZE  0x4000
-#define PPSS_DSPS_PIPE_BASE     0x12800000
-#define PPSS_DSPS_PIPE_SIZE     0x4000
-#define PPSS_DSPS_DDR_BASE      0x8fe00000
-#define PPSS_DSPS_DDR_SIZE      0x100000
-#define PPSS_SMEM_BASE          0x80000000
-#define PPSS_SMEM_SIZE          0x200000
-#define PPSS_REG_PHYS_BASE	0x12080000
+#define PPSS_DSPS_TCM_CODE_BASE   0x12000000
+#define PPSS_DSPS_TCM_CODE_SIZE   0x28000
+#define PPSS_DSPS_TCM_BUF_BASE    0x12040000
+#define PPSS_DSPS_TCM_BUF_SIZE    0x4000
+#define PPSS_DSPS_PIPE_BASE       0x12800000
+#define PPSS_DSPS_PIPE_SIZE       0x4000
+#define PPSS_DSPS_DDR_BASE        0x8fe00000
+#define PPSS_DSPS_DDR_SIZE        0x100000
+#define PPSS_SMEM_BASE            0x80000000
+#define PPSS_SMEM_SIZE            0x200000
+#define PPSS_REG_PHYS_BASE        0x12080000
+#define PPSS_WDOG_UNMASKED_INT_EN 0x1808
 
 static struct dsps_clk_info dsps_clks[] = {};
 static struct dsps_regulator_info dsps_regs[] = {};
@@ -2133,6 +2429,7 @@ struct msm_dsps_platform_data msm_dsps_pdata_8064 = {
 	.ddr_size = PPSS_DSPS_DDR_SIZE,
 	.smem_start = PPSS_SMEM_BASE,
 	.smem_size  = PPSS_SMEM_SIZE,
+	.ppss_wdog_unmasked_int_en_reg = PPSS_WDOG_UNMASKED_INT_EN,
 	.signature = DSPS_SIGNATURE,
 };
 
@@ -2207,6 +2504,7 @@ static uint16_t msm_mpm_irqs_m2a[MSM_MPM_NR_MPM_IRQS] __initdata = {
 	[53] = MSM_GPIO_TO_INT(10),
 	[54] = MSM_GPIO_TO_INT(81),
 	[55] = MSM_GPIO_TO_INT(6),
+	[56] = MSM_GPIO_TO_INT(82),
 };
 
 static uint16_t msm_mpm_bypassed_apps_irqs[] __initdata = {
@@ -2238,6 +2536,7 @@ static uint16_t msm_mpm_bypassed_apps_irqs[] __initdata = {
 	RIVA_APPS_WLAN_SMSM_IRQ,
 	RIVA_APPS_WLAN_RX_DATA_AVAIL_IRQ,
 	RIVA_APPS_WLAN_DATA_XFER_DONE_IRQ,
+	PM8821_SEC_IRQ_N,
 };
 
 struct msm_mpm_device_data apq8064_mpm_dev_data __initdata = {
@@ -2260,8 +2559,20 @@ struct msm_mpm_device_data apq8064_mpm_dev_data __initdata = {
 #define MDM2AP_STATUS			49
 #define AP2MDM_STATUS			48
 #define AP2MDM_SOFT_RESET		27
+#define I2S_AP2MDM_SOFT_RESET	0
 #define AP2MDM_WAKEUP			35
+#define I2S_AP2MDM_WAKEUP		44
 #define MDM2AP_PBLRDY			46
+#define AMDM2AP_PBLRDY_DSDA2	31
+#define I2S_MDM2AP_PBLRDY		81
+
+/* Gpios for second MDM */
+#define BMDM2AP_ERRFATAL		81
+#define AP2BMDM_ERRFATAL		18
+#define BMDM2AP_STATUS			32
+#define AP2BMDM_STATUS			56
+#define AP2BMDM_SOFT_RESET		3
+#define AP2BMDM_WAKEUP			29
 
 static struct resource mdm_resources[] = {
 	{
@@ -2308,6 +2619,135 @@ static struct resource mdm_resources[] = {
 	},
 };
 
+static struct resource mdm_dsda2_amdm_resources[] = {
+	{
+		.start	= MDM2AP_ERRFATAL,
+		.end	= MDM2AP_ERRFATAL,
+		.name	= "MDM2AP_ERRFATAL",
+		.flags	= IORESOURCE_IO,
+	},
+	{
+		.start	= AP2MDM_ERRFATAL,
+		.end	= AP2MDM_ERRFATAL,
+		.name	= "AP2MDM_ERRFATAL",
+		.flags	= IORESOURCE_IO,
+	},
+	{
+		.start	= MDM2AP_STATUS,
+		.end	= MDM2AP_STATUS,
+		.name	= "MDM2AP_STATUS",
+		.flags	= IORESOURCE_IO,
+	},
+	{
+		.start	= AP2MDM_STATUS,
+		.end	= AP2MDM_STATUS,
+		.name	= "AP2MDM_STATUS",
+		.flags	= IORESOURCE_IO,
+	},
+	{
+		.start	= AP2MDM_SOFT_RESET,
+		.end	= AP2MDM_SOFT_RESET,
+		.name	= "AP2MDM_SOFT_RESET",
+		.flags	= IORESOURCE_IO,
+	},
+	{
+		.start	= AP2MDM_WAKEUP,
+		.end	= AP2MDM_WAKEUP,
+		.name	= "AP2MDM_WAKEUP",
+		.flags	= IORESOURCE_IO,
+	},
+	{
+		.start	= AMDM2AP_PBLRDY_DSDA2,
+		.end	= AMDM2AP_PBLRDY_DSDA2,
+		.name	= "MDM2AP_PBLRDY",
+		.flags	= IORESOURCE_IO,
+	},
+};
+
+static struct resource mdm_dsda2_bmdm_resources[] = {
+	{
+		.start	= BMDM2AP_ERRFATAL,
+		.end	= BMDM2AP_ERRFATAL,
+		.name	= "MDM2AP_ERRFATAL",
+		.flags	= IORESOURCE_IO,
+	},
+	{
+		.start	= AP2BMDM_ERRFATAL,
+		.end	= AP2BMDM_ERRFATAL,
+		.name	= "AP2MDM_ERRFATAL",
+		.flags	= IORESOURCE_IO,
+	},
+	{
+		.start	= BMDM2AP_STATUS,
+		.end	= BMDM2AP_STATUS,
+		.name	= "MDM2AP_STATUS",
+		.flags	= IORESOURCE_IO,
+	},
+	{
+		.start	= AP2BMDM_STATUS,
+		.end	= AP2BMDM_STATUS,
+		.name	= "AP2MDM_STATUS",
+		.flags	= IORESOURCE_IO,
+	},
+	{
+		.start	= AP2BMDM_SOFT_RESET,
+		.end	= AP2BMDM_SOFT_RESET,
+		.name	= "AP2MDM_SOFT_RESET",
+		.flags	= IORESOURCE_IO,
+	},
+	{
+		.start	= AP2BMDM_WAKEUP,
+		.end	= AP2BMDM_WAKEUP,
+		.name	= "AP2MDM_WAKEUP",
+		.flags	= IORESOURCE_IO,
+	},
+};
+
+static struct resource i2s_mdm_resources[] = {
+	{
+		.start	= MDM2AP_ERRFATAL,
+		.end	= MDM2AP_ERRFATAL,
+		.name	= "MDM2AP_ERRFATAL",
+		.flags	= IORESOURCE_IO,
+	},
+	{
+		.start	= AP2MDM_ERRFATAL,
+		.end	= AP2MDM_ERRFATAL,
+		.name	= "AP2MDM_ERRFATAL",
+		.flags	= IORESOURCE_IO,
+	},
+	{
+		.start	= MDM2AP_STATUS,
+		.end	= MDM2AP_STATUS,
+		.name	= "MDM2AP_STATUS",
+		.flags	= IORESOURCE_IO,
+	},
+	{
+		.start	= AP2MDM_STATUS,
+		.end	= AP2MDM_STATUS,
+		.name	= "AP2MDM_STATUS",
+		.flags	= IORESOURCE_IO,
+	},
+	{
+		.start	= I2S_AP2MDM_SOFT_RESET,
+		.end	= I2S_AP2MDM_SOFT_RESET,
+		.name	= "AP2MDM_SOFT_RESET",
+		.flags	= IORESOURCE_IO,
+	},
+	{
+		.start	= I2S_AP2MDM_WAKEUP,
+		.end	= I2S_AP2MDM_WAKEUP,
+		.name	= "AP2MDM_WAKEUP",
+		.flags	= IORESOURCE_IO,
+	},
+	{
+		.start	= I2S_MDM2AP_PBLRDY,
+		.end	= I2S_MDM2AP_PBLRDY,
+		.name	= "MDM2AP_PBLRDY",
+		.flags	= IORESOURCE_IO,
+	},
+};
+
 struct platform_device mdm_8064_device = {
 	.name		= "mdm2_modem",
 	.id		= -1,
@@ -2315,50 +2755,115 @@ struct platform_device mdm_8064_device = {
 	.resource	= mdm_resources,
 };
 
-static int apq8064_LPM_latency = 1000; /* >100 usec for WFI */
-
-struct platform_device apq8064_cpu_idle_device = {
-	.name   = "msm_cpu_idle",
-	.id     = -1,
-	.dev = {
-		.platform_data = &apq8064_LPM_latency,
-	},
+struct platform_device amdm_8064_device = {
+	.name		= "mdm2_modem",
+	.id		= 0,
+	.num_resources	= ARRAY_SIZE(mdm_dsda2_amdm_resources),
+	.resource	= mdm_dsda2_amdm_resources,
 };
 
-static struct msm_dcvs_freq_entry apq8064_freq[] = {
-	{ 384000, 166981,  345600},
-	{ 702000, 213049,  632502},
-	{1026000, 285712,  925613},
-	{1242000, 383945, 1176550},
-	{1458000, 419729, 1465478},
-	{1512000, 434116, 1546674},
+struct platform_device bmdm_8064_device = {
+	.name		= "mdm2_modem",
+	.id		= 1,
+	.num_resources	= ARRAY_SIZE(mdm_dsda2_bmdm_resources),
+	.resource	= mdm_dsda2_bmdm_resources,
+};
 
+struct platform_device i2s_mdm_8064_device = {
+	.name		= "mdm2_modem",
+	.id		= -1,
+	.num_resources	= ARRAY_SIZE(i2s_mdm_resources),
+	.resource	= i2s_mdm_resources,
+};
+
+static struct msm_dcvs_sync_rule apq8064_dcvs_sync_rules[] = {
+	{1026000,	400000},
+	{384000,	200000},
+	{0,		128000},
+};
+
+static struct msm_dcvs_platform_data apq8064_dcvs_data = {
+	.sync_rules	= apq8064_dcvs_sync_rules,
+	.num_sync_rules = ARRAY_SIZE(apq8064_dcvs_sync_rules),
+	.gpu_max_nom_khz = 320000,
+};
+
+struct platform_device apq8064_dcvs_device = {
+	.name		= "dcvs",
+	.id		= -1,
+	.dev		= {
+		.platform_data = &apq8064_dcvs_data,
+	},
 };
 
 static struct msm_dcvs_core_info apq8064_core_info = {
-	.freq_tbl = &apq8064_freq[0],
-	.core_param = {
-		.max_time_us = 100000,
-		.num_freq = ARRAY_SIZE(apq8064_freq),
+	.num_cores		= 4,
+	.sensors		= (int[]){7, 8, 9, 10},
+	.thermal_poll_ms	= 60000,
+	.core_param		= {
+		.core_type	= MSM_DCVS_CORE_TYPE_CPU,
 	},
-	.algo_param = {
-		.slack_time_us = 58000,
-		.scale_slack_time = 0,
-		.scale_slack_time_pct = 0,
-		.disable_pc_threshold = 1458000,
-		.em_window_size = 100000,
-		.em_max_util_pct = 97,
-		.ss_window_size = 1000000,
-		.ss_util_pct = 95,
-		.ss_iobusy_conv = 100,
+	.algo_param		= {
+		.disable_pc_threshold		= 1458000,
+		.em_win_size_min_us		= 100000,
+		.em_win_size_max_us		= 300000,
+		.em_max_util_pct		= 97,
+		.group_id			= 1,
+		.max_freq_chg_time_us		= 100000,
+		.slack_mode_dynamic		= 0,
+		.slack_weight_thresh_pct	= 3,
+		.slack_time_min_us		= 45000,
+		.slack_time_max_us		= 45000,
+		.ss_no_corr_below_freq		= 0,
+		.ss_win_size_min_us		= 1000000,
+		.ss_win_size_max_us		= 1000000,
+		.ss_util_pct			= 95,
 	},
+	.energy_coeffs		= {
+		.active_coeff_a		= 336,
+		.active_coeff_b		= 0,
+		.active_coeff_c		= 0,
+
+		.leakage_coeff_a	= -17720,
+		.leakage_coeff_b	= 37,
+		.leakage_coeff_c	= 3329,
+		.leakage_coeff_d	= -277,
+	},
+	.power_param		= {
+		.current_temp	= 25,
+		.num_freq	= 0, /* set at runtime */
+	}
+};
+
+#define APQ8064_LPM_LATENCY  1000 /* >100 usec for WFI */
+
+static struct msm_gov_platform_data gov_platform_data = {
+	.info = &apq8064_core_info,
+	.latency = APQ8064_LPM_LATENCY,
 };
 
 struct platform_device apq8064_msm_gov_device = {
 	.name = "msm_dcvs_gov",
 	.id = -1,
 	.dev = {
-		.platform_data = &apq8064_core_info,
+		.platform_data = &gov_platform_data,
+	},
+};
+
+static struct msm_mpd_algo_param apq8064_mpd_algo_param = {
+	.em_win_size_min_us	= 10000,
+	.em_win_size_max_us	= 100000,
+	.em_max_util_pct	= 90,
+	.online_util_pct_min	= 60,
+	.slack_time_min_us	= 50000,
+	.slack_time_max_us	= 100000,
+};
+
+struct platform_device apq8064_msm_mpd_device = {
+	.name	= "msm_mpdecision",
+	.id	= -1,
+	.dev	= {
+		.platform_data = &apq8064_mpd_algo_param,
 	},
 };
 
@@ -2503,66 +3008,108 @@ struct platform_device apq8064_device_cache_erp = {
 	.resource	= msm_cache_erp_resources,
 };
 
-#define MSM_QDSS_PHYS_BASE		0x01A00000
-#define MSM_ETM_PHYS_BASE		(MSM_QDSS_PHYS_BASE + 0x1C000)
+#define CORESIGHT_PHYS_BASE		0x01A00000
+#define CORESIGHT_FUNNEL_PHYS_BASE	(CORESIGHT_PHYS_BASE + 0x4000)
+#define CORESIGHT_ETM2_PHYS_BASE	(CORESIGHT_PHYS_BASE + 0x1E000)
+#define CORESIGHT_ETM3_PHYS_BASE	(CORESIGHT_PHYS_BASE + 0x1F000)
 
-#define QDSS_SOURCE(src_name, fpm) { .name = src_name, .fport_mask = fpm, }
-
-static struct qdss_source msm_qdss_sources[] = {
-	QDSS_SOURCE("msm_etm", 0x33),
-	QDSS_SOURCE("msm_oxili", 0x80),
-};
-
-static struct msm_qdss_platform_data qdss_pdata = {
-	.src_table = msm_qdss_sources,
-	.size = ARRAY_SIZE(msm_qdss_sources),
-	.afamily = 1,
-};
-
-struct platform_device apq8064_qdss_device = {
-	.name          = "msm_qdss",
-	.id            = -1,
-	.dev           = {
-		.platform_data = &qdss_pdata,
-	},
-};
-
-static struct resource msm_etm_resources[] = {
+static struct resource coresight_funnel_resources[] = {
 	{
-		.start = MSM_ETM_PHYS_BASE,
-		.end   = MSM_ETM_PHYS_BASE + (SZ_4K * 4) - 1,
+		.start = CORESIGHT_FUNNEL_PHYS_BASE,
+		.end   = CORESIGHT_FUNNEL_PHYS_BASE + SZ_4K - 1,
 		.flags = IORESOURCE_MEM,
 	},
 };
 
-struct platform_device apq8064_etm_device = {
-	.name          = "msm_etm",
+static const int coresight_funnel_outports[] = { 0, 1 };
+static const int coresight_funnel_child_ids[] = { 0, 1 };
+static const int coresight_funnel_child_ports[] = { 0, 0 };
+
+static struct coresight_platform_data coresight_funnel_pdata = {
+	.id		= 2,
+	.name		= "coresight-funnel",
+	.nr_inports	= 8,
+	.outports	= coresight_funnel_outports,
+	.child_ids	= coresight_funnel_child_ids,
+	.child_ports	= coresight_funnel_child_ports,
+	.nr_outports	= ARRAY_SIZE(coresight_funnel_outports),
+};
+
+struct platform_device apq8064_coresight_funnel_device = {
+	.name          = "coresight-funnel",
 	.id            = 0,
-	.num_resources = ARRAY_SIZE(msm_etm_resources),
-	.resource      = msm_etm_resources,
+	.num_resources = ARRAY_SIZE(coresight_funnel_resources),
+	.resource      = coresight_funnel_resources,
+	.dev = {
+		.platform_data = &coresight_funnel_pdata,
+	},
+};
+
+static struct resource coresight_etm2_resources[] = {
+	{
+		.start = CORESIGHT_ETM2_PHYS_BASE,
+		.end   = CORESIGHT_ETM2_PHYS_BASE + SZ_4K - 1,
+		.flags = IORESOURCE_MEM,
+	},
+};
+
+static const int coresight_etm2_outports[] = { 0 };
+static const int coresight_etm2_child_ids[] = { 2 };
+static const int coresight_etm2_child_ports[] = { 4 };
+
+static struct coresight_platform_data coresight_etm2_pdata = {
+	.id		= 6,
+	.name		= "coresight-etm2",
+	.nr_inports	= 0,
+	.outports	= coresight_etm2_outports,
+	.child_ids	= coresight_etm2_child_ids,
+	.child_ports	= coresight_etm2_child_ports,
+	.nr_outports	= ARRAY_SIZE(coresight_etm2_outports),
+};
+
+struct platform_device coresight_etm2_device = {
+	.name          = "coresight-etm",
+	.id            = 2,
+	.num_resources = ARRAY_SIZE(coresight_etm2_resources),
+	.resource      = coresight_etm2_resources,
+	.dev = {
+		.platform_data = &coresight_etm2_pdata,
+	},
+};
+
+static struct resource coresight_etm3_resources[] = {
+	{
+		.start = CORESIGHT_ETM3_PHYS_BASE,
+		.end   = CORESIGHT_ETM3_PHYS_BASE + SZ_4K - 1,
+		.flags = IORESOURCE_MEM,
+	},
+};
+
+static const int coresight_etm3_outports[] = { 0 };
+static const int coresight_etm3_child_ids[] = { 2 };
+static const int coresight_etm3_child_ports[] = { 5 };
+
+static struct coresight_platform_data coresight_etm3_pdata = {
+	.id		= 7,
+	.name		= "coresight-etm3",
+	.nr_inports	= 0,
+	.outports	= coresight_etm3_outports,
+	.child_ids	= coresight_etm3_child_ids,
+	.child_ports	= coresight_etm3_child_ports,
+	.nr_outports	= ARRAY_SIZE(coresight_etm3_outports),
+};
+
+struct platform_device coresight_etm3_device = {
+	.name          = "coresight-etm",
+	.id            = 3,
+	.num_resources = ARRAY_SIZE(coresight_etm3_resources),
+	.resource      = coresight_etm3_resources,
+	.dev = {
+		.platform_data = &coresight_etm3_pdata,
+	},
 };
 
 struct msm_iommu_domain_name apq8064_iommu_ctx_names[] = {
-	/* Camera */
-	{
-		.name = "vpe_src",
-		.domain = CAMERA_DOMAIN,
-	},
-	/* Camera */
-	{
-		.name = "vpe_dst",
-		.domain = CAMERA_DOMAIN,
-	},
-	/* Camera */
-	{
-		.name = "vfe_imgwr",
-		.domain = CAMERA_DOMAIN,
-	},
-	/* Camera */
-	{
-		.name = "vfe_misc",
-		.domain = CAMERA_DOMAIN,
-	},
 	/* Camera */
 	{
 		.name = "ijpeg_src",

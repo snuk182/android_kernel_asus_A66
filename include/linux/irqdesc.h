@@ -39,7 +39,6 @@ struct module;
  */
 struct irq_desc {
 	struct irq_data		irq_data;
-	struct timer_rand_state *timer_rand_state;
 	unsigned int __percpu	*kstat_irqs;
 	irq_flow_handler_t	handle_irq;
 #ifdef CONFIG_IRQ_PREFLOW_FASTEOI
@@ -109,9 +108,10 @@ static inline struct msi_desc *irq_desc_get_msi_desc(struct irq_desc *desc)
  * irqchip-style controller then we call the ->handle_irq() handler,
  * and it calls __do_IRQ() if it's attached to an irqtype-style controller.
  */
-static inline void generic_handle_irq_desc(unsigned int irq, struct irq_desc *desc)
+
+static inline bool generic_handle_irq_desc(unsigned int irq, struct irq_desc *desc)
 {
-	desc->handle_irq(irq, desc);
+	return desc->handle_irq(irq, desc);
 }
 
 int generic_handle_irq(unsigned int irq);
@@ -152,6 +152,14 @@ static inline int irq_balancing_disabled(unsigned int irq)
 
 	desc = irq_to_desc(irq);
 	return desc->status_use_accessors & IRQ_NO_BALANCING_MASK;
+}
+
+static inline int irq_is_per_cpu(unsigned int irq)
+{
+	struct irq_desc *desc;
+
+	desc = irq_to_desc(irq);
+	return desc->status_use_accessors & IRQ_PER_CPU;
 }
 
 static inline void

@@ -9,7 +9,7 @@
  * Public License ("GPL") as published by the Free Software Foundation,
  * either version 2 of that License or (at your option) any later version.
  */
-
+//snuk182 !!
 #include <linux/slab.h>
 #include <linux/kernel.h>
 #include <linux/device.h>
@@ -93,7 +93,7 @@ static inline struct f_gser *port_to_gser(struct gserial *p)
 	return container_of(p, struct f_gser, port);
 }
 #define GS_LOG2_NOTIFY_INTERVAL		5	/* 1 << 5 == 32 msec */
-#define GS_NOTIFY_MAXPACKET		10	/* notification + 2 bytes */
+#define GS_NOTIFY_MAXPACKET		16
 #endif
 /*-------------------------------------------------------------------------*/
 
@@ -576,6 +576,7 @@ static void gser_disable(struct usb_function *f)
 #ifdef CONFIG_MODEM_SUPPORT
 	usb_ep_fifo_flush(gser->notify);
 	usb_ep_disable(gser->notify);
+	gser->notify->driver_data = NULL;
 #endif
 	gser->online = 0;
 }
@@ -903,11 +904,11 @@ int gser_bind_config(struct usb_configuration *c, u8 port_num)
 
 	//ASUS_BSP+++ JimmyLin "[A60K][USB][NA][Other] Add readable function name"
 	/* maybe allocate device-global string ID */
-	if (gser_string_defs[port_num].id == 0) {
+	if (gser_string_defs[0].id == 0) {
 		status = usb_string_id(c->cdev);
 		if (status < 0)
 			return status;
-		gser_string_defs[port_num].id = status;
+		gser_string_defs[0].id = status;
 		gser_interface_desc.iInterface = status;
 	}
 	//ASUS_BSP--- JimmyLin "[A60K][USB][NA][Other] Add readable function name"
@@ -957,9 +958,11 @@ int gser_bind_config(struct usb_configuration *c, u8 port_num)
 /**
  * gserial_init_port - bind a gserial_port to its transport
  */
-static int gserial_init_port(int port_num, const char *name)
+static int gserial_init_port(int port_num, const char *name,
+		const char *port_name)
 {
 	enum transport_type transport;
+	int ret = 0;
 
 	if (port_num >= GSERIAL_NO_PORTS)
 		return -ENODEV;
@@ -985,6 +988,9 @@ static int gserial_init_port(int port_num, const char *name)
 		no_smd_ports++;
 		break;
 	case USB_GADGET_XPORT_HSIC:
+		ghsic_ctrl_set_port_name(port_name, name);
+		ghsic_data_set_port_name(port_name, name);
+
 		/*client port number will be updated in gport_setup*/
 		no_hsic_sports++;
 		break;
@@ -1000,5 +1006,5 @@ static int gserial_init_port(int port_num, const char *name)
 
 	nr_ports++;
 
-	return 0;
+	return ret;
 }

@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2011, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -9,7 +9,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
-
+//snuk182 !!
 #include <linux/module.h>
 #include <linux/init.h>
 #include <linux/kernel.h>
@@ -137,7 +137,7 @@ static int pm8xxx_vib_set(struct pm8xxx_vib *vib, int on)
 
 	if (on) {
 		val = vib->reg_vib_drv;
-		val |= ((vib_dev->level << VIB_DRV_SEL_SHIFT) & VIB_DRV_SEL_MASK);
+		val |= ((vib->level << VIB_DRV_SEL_SHIFT) & VIB_DRV_SEL_MASK);
 		rc = pm8xxx_vib_write_u8(vib, val, VIB_DRV);
 		if (rc < 0)
 			return rc;
@@ -444,7 +444,6 @@ static int __devexit pm8xxx_vib_remove(struct platform_device *pdev)
 	hrtimer_cancel(&vib->vib_timer);
 	timed_output_dev_unregister(&vib->timed_dev);
 	platform_set_drvdata(pdev, NULL);
-    //remove_vibrator_voltage_proc_file();
 	kfree(vib);
 
 	return 0;

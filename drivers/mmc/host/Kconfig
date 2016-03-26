@@ -500,6 +500,10 @@ config MMC_MSM_SDC3_SUPPORT
 	help
 	  Select Y to enable Slot 3.
 
+config MMC_MSM_SDC3_POLLING
+	boolean "Qualcomm SDC3 support"
+	depends on MMC_MSM
+
 config MMC_MSM_SDC3_8_BIT_SUPPORT
 	boolean "Qualcomm SDC3 8bit support"
 	depends on MMC_MSM_SDC3_SUPPORT
@@ -710,3 +714,9 @@ config MMC_USHC
 
 	  Note: These controllers only support SDIO cards and do not
 	  support MMC or SD memory cards.
+
+config SD_DETECT_WAKEUP
+        boolean "SD detect wakeup"
+	default n
+	help
+	  Select Y to enable wakeup on SD detection.

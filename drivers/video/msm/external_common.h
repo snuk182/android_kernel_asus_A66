@@ -10,7 +10,7 @@
  * GNU General Public License for more details.
  *
  */
-//snuk182
+//snuk182 !!
 #ifndef __EXTERNAL_COMMON_H__
 #define __EXTERNAL_COMMON_H__
 #include <linux/switch.h>
@@ -28,29 +28,8 @@
 #define DEV_WARN(args...)	dev_warn(external_common_state->dev, args)
 #define DEV_ERR(args...)	dev_err(external_common_state->dev, args)
 
+#if defined(CONFIG_FB_MSM_HDMI_COMMON)
 extern int ext_resolution;
-
-#ifdef CONFIG_FB_HDMI_JELLYBEAN_API
-struct hdmi_disp_mode_timing_type {
-	uint32	video_format;
-	uint32	active_h;
-	uint32	front_porch_h;
-	uint32	pulse_width_h;
-	uint32	back_porch_h;
-	boolean	active_low_h;
-	uint32	active_v;
-	uint32	front_porch_v;
-	uint32	pulse_width_v;
-	uint32	back_porch_v;
-	boolean	active_low_v;
-	/* Must divide by 1000 to get the actual frequency in MHZ */
-	uint32	pixel_freq;
-	/* Must divide by 1000 to get the actual frequency in HZ */
-	uint32	refresh_rate;
-	boolean	interlaced;
-	boolean	supported;
-};
-#endif
 
 /* A lookup table for all the supported display modes by the HDMI
  * hardware and driver.  Use HDMI_SETUP_LUT in the module init to
@@ -70,13 +49,25 @@ struct hdmi_disp_mode_list_type {
 	uint32	disp_multi_3d_mode_list_cnt;
 	uint32	num_of_elements;
 };
+#endif
+
+/*
+ * As per the CEA-861E spec, there can be a total of 10 short audio
+ * descriptors with each SAD being 3 bytes long.
+ * Thus, the maximum length of the audio data block would be 30 bytes
+ */
+#define MAX_AUDIO_DATA_BLOCK_SIZE	30
+#define MAX_SPKR_ALLOC_DATA_BLOCK_SIZE	3
 
 struct external_common_state_type {
 	boolean hpd_state;
+	boolean pre_suspend_hpd_state;
 	struct kobject *uevent_kobj;
 	uint32 video_resolution;
+	boolean default_res_supported;
 	struct device *dev;
 	struct switch_dev sdev;
+	struct switch_dev audio_sdev;
 #ifdef CONFIG_FB_MSM_HDMI_3D
 	boolean format_3d;
 	void (*switch_3d)(boolean on);
@@ -86,9 +77,7 @@ struct external_common_state_type {
 	boolean hpd_feature_on;
 	boolean hdmi_sink;
 	struct hdmi_disp_mode_list_type disp_mode_list;
-	uint8 speaker_allocation_block;
 	uint16 video_latency, audio_latency;
-	uint8 audio_data_block_cnt;
 	uint16 physical_address;
 	uint32 preferred_video_format;
 	uint8 pt_scan_info;
@@ -98,7 +87,10 @@ struct external_common_state_type {
 	uint8 spd_product_description[16];
 	boolean present_3d;
 	boolean present_hdcp;
-	uint32 audio_data_blocks[16];
+	uint8 audio_data_block[MAX_AUDIO_DATA_BLOCK_SIZE];
+	int adb_size;
+	uint8 spkr_alloc_data_block[MAX_SPKR_ALLOC_DATA_BLOCK_SIZE];
+	int sadb_size;
 	int (*read_edid_block)(int block, uint8 *edid_buf);
 	int (*hpd_feature)(int on);
 #endif
@@ -113,21 +105,12 @@ extern struct mutex hdmi_msm_state_mutex;
 int hdmi_common_read_edid(void);
 const char *video_format_2string(uint32 format);
 bool hdmi_common_get_video_format_from_drv_data(struct msm_fb_data_type *mfd);
-#ifdef CONFIG_FB_HDMI_JELLYBEAN_API
-const struct hdmi_disp_mode_timing_type *hdmi_common_get_mode(uint32 mode);
-const struct hdmi_disp_mode_timing_type *hdmi_common_get_supported_mode(
-	uint32 mode);
-const struct hdmi_disp_mode_timing_type *hdmi_mhl_get_mode(uint32 mode);
-const struct hdmi_disp_mode_timing_type *hdmi_mhl_get_supported_mode(
-	uint32 mode);
-#else
 const struct msm_hdmi_mode_timing_info *hdmi_common_get_mode(uint32 mode);
 const struct msm_hdmi_mode_timing_info *hdmi_common_get_supported_mode(
 	uint32 mode);
 const struct msm_hdmi_mode_timing_info *hdmi_mhl_get_mode(uint32 mode);
 const struct msm_hdmi_mode_timing_info *hdmi_mhl_get_supported_mode(
 	uint32 mode);
-#endif
 void hdmi_common_init_panel_info(struct msm_panel_info *pinfo);
 
 ssize_t video_3d_format_2string(uint32 format, char *buf);

@@ -12,3 +12,4 @@ obj-$(CONFIG_I2C_STRESS_TEST)	+= i2c-stresstest.o
 
 ccflags-$(CONFIG_I2C_DEBUG_CORE) := -DDEBUG
 CFLAGS_i2c-core.o := -Wno-deprecated-declarations
+#snuk182

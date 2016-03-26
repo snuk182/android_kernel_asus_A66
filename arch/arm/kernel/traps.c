@@ -12,6 +12,7 @@
  *  'linux/arch/arm/lib/traps.S'.  Mostly a debugging aid, but will probably
  *  kill the offending process.
  */
+//snuk182 !!
 #include <linux/signal.h>
 #include <linux/personality.h>
 #include <linux/kallsyms.h>
@@ -36,7 +37,10 @@
 #include <asm/system_misc.h>
 
 #include "signal.h"
+
+#include <trace/events/exception.h>
 #include <linux/stacktrace.h>
+
 static const char *handler[]= { "prefetch abort", "data abort", "address exception", "interrupt" };
 static int asus_save_stack = 0;
 static struct stack_trace *asus_strace = NULL;
@@ -277,28 +281,6 @@ static int __die(const char *str, int err, struct thread_info *thread, struct pt
 
 static DEFINE_RAW_SPINLOCK(die_lock);
 
-// jack for modem ramdump capture +++++
-#if 0
-static void DIE_work_fn(struct work_struct *work);
-static DECLARE_WORK(DIE_work, DIE_work_fn);
-static int warning_count = 20;
-static char message[128];
-static void DIE_work_fn(struct work_struct *work)
-{
- 
-    printk_lcd("APPs die:%s, %d !!",message , warning_count);
-    msleep(2000);         
-    if(warning_count--)
-        schedule_work(&DIE_work);
-    
-
-}
-int app_die = 0;
-extern int modem_restarting;
-#endif
-
-// jack for modem ramdump capture -----
-
 /*
  * This function is protected against re-entrancy.
  */
@@ -310,31 +292,9 @@ void die(const char *str, struct pt_regs *regs, int err)
 	int ret = 0;
 	char message[128]; //jack
 	enum bug_trap_type bug_type = BUG_TRAP_TYPE_NONE;
-	
     printk("APPS DIE\r\nCall Stack: %s\n", str); //added by jack
-    dump_stack();   
- #if 0   
-    if(app_die || modem_restarting)
-        return;
-    
-    app_die = 1;
-//jack for modem ramdump capture +++++
-    printk("APPS DIE: %s!!\r\nAPPS DIE:  Saving last shutdown log\r\n", str);
-    save_last_shutdown_log("APPS_DIE");
-    schedule_work(&DIE_work);
-    strncpy(message, str, sizeof(message));
-    printk("APPS DIE: Saving slow down log\r\n");
-    save_all_thread_info();
-    msleep(5000);
-    delta_all_thread_info();
-    save_phone_hang_log();
-    printk("APPS DIE: slow log saved!!\r\n");
-    while(warning_count >= 0)
-        msleep(100);
-    printk("APPS DIE: moving forward!\r\n");
-//jack for modem ramdump capture -----
-#endif
-
+    dump_stack();  
+ 
 	oops_enter();
 
 	raw_spin_lock_irq(&die_lock);
@@ -488,6 +448,8 @@ asmlinkage void __exception do_undefinstr(struct pt_regs *regs)
 	if (call_undef_hook(regs, instr) == 0)
 		return;
 
+	trace_undef_instr(regs, (void *)pc);
+
 #ifdef CONFIG_DEBUG_USER
 	if (user_debug & UDBG_UNDEFINED) {
 		printk(KERN_INFO "%s (%d): undefined instruction: pc=%p\n",
@@ -590,6 +552,10 @@ asmlinkage int arm_syscall(int no, struct pt_regs *regs)
 {
 	struct thread_info *thread = current_thread_info();
 	siginfo_t info;
+
+	/* Emulate/fallthrough. */
+	if (no == -1)
+		return regs->ARM_r0;
 
 	if ((no >> 16) != (__ARM_NR_BASE>> 16))
 		return bad_syscall(no, regs);

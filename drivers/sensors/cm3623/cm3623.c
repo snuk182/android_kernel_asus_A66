@@ -232,7 +232,7 @@ int g_HAL_als_switch_on = 0;     //this var. means if HAL is turning on als or n
 
 static struct wake_lock proximity_wake_lock;
 extern struct device *proximity_dev;
-extern int qup_i2c_resume(struct device *device);
+extern int i2c_qup_pm_resume_runtime(struct device *device);
 static int write_lightsensor_thd_als(u8 thd_val);
 
 static void light_interrupt_work(struct work_struct *work);
@@ -1975,7 +1975,7 @@ static void cm3623_interrupt_handler(struct work_struct *work)
     printk(DBGMSK_PRX_G2"[cm3623] cm3623_interrupt_handler int_state:%d\n", value);
 
     if ((g_proxim_state == 1) || (g_cm3623_switch_earlysuspend == 1)) {  //consider autosuspend in phone mode
-        qup_i2c_resume(proximity_dev);  //wake up qup_i2c
+        i2c_qup_pm_resume_runtime(proximity_dev);  //wake up qup_i2c
     //   wait_event_timeout(proxm_isr_wq, 0, msecs_to_jiffies(80));        
     }
 

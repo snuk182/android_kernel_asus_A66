@@ -9,7 +9,7 @@
  *
  *  You may use this code as per GPL version 2
  */
-
+//snuk182 !!
 #include <linux/module.h>
 #include <linux/types.h>
 #include <linux/init.h>

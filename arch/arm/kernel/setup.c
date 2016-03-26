@@ -7,6 +7,7 @@
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
  */
+//snuk182 !!
 #include <linux/export.h>
 #include <linux/kernel.h>
 #include <linux/stddef.h>
@@ -1118,7 +1119,8 @@ static int c_show(struct seq_file *m, void *v)
 	{
 		sprintf(cpu_type, "%s non-DC", g_asus_plat_info.cpu_id);
 	}
-	seq_printf(m, "Hardware\t: %s\n", cpu_type);
+	seq_printf(m, "CPU\t: %s\n", cpu_type);
+	seq_printf(m, "Hardware\t: %s\n", machine_name);
 	seq_printf(m, "Revision\t: %04x\n", system_rev);
 	seq_printf(m, "Serial\t\t: %08x%08x\n",
 		   system_serial_high, system_serial_low);

@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -11,6 +11,7 @@
  */
 
 #include <linux/kernel.h>
+#include <linux/module.h>
 #include <linux/interrupt.h>
 #include <linux/device.h>
 #include <linux/delay.h>
@@ -244,9 +245,7 @@ static void ghsuart_data_write_tomdm(struct work_struct *w)
 		pr_debug("%s: port:%p tom:%lu pno:%d\n", __func__,
 				port, port->to_modem, port->port_num);
 
-		spin_unlock_irqrestore(&port->rx_lock, flags);
 		ret = msm_smux_write(port->ch_id, skb, skb->data, skb->len);
-		spin_lock_irqsave(&port->rx_lock, flags);
 		if (ret < 0) {
 			if (ret == -EAGAIN) {
 				/*flow control*/
@@ -843,12 +842,15 @@ void ghsuart_data_disconnect(void *gptr, int port_num)
 	ghsuart_data_free_buffers(port);
 
 	/* disable endpoints */
-	if (port->in)
+	if (port->in) {
 		usb_ep_disable(port->in);
+		port->in->driver_data = NULL;
+	}
 
-	if (port->out)
+	if (port->out) {
 		usb_ep_disable(port->out);
-
+		port->out->driver_data = NULL;
+	}
 	atomic_set(&port->connected, 0);
 
 	if (port->gtype == USB_GADGET_SERIAL) {
@@ -1062,7 +1064,7 @@ static int ghsuart_data_debugfs_init(void)
 {
 	struct dentry	 *ghsuart_data_dfile;
 
-	ghsuart_data_dent = debugfs_create_dir("ghsic_data_xport", 0);
+	ghsuart_data_dent = debugfs_create_dir("ghsuart_data_xport", 0);
 	if (!ghsuart_data_dent || IS_ERR(ghsuart_data_dent))
 		return -ENODEV;
 

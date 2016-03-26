@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -10,7 +10,7 @@
  * GNU General Public License for more details.
  *
  */
-
+//snuk182 !!!!!!!!!!
 #include <linux/init.h>
 #include <linux/ioport.h>
 #include <linux/platform_device.h>
@@ -95,9 +95,7 @@ static struct resource msm_fb_resources[] = {
 	}
 };
 
-#ifndef CONFIG_FB_MSM_MIPI_PANEL_DETECT
 static void set_mdp_clocks_for_wuxga(void);
-#endif
 
 static int msm_fb_detect_panel(const char *name)
 {
@@ -237,6 +235,8 @@ static void mipi_dsi_panel_pwm_cfg(void)
 		mipi_dsi_panel_gpio_configured++;
 	}
 }
+
+static bool dsi_power_on;
 
 /**
  * LiQUID panel on/off
@@ -787,6 +787,9 @@ static struct msm_bus_scale_pdata mdp_bus_scale_pdata = {
 static struct msm_panel_common_pdata mdp_pdata = {
 	.gpio = MDP_VSYNC_GPIO,
 	.mdp_max_clk = 200000000,
+	.mdp_max_bw = 2000000000,
+	.mdp_bw_ab_factor = 115,
+	.mdp_bw_ib_factor = 125,
 #ifdef CONFIG_MSM_BUS_SCALING
 	.mdp_bus_scale_table = &mdp_bus_scale_pdata,
 #endif
@@ -1907,35 +1910,25 @@ void asus_clear_screen(void)
 //Mickey---
 void __init msm8960_init_fb(void)
 {
+	uint32_t soc_platform_version = socinfo_get_version();
+
+
+	if (SOCINFO_VERSION_MAJOR(soc_platform_version) >= 3)
+		mdp_pdata.mdp_rev = MDP_REV_43;
+
+	if (cpu_is_msm8960ab())
+		mdp_pdata.mdp_rev = MDP_REV_44;
+
 	platform_device_register(&msm_fb_device);
 
 #ifdef CONFIG_FB_MSM_WRITEBACK_MSM_PANEL
 	platform_device_register(&wfd_panel_device);
 	platform_device_register(&wfd_device);
 #endif
-#if 0   //QCT default// +++ ASUS_BSP : miniporting
-	if (machine_is_msm8960_sim())
-		platform_device_register(&mipi_dsi_simulator_panel_device);
-
-	if (machine_is_msm8960_rumi3())
-		platform_device_register(&mipi_dsi_renesas_panel_device);
-
-	if (!machine_is_msm8960_sim() && !machine_is_msm8960_rumi3()) {
-		platform_device_register(&mipi_dsi_novatek_panel_device);
-#endif// --- ASUS_BSP : miniporting
 #ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL
 		platform_device_register(&hdmi_msm_device);
 #endif
-#if 0   //QCT default// +++ ASUS_BSP : miniporting
-	}
-
-	if (machine_is_msm8960_liquid())
-		platform_device_register(&mipi_dsi2lvds_bridge_device);
-	else
-		platform_device_register(&mipi_dsi_toshiba_panel_device);
-#else
     platform_device_register(&mipi_dsi_novatek_panel_device);
-#endif// --- ASUS_BSP : miniporting
 	if (machine_is_msm8x60_rumi3()) {
 		msm_fb_register_device("mdp", NULL);
 		mipi_dsi_pdata.target_type = 1;
@@ -1960,7 +1953,6 @@ void __init msm8960_allocate_fb_region(void)
 			size, addr, __pa(addr));
 }
 
-#ifndef CONFIG_FB_MSM_MIPI_PANEL_DETECT
 /**
  * Set MDP clocks to high frequency to avoid DSI underflow
  * when using high resolution 1200x1920 WUXGA panels
@@ -1981,7 +1973,6 @@ static void set_mdp_clocks_for_wuxga(void)
 		dtv_bus_def_vectors[0].ib = 2000000000;
 	}
 }
-#endif
 
 void __init msm8960_set_display_params(char *prim_panel, char *ext_panel)
 {

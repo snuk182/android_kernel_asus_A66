@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2008-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -10,6 +10,7 @@
  * GNU General Public License for more details.
  *
  */
+//snuk182 !!
 #include <linux/clk.h>
 #include <mach/clk.h>
 #include "msm_fb.h"
@@ -326,7 +327,10 @@ void mipi_dsi_phy_rdy_poll(void)
 }
 
 #define PREF_DIV_RATIO 27
+#define VCO_MINIMUM 600
 struct dsiphy_pll_divider_config pll_divider_config;
+u32 vco_level_100;
+u32 vco_min_allowed;
 
 int mipi_dsi_phy_pll_config(u32 clk_rate)
 {
@@ -368,10 +372,35 @@ int mipi_dsi_phy_pll_config(u32 clk_rate)
 	return 0;
 }
 
+void mipi_dsi_configure_fb_divider(u32 fps_level)
+{
+	u32 fb_div_req, fb_div_req_by_2;
+	u32 vco_required;
+
+	vco_required = vco_level_100 * fps_level/100;
+	if (vco_required < vco_min_allowed) {
+		printk(KERN_WARNING "Can not change fps. Min level allowed is \
+	%d \n", (vco_min_allowed * 100 / vco_level_100) + 1);
+		return;
+	}
+
+	fb_div_req = vco_required * PREF_DIV_RATIO / 27;
+	fb_div_req_by_2 = (fb_div_req / 2) - 1;
+
+	pll_divider_config.fb_divider = fb_div_req;
+
+	/* DSIPHY_PLL_CTRL_1 */
+	MIPI_OUTP(MIPI_DSI_BASE + 0x204, fb_div_req_by_2 & 0xff);
+	wmb();
+}
+
 int mipi_dsi_clk_div_config(uint8 bpp, uint8 lanes,
 			    uint32 *expected_dsi_pclk)
 {
 	u32 fb_divider, rate, vco;
+	u32 fb_div_min, fb_div_by_2_min,
+			 fb_div_by_2;
+	u32 vco_level_75;
 	u32 div_ratio = 0;
 	struct dsi_clk_mnd_table const *mnd_entry = mnd_table;
 	if (pll_divider_config.clk_rate == 0)
@@ -413,6 +442,17 @@ int mipi_dsi_clk_div_config(uint8 bpp, uint8 lanes,
 			pll_divider_config.bit_clk_divider * 8;
 	pll_divider_config.dsi_clk_divider =
 			(mnd_entry->dsiclk_div) * div_ratio;
+
+	vco_level_100 = vco;
+	fb_div_by_2 = (fb_divider / 2) - 1;
+	fb_div_by_2_min = (fb_div_by_2 / 256) * 256;
+	fb_div_min = (fb_div_by_2_min + 1) * 2;
+	vco_min_allowed = (fb_div_min * 27 / PREF_DIV_RATIO);
+	vco_level_75 = vco_level_100 * 75 / 100;
+	if (vco_min_allowed < VCO_MINIMUM)
+		vco_min_allowed = VCO_MINIMUM;
+	if (vco_min_allowed < vco_level_75)
+		vco_min_allowed = vco_level_75;
 
 	if (mnd_entry->dsiclk_d == 0) {
 		dsicore_clk.mnd_mode = 0;
@@ -594,6 +634,12 @@ void cont_splash_clk_ctrl(int enable)
 {
 	static int cont_splash_clks_enabled;
 	if (enable && !cont_splash_clks_enabled) {
+			if (clk_set_rate(dsi_byte_div_clk, 1) < 0)      /* divided by 1 */
+				pr_err("%s: dsi_byte_div_clk - "
+					"clk_set_rate failed\n", __func__);
+			if (clk_set_rate(dsi_esc_clk, esc_byte_ratio) < 0) /* divided by esc */
+				pr_err("%s: dsi_esc_clk - "                      /* clk ratio */
+					"clk_set_rate failed\n", __func__);
 			clk_prepare_enable(dsi_byte_div_clk);
 			clk_prepare_enable(dsi_esc_clk);
 			cont_splash_clks_enabled = 1;
@@ -609,6 +655,14 @@ void mipi_dsi_prepare_clocks(void)
 	clk_prepare(amp_pclk);
 	clk_prepare(dsi_m_pclk);
 	clk_prepare(dsi_s_pclk);
+
+	if (clk_set_rate(dsi_byte_div_clk, 1) < 0)      /* divided by 1 */
+		pr_err("%s: dsi_byte_div_clk - "
+			"clk_set_rate failed\n", __func__);
+	if (clk_set_rate(dsi_esc_clk, esc_byte_ratio) < 0) /* divided by esc */
+		pr_err("%s: dsi_esc_clk - "                      /* clk ratio */
+			"clk_set_rate failed\n", __func__);
+
 	clk_prepare(dsi_byte_div_clk);
 	clk_prepare(dsi_esc_clk);
 }
@@ -630,9 +684,9 @@ void mipi_dsi_ahb_ctrl(u32 enable)
 			pr_info("%s: ahb clks already ON\n", __func__);
 			return;
 		}
-		clk_enable(amp_pclk); /* clock for AHB-master to AXI */
-		clk_enable(dsi_m_pclk);
-		clk_enable(dsi_s_pclk);
+		clk_prepare_enable(amp_pclk); /* clock for AHB-master to AXI */
+		clk_prepare_enable(dsi_m_pclk);
+		clk_prepare_enable(dsi_s_pclk);
 		mipi_dsi_ahb_en();
 		mipi_dsi_sfpb_cfg();
 		ahb_ctrl_done = 1;
@@ -641,9 +695,9 @@ void mipi_dsi_ahb_ctrl(u32 enable)
 			pr_info("%s: ahb clks already OFF\n", __func__);
 			return;
 		}
-		clk_disable(dsi_m_pclk);
-		clk_disable(dsi_s_pclk);
-		clk_disable(amp_pclk); /* clock for AHB-master to AXI */
+		clk_disable_unprepare(dsi_m_pclk);
+		clk_disable_unprepare(dsi_s_pclk);
+		clk_disable_unprepare(amp_pclk); /* clock for AHB-master to AXI */
 		ahb_ctrl_done = 0;
 	}
 }
@@ -661,13 +715,15 @@ void mipi_dsi_clk_enable(void)
 	if (clk_set_rate(dsi_byte_div_clk, 1) < 0)	/* divided by 1 */
 		pr_err("%s: dsi_byte_div_clk - "
 			"clk_set_rate failed\n", __func__);
-	if (clk_set_rate(dsi_esc_clk, esc_byte_ratio) < 0) /* divided by esc */
-		pr_err("%s: dsi_esc_clk - "			 /* clk ratio */
+	if (clk_set_rate(dsi_esc_clk, 2) < 0) /* divided by 2 */
+		pr_err("%s: dsi_esc_clk - "
 			"clk_set_rate failed\n", __func__);
 	mipi_dsi_pclk_ctrl(&dsi_pclk, 1);
 	mipi_dsi_clk_ctrl(&dsicore_clk, 1);
-	clk_enable(dsi_byte_div_clk);
-	clk_enable(dsi_esc_clk);
+	clk_prepare_enable(dsi_byte_div_clk);
+	clk_prepare_enable(dsi_esc_clk);
+	//clk_enable(dsi_byte_div_clk);
+	//clk_enable(dsi_esc_clk);
 	mipi_dsi_clk_on = 1;
 	mdp4_stat.dsi_clk_on++;
 }
@@ -678,8 +734,8 @@ void mipi_dsi_clk_disable(void)
 		pr_info("%s: mipi_dsi_clks already OFF\n", __func__);
 		return;
 	}
-	clk_disable(dsi_esc_clk);
-	clk_disable(dsi_byte_div_clk);
+	clk_disable_unprepare(dsi_esc_clk);
+	clk_disable_unprepare(dsi_byte_div_clk);
 	mipi_dsi_pclk_ctrl(&dsi_pclk, 0);
 	mipi_dsi_clk_ctrl(&dsicore_clk, 0);
 	/* DSIPHY_PLL_CTRL_0, disable dsi pll */
@@ -778,27 +834,7 @@ void hdmi_msm_powerdown_phy(void)
 	/* Power down PHY */
 	HDMI_OUTP_ND(HDMI_PHY_REG_2, 0x7F); /*0b01111111*/
 }
-#ifdef CONFIG_FB_HDMI_JELLYBEAN_API
-void hdmi_frame_ctrl_cfg(const struct hdmi_disp_mode_timing_type *timing)
-{
-	/*  0x02C8 HDMI_FRAME_CTRL
-	 *  31 INTERLACED_EN   Interlaced or progressive enable bit
-	 *    0: Frame in progressive
-	 *    1: Frame is interlaced
-	 *  29 HSYNC_HDMI_POL  HSYNC polarity fed to HDMI core
-	 *     0: Active Hi Hsync, detect the rising edge of hsync
-	 *     1: Active lo Hsync, Detect the falling edge of Hsync
-	 *  28 VSYNC_HDMI_POL  VSYNC polarity fed to HDMI core
-	 *     0: Active Hi Vsync, detect the rising edge of vsync
-	 *     1: Active Lo Vsync, Detect the falling edge of Vsync
-	 *  12 RGB_MUX_SEL     ALPHA mdp4 input is RGB, mdp4 input is BGR
-	 */
-	HDMI_OUTP(0x02C8,
-		  ((timing->interlaced << 31) & 0x80000000)
-		| ((timing->active_low_h << 29) & 0x20000000)
-		| ((timing->active_low_v << 28) & 0x10000000));
-}
-#else
+
 void hdmi_frame_ctrl_cfg(const struct msm_hdmi_mode_timing_info *timing)
 {
 	/*  0x02C8 HDMI_FRAME_CTRL
@@ -818,7 +854,6 @@ void hdmi_frame_ctrl_cfg(const struct msm_hdmi_mode_timing_info *timing)
 		| ((timing->active_low_h << 29) & 0x20000000)
 		| ((timing->active_low_v << 28) & 0x10000000));
 }
-#endif
 
 void hdmi_msm_phy_status_poll(void)
 {

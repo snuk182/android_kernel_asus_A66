@@ -2,7 +2,7 @@
  * include/linux/ion.h
  *
  * Copyright (C) 2011 Google, Inc.
- * Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -14,7 +14,7 @@
  * GNU General Public License for more details.
  *
  */
-
+//snuk182 !!
 #ifndef _LINUX_ION_H
 #define _LINUX_ION_H
 
@@ -33,14 +33,14 @@ struct ion_handle;
  * @ION_HEAP_TYPE_CP:	 memory allocated from a prereserved
  *				carveout heap, allocations are physically
  *				contiguous. Used for content protection.
+ * @ION_HEAP_TYPE_DMA:          memory allocated via DMA API
  * @ION_HEAP_END:		helper for iterating over heaps
  */
 enum ion_heap_type {
 	ION_HEAP_TYPE_SYSTEM,
 	ION_HEAP_TYPE_SYSTEM_CONTIG,
 	ION_HEAP_TYPE_CARVEOUT,
-	ION_HEAP_TYPE_IOMMU,
-	ION_HEAP_TYPE_CP,
+	ION_HEAP_TYPE_DMA,
 	ION_HEAP_TYPE_CUSTOM, /* must be last so device specific heaps always
 				 are at the end of this enum */
 	ION_NUM_HEAPS,
@@ -49,7 +49,16 @@ enum ion_heap_type {
 #define ION_HEAP_SYSTEM_MASK		(1 << ION_HEAP_TYPE_SYSTEM)
 #define ION_HEAP_SYSTEM_CONTIG_MASK	(1 << ION_HEAP_TYPE_SYSTEM_CONTIG)
 #define ION_HEAP_CARVEOUT_MASK		(1 << ION_HEAP_TYPE_CARVEOUT)
-#define ION_HEAP_CP_MASK		(1 << ION_HEAP_TYPE_CP)
+#define ION_HEAP_TYPE_DMA_MASK         (1 << ION_HEAP_TYPE_DMA)
+
+/**
+ * heap flags - the lower 16 bits are used by core ion, the upper 16
+ * bits are reserved for use by the heaps themselves.
+ */
+#define ION_FLAG_CACHED 1		/* mappings of this buffer should be
+					   cached, ion will do cache
+					   maintenance when the buffer is
+					   mapped for dma */
 
 #ifdef __KERNEL__
 #include <linux/err.h>
@@ -78,6 +87,7 @@ struct ion_buffer;
  * @memory_type:Memory type used for the heap
  * @has_outer_cache:    set to 1 if outer cache is used, 0 otherwise.
  * @extra_data:	Extra data specific to each heap type
+ * @priv:	heap private data
  */
 struct ion_platform_heap {
 	enum ion_heap_type type;
@@ -88,6 +98,7 @@ struct ion_platform_heap {
 	enum ion_memory_types memory_type;
 	unsigned int has_outer_cache;
 	void *extra_data;
+	void *priv;
 };
 
 /**
@@ -109,7 +120,7 @@ struct ion_platform_data {
 	int (*request_region)(void *);
 	int (*release_region)(void *);
 	void *(*setup_region)(void);
-	struct ion_platform_heap heaps[];
+	struct ion_platform_heap *heaps;
 };
 
 #ifdef CONFIG_ION
@@ -160,14 +171,18 @@ void ion_client_destroy(struct ion_client *client);
  * @len:	size of the allocation
  * @align:	requested allocation alignment, lots of hardware blocks have
  *		alignment requirements of some kind
- * @flags:	mask of heaps to allocate from, if multiple bits are set
+ * @heap_mask:	mask of heaps to allocate from, if multiple bits are set
  *		heaps will be tried in order from lowest to highest order bit
+ * @flags:	heap flags, the low 16 bits are consumed by ion, the high 16
+ *		bits are passed on to the respective heap and can be heap
+ *		custom
  *
  * Allocate memory in one of the heaps provided in heap mask and return
  * an opaque handle to it.
  */
 struct ion_handle *ion_alloc(struct ion_client *client, size_t len,
-			     size_t align, unsigned int flags);
+			     size_t align, unsigned int heap_mask,
+			     unsigned int flags);
 
 /**
  * ion_free - free a handle
@@ -218,8 +233,7 @@ struct sg_table *ion_sg_table(struct ion_client *client,
  * can be used to access this address. If no flags are specified, this
  * will return a non-secure uncached mapping.
  */
-void *ion_map_kernel(struct ion_client *client, struct ion_handle *handle,
-			unsigned long flags);
+void *ion_map_kernel(struct ion_client *client, struct ion_handle *handle);
 
 /**
  * ion_unmap_kernel() - destroy a kernel mapping for a handle
@@ -385,7 +399,9 @@ static inline struct ion_client *msm_ion_client_create(unsigned int heap_mask,
 static inline void ion_client_destroy(struct ion_client *client) { }
 
 static inline struct ion_handle *ion_alloc(struct ion_client *client,
-			size_t len, size_t align, unsigned int flags)
+					size_t len, size_t align,
+					unsigned int heap_mask,
+					unsigned int flags)
 {
 	return ERR_PTR(-ENODEV);
 }
@@ -484,6 +500,7 @@ static inline int msm_ion_do_cache_op(struct ion_client *client,
  * struct ion_allocation_data - metadata passed from userspace for allocations
  * @len:	size of the allocation
  * @align:	required alignment of the allocation
+ * @heap_mask:	mask of heaps to allocate from
  * @flags:	flags passed to heap
  * @handle:	pointer that will be populated with a cookie to use to refer
  *		to this allocation
@@ -493,6 +510,12 @@ static inline int msm_ion_do_cache_op(struct ion_client *client,
 struct ion_allocation_data {
 	size_t len;
 	size_t align;
+/* HACK: Kernel needs heap_mask, userspace needs heap_id_mask. Damn Google. */
+//#ifdef __KERNEL__
+	unsigned int heap_mask;
+//#else
+//	unsigned int heap_id_mask;
+//#endif
 	unsigned int flags;
 	struct ion_handle *handle;
 };
@@ -578,7 +601,7 @@ struct ion_custom_data {
  * descriptor obtained from ION_IOC_SHARE and returns the struct with the handle
  * filed set to the corresponding opaque handle.
  */
-#define ION_IOC_IMPORT		_IOWR(ION_IOC_MAGIC, 5, int)
+#define ION_IOC_IMPORT		_IOWR(ION_IOC_MAGIC, 5, struct ion_fd_data)
 
 /**
  * DOC: ION_IOC_CUSTOM - call architecture specific ion ioctl
@@ -588,5 +611,13 @@ struct ion_custom_data {
  */
 #define ION_IOC_CUSTOM		_IOWR(ION_IOC_MAGIC, 6, struct ion_custom_data)
 
-
+/**
+ * DOC: ION_IOC_SYNC - syncs a shared file descriptors to memory
+ *
+ * Deprecated in favor of using the dma_buf api's correctly (syncing
+ * will happend automatically when the buffer is mapped to a device).
+ * If necessary should be used after touching a cached buffer from the cpu,
+ * this will make the buffer in memory coherent.
+ */
+#define ION_IOC_SYNC		_IOWR(ION_IOC_MAGIC, 7, struct ion_fd_data)
 #endif /* _LINUX_ION_H */

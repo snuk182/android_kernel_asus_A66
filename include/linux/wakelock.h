@@ -12,7 +12,7 @@
  * GNU General Public License for more details.
  *
  */
-
+//snuk182 !!
 #ifndef _LINUX_WAKELOCK_H
 #define _LINUX_WAKELOCK_H
 

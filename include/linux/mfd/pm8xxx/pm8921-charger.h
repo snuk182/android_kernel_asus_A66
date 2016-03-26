@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -63,6 +63,7 @@ enum pm8921_chg_led_src_config {
  * @ttrkl_time:		max trckl charging time in minutes
  *			valid range 1 to 64 mins. PON default 15 min
  * @update_time:	how often the userland be updated of the charging (msec)
+ * @alarm_voltage:	the voltage (mV) when lower battery alarm is triggered
  * @max_voltage:	the max voltage (mV) the battery should be charged up to
  * @min_voltage:	the voltage (mV) where charging method switches from
  *			trickle to fast. This is also the minimum voltage the
@@ -128,6 +129,7 @@ struct pm8921_charger_platform_data {
 	unsigned int			max_voltage;
 	unsigned int			min_voltage;
 	unsigned int			uvd_thresh_voltage;
+	unsigned int			alarm_voltage;
 	unsigned int			resume_voltage_delta;
 	unsigned int			term_current;
 	int				cool_temp;
@@ -136,6 +138,7 @@ struct pm8921_charger_platform_data {
 	unsigned int			max_bat_chg_current;
 	unsigned int			cool_bat_chg_current;
 	unsigned int			warm_bat_chg_current;
+	int				ext_batt_temp_monitor;
 	unsigned int			cool_bat_voltage;
 	unsigned int			warm_bat_voltage;
 	unsigned int			(*get_batt_capacity_percent) (void);
@@ -155,6 +158,7 @@ struct pm8921_charger_platform_data {
 	enum pm8921_chg_hot_thr		hot_thr;
 	int				rconn_mohm;
 	enum pm8921_chg_led_src_config	led_src_config;
+	int				eoc_check_soc;
 };
 
 enum pm8921_charger_source {
@@ -289,6 +293,12 @@ int pm8921_usb_ovp_set_hystersis(enum pm8921_usb_debounce_time ms);
  *
  */
 int pm8921_usb_ovp_disable(int disable);
+
+int pm8921_get_batt_state(void);
+int pm8921_force_start_charging(void);
+int pm8921_get_batt_health(void);
+int pm8921_is_chg_auto_enable(void);
+
 /**
  * pm8921_is_batfet_closed - battery fet status
  *
@@ -296,6 +306,12 @@ int pm8921_usb_ovp_disable(int disable);
  * batfet this will return 0.
  */
 int pm8921_is_batfet_closed(void);
+#ifdef CONFIG_WIRELESS_CHARGER
+int set_wireless_power_supply_control(int value);
+#endif
+
+int pm8921_set_ext_battery_health(int health, int i_limit);
+
 #else
 static inline void pm8921_charger_vbus_draw(unsigned int mA)
 {

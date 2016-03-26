@@ -2,7 +2,7 @@
  * drivers/gpu/ion/ion_system_heap.c
  *
  * Copyright (C) 2011 Google, Inc.
- * Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -52,7 +52,7 @@ static int ion_system_heap_allocate(struct ion_heap *heap,
 		goto err0;
 	for_each_sg(table->sgl, sg, table->nents, i) {
 		struct page *page;
-		page = alloc_page(GFP_KERNEL|__GFP_ZERO);
+		page = alloc_page(GFP_KERNEL);
 		if (!page)
 			goto err1;
 		sg_set_page(sg, page, PAGE_SIZE, 0);

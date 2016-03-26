@@ -77,6 +77,13 @@ struct ci13xxx_qh {
 	struct usb_ctrlrequest   setup;
 } __attribute__ ((packed));
 
+/* cache of larger request's original attributes */
+struct ci13xxx_multi_req {
+	unsigned             len;
+	unsigned             actual;
+	void                *buf;
+};
+
 /* Extension of usb_request */
 struct ci13xxx_req {
 	struct usb_request   req;
@@ -86,6 +93,7 @@ struct ci13xxx_req {
 	dma_addr_t           dma;
 	struct ci13xxx_td   *zptr;
 	dma_addr_t           zdma;
+	struct ci13xxx_multi_req multi;
 };
 
 /* Extension of usb_ep */
@@ -107,7 +115,14 @@ struct ci13xxx_ep {
 	spinlock_t                            *lock;
 	struct device                         *device;
 	struct dma_pool                       *td_pool;
+	struct ci13xxx_td                     *last_zptr;
+	dma_addr_t                            last_zdma;
 	unsigned long dTD_update_fail_count;
+	unsigned long			      prime_fail_count;
+	int				      prime_timer_count;
+	struct timer_list		      prime_timer;
+
+	bool                                  multi_req;
 };
 
 struct ci13xxx;
@@ -124,9 +139,9 @@ struct ci13xxx_udc_driver {
 #define CI13XXX_CONTROLLER_RESET_EVENT			0
 #define CI13XXX_CONTROLLER_CONNECT_EVENT		1
 #define CI13XXX_CONTROLLER_SUSPEND_EVENT		2
-#define CI13XXX_CONTROLLER_REMOTE_WAKEUP_EVENT	3
-#define CI13XXX_CONTROLLER_RESUME_EVENT	        4
-#define CI13XXX_CONTROLLER_DISCONNECT_EVENT	    5
+#define CI13XXX_CONTROLLER_REMOTE_WAKEUP_EVENT		3
+#define CI13XXX_CONTROLLER_RESUME_EVENT		4
+#define CI13XXX_CONTROLLER_DISCONNECT_EVENT		5
 	void	(*notify_event) (struct ci13xxx *udc, unsigned event);
 };
 
@@ -138,6 +153,7 @@ struct ci13xxx {
 	struct dma_pool           *qh_pool;   /* DMA pool for queue heads */
 	struct dma_pool           *td_pool;   /* DMA pool for transfer descs */
 	struct usb_request        *status;    /* ep0 status request */
+	void                      *status_buf;/* GET_STATUS buffer */
 
 	struct usb_gadget          gadget;     /* USB slave device */
 	struct ci13xxx_ep          ci13xxx_ep[ENDPT_MAX]; /* extended endpts */
@@ -157,6 +173,9 @@ struct ci13xxx {
 	int                        softconnect; /* is pull-up enable allowed */
 	unsigned long dTD_update_fail_count;
 	struct usb_phy            *transceiver; /* Transceiver struct */
+	bool                      skip_flush; /* skip flushing remaining EP
+						upon flush timeout for the
+						first EP. */
 };
 
 struct ci13xxx_platform_data {

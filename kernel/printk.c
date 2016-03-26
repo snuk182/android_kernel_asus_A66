@@ -15,7 +15,7 @@
  * Rewrote bits to get rid of console_lock
  *	01Mar01 Andrew Morton
  */
-
+//snuk182 !!
 #include <linux/kernel.h>
 #include <linux/mm.h>
 #include <linux/tty.h>
@@ -594,12 +594,6 @@ void kdb_syslog_data(char *syslog_data[4])
 /*
  * Call the console drivers on a range of log_buf
  */
- #if 0
-//ASUS HANS+++
-extern int gGPIO_JACK_IN;
-extern int g_bDebugMode;
-//ASUS HANS---
-#endif //wait for headset
 static void __call_console_drivers(unsigned start, unsigned end)
 {
 	struct console *con;
@@ -610,17 +604,7 @@ static void __call_console_drivers(unsigned start, unsigned end)
 		if ((con->flags & CON_ENABLED) && con->write &&
 				(cpu_online(smp_processor_id()) ||
 				(con->flags & CON_ANYTIME)))
-		{
-
-		#if 0
-		//ASUS HANS+++
-			if (gGPIO_JACK_IN && !g_bDebugMode){
-				return;
-			}
-		//ASUS HANS---
-		#endif
 			con->write(con, &LOG_BUF(start), end - start);
-		}
 	}
 }
 
@@ -1387,6 +1371,12 @@ module_param_named(console_suspend, console_suspend_enabled,
 MODULE_PARM_DESC(console_suspend, "suspend console during suspend"
 	" and hibernate operations");
 
+/* check current suspend/resume status of the console */
+int is_console_suspended(void)
+{
+	return console_suspended;
+}
+
 /**
  * suspend_console - suspend the console subsystem
  *
@@ -1412,40 +1402,18 @@ void resume_console(void)
         suspend_in_progress = 0;
         ASUSEvtlog("System Resume");
 
-#if 0
-//++Ledger
-        if (pm_pwrcs_ret) {
-                ASUSEvtlog("[PM] Suspended for %d.%03d secs ", pwrcs_time/100,pwrcs_time % 100);
+        ASUSEvtlog("[PM]Suspended for %d.%03d seconds\n", pwrcs_time / 100 ,pwrcs_time % 100);
+		if (gpio_irq_cnt>0) {
+				        for (i=0;i<gpio_irq_cnt;i++)
+				                ASUSEvtlog("[PM] GPIO triggered: %d", gpio_resume_irq[i]);
+			gpio_irq_cnt=0; //clear gpio log
+		}
+		if (gic_irq_cnt>0) {
+				       for (i=0;i<gic_irq_cnt;i++)
+				                ASUSEvtlog("[PM] IRQs triggered: %d", gic_resume_irq[i]);
+			gic_irq_cnt=0; //clear irq log
+        }
 
-                if (gpio_irq_cnt>0) {
-                        for (i=0;i<gpio_irq_cnt;i++)
-                            ASUSEvtlog("[PM] GPIO triggered: %d", gpio_resume_irq[i]);
-                        gpio_irq_cnt=0; //clear log count.
-                }
-                if (gic_irq_cnt>0) {
-                        for (i=0;i<gic_irq_cnt;i++)
-                            ASUSEvtlog("[PM] IRQs triggered: %d", gic_resume_irq[i]);
-                        gic_irq_cnt=0;  //clear log count.
-                }
-                pm_pwrcs_ret=0;
-        }
-//--Ledger
-#else
- //++Ledger
-        //ASUSEvtlog("[PM] PWRCS spent:%lld ns\n", pwrcs_time);
-	ASUSEvtlog("[PM]Suspended for %d.%03d seconds\n", pwrcs_time / 100 ,pwrcs_time % 100);
-        if (gpio_irq_cnt>0) {
-                for (i=0;i<gpio_irq_cnt;i++)
-                        ASUSEvtlog("[PM] GPIO triggered: %d", gpio_resume_irq[i]);
-	gpio_irq_cnt=0; //clear gpio log
-        }
-       if (gic_irq_cnt>0) {
-               for (i=0;i<gic_irq_cnt;i++)
-                        ASUSEvtlog("[PM] IRQs triggered: %d", gic_resume_irq[i]);
-	gic_irq_cnt=0; //clear irq log
-         }
- //--Ledger
-#endif
 
 
 	if (!console_suspend_enabled)
@@ -1481,14 +1449,13 @@ static int __cpuinit console_cpu_notify(struct notifier_block *self,
 	unsigned long action, void *hcpu)
 {
 	switch (action) {
-	
 	case CPU_DEAD:
 	case CPU_DOWN_FAILED:
 	case CPU_UP_CANCELED:
 		console_lock();
 		console_unlock();
 		break;
-    case CPU_ONLINE:
+	case CPU_ONLINE:
 	case CPU_DYING:
 		/* invoked with preemption disabled, so defer */
 		if (!console_trylock())
