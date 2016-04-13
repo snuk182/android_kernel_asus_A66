@@ -99,6 +99,8 @@ static int sdcardfs_create(struct inode *dir, struct dentry *dentry,
 		err = -ENOMEM;
 		goto out_unlock;
 	}
+	copied_fs->umask = 0;
+	task_lock(current);
 	current->fs = copied_fs;
 	task_unlock(current);
 
@@ -116,7 +118,9 @@ static int sdcardfs_create(struct inode *dir, struct dentry *dentry,
 
 out:
 	mnt_drop_write(lower_path.mnt);
+	task_lock(current);
 	current->fs = saved_fs;
+	task_unlock(current);
 	free_fs_struct(copied_fs);
 out_unlock:
 	unlock_dir(lower_parent_dentry);
@@ -195,7 +199,6 @@ static int sdcardfs_unlink(struct inode *dir, struct dentry *dentry)
 	sdcardfs_get_lower_path(dentry, &lower_path);
 	lower_dentry = lower_path.dentry;
 	lower_mnt = lower_path.mnt;
-	dget(lower_dentry);
 	lower_dir_dentry = lock_parent(lower_dentry);
 
 	err = mnt_want_write(lower_path.mnt);
@@ -224,7 +227,6 @@ out:
 	mnt_drop_write(lower_path.mnt);
 out_unlock:
 	unlock_dir(lower_dir_dentry);
-	dput(lower_dentry);
 	sdcardfs_put_lower_path(dentry, &lower_path);
 	REVERT_CRED(saved_cred);
 out_eacces:
@@ -292,6 +294,7 @@ static int sdcardfs_mkdir(struct inode *dir, struct dentry *dentry, umode_t mode
 	struct dentry *lower_dentry;
 	struct vfsmount *lower_mnt;
 	struct dentry *lower_parent_dentry = NULL;
+	struct dentry *parent_dentry = NULL;
 	struct path lower_path;
 	struct sdcardfs_sb_info *sbi = SDCARDFS_SB(dentry->d_sb);
 	const struct cred *saved_cred = NULL;
@@ -311,11 +314,14 @@ static int sdcardfs_mkdir(struct inode *dir, struct dentry *dentry, umode_t mode
 	OVERRIDE_CRED(SDCARDFS_SB(dir->i_sb), saved_cred, SDCARDFS_I(dir));
 
 	/* check disk space */
-	if (!check_min_free_space(dentry, 0, 1)) {
+	parent_dentry = dget_parent(dentry);
+	if (!check_min_free_space(parent_dentry, 0, 1)) {
 		pr_err("sdcardfs: No minimum free space.\n");
 		err = -ENOSPC;
+		dput(parent_dentry);
 		goto out_revert;
 	}
+	dput(parent_dentry);
 
 	/* the lower_dentry is negative here */
 	sdcardfs_get_lower_path(dentry, &lower_path);
@@ -338,8 +344,11 @@ static int sdcardfs_mkdir(struct inode *dir, struct dentry *dentry, umode_t mode
 		unlock_dir(lower_parent_dentry);
 		goto out_unlock;
 	}
+	copied_fs->umask = 0;
+	task_lock(current);
 	current->fs = copied_fs;
-	current->fs->umask = 0;
+	task_unlock(current);
+
 	err = vfs_mkdir2(lower_mnt, lower_parent_dentry->d_inode, lower_dentry, mode);
 
 	if (err) {
@@ -400,7 +409,10 @@ static int sdcardfs_mkdir(struct inode *dir, struct dentry *dentry, umode_t mode
 	}
 out:
 	mnt_drop_write(lower_path.mnt);
+	task_lock(current);
 	current->fs = saved_fs;
+	task_unlock(current);
+
 	free_fs_struct(copied_fs);
 out_unlock:
 	sdcardfs_put_lower_path(dentry, &lower_path);
