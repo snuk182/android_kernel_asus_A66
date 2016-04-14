@@ -51,6 +51,7 @@
 #include <linux/bitops.h>
 #include <linux/errno.h>
 #include <linux/highmem.h>
+#include <linux/init.h>
 #include <linux/string.h>
 #include <linux/slab.h>
 #include <asm/tlbflush.h>
@@ -84,7 +85,7 @@
 
 /*
  * Object location (<PFN>, <obj_idx>) is encoded as
- * as single (unsigned long) handle value.
+ * as single (void *) handle value.
  *
  * Note that object index <obj_idx> is relative to system
  * page <PFN> it is stored in, so for each sub-page belonging
@@ -265,8 +266,19 @@ struct zs_pool {
 #define CLASS_IDX_MASK	((1 << CLASS_IDX_BITS) - 1)
 #define FULLNESS_MASK	((1 << FULLNESS_BITS) - 1)
 
+/*
+ * By default, zsmalloc uses a copy-based object mapping method to access
+ * allocations that span two pages. However, if a particular architecture
+ * performs VM mapping faster than copying, then it should be added here
+ * so that USE_PGTABLE_MAPPING is defined. This causes zsmalloc to use
+ * page table mapping rather than copying for object mapping.
+ */
+#if defined(CONFIG_ARM) && !defined(MODULE)
+#define USE_PGTABLE_MAPPING
+#endif
+
 struct mapping_area {
-#ifdef CONFIG_PGTABLE_MAPPING
+#ifdef USE_PGTABLE_MAPPING
 	struct vm_struct *vm; /* vm area for mapping object that span pages */
 #else
 	char *vm_buf; /* copy buffer for objects that span pages */
@@ -422,13 +434,6 @@ static void set_zspage_mapping(struct page *page, unsigned int class_idx,
 	page->mapping = (struct address_space *)m;
 }
 
-/*
- * zsmalloc divides the pool into various size classes where each
- * class maintains a list of zspages where each zspage is divided
- * into equal sized chunks. Each allocation falls into one of these
- * classes depending on its size. This function returns index of the
- * size class which has chunk size big enough to hold the give size.
- */
 static int get_size_class_index(int size)
 {
 	int idx = 0;
@@ -641,12 +646,6 @@ static enum fullness_group get_fullness_group(struct page *page)
 	return fg;
 }
 
-/*
- * Each size class maintains various freelists and zspages are assigned
- * to one of these freelists based on the number of live objects they
- * have. This functions inserts the given zspage into the freelist
- * identified by <class, fullness_group>.
- */
 static void insert_zspage(struct page *page, struct size_class *class,
 				enum fullness_group fullness)
 {
@@ -666,10 +665,6 @@ static void insert_zspage(struct page *page, struct size_class *class,
 			CLASS_ALMOST_EMPTY : CLASS_ALMOST_FULL, 1);
 }
 
-/*
- * This function removes the given zspage from the freelist identified
- * by <class, fullness_group>.
- */
 static void remove_zspage(struct page *page, struct size_class *class,
 				enum fullness_group fullness)
 {
@@ -1018,7 +1013,7 @@ static struct page *find_get_zspage(struct size_class *class)
 	return page;
 }
 
-#ifdef CONFIG_PGTABLE_MAPPING
+#ifdef USE_PGTABLE_MAPPING
 static inline int __zs_cpu_up(struct mapping_area *area)
 {
 	/*
@@ -1056,7 +1051,7 @@ static inline void __zs_unmap_object(struct mapping_area *area,
 	unmap_kernel_range(addr, PAGE_SIZE * 2);
 }
 
-#else /* CONFIG_PGTABLE_MAPPING */
+#else /* USE_PGTABLE_MAPPING */
 
 static inline int __zs_cpu_up(struct mapping_area *area)
 {
@@ -1140,7 +1135,7 @@ out:
 	pagefault_enable();
 }
 
-#endif /* CONFIG_PGTABLE_MAPPING */
+#endif /* USE_PGTABLE_MAPPING */
 
 static int zs_cpu_notifier(struct notifier_block *nb, unsigned long action,
 				void *pcpu)
@@ -1173,13 +1168,16 @@ static int zs_register_cpu_notifier(void)
 {
 	int cpu, uninitialized_var(ret);
 
-	register_cpu_notifier(&zs_cpu_nb);
+	cpu_notifier_register_begin();
+
+	__register_cpu_notifier(&zs_cpu_nb);
 	for_each_online_cpu(cpu) {
 		ret = zs_cpu_notifier(NULL, CPU_UP_PREPARE, (void *)(long)cpu);
 		if (notifier_to_errno(ret))
 			break;
 	}
 
+	cpu_notifier_register_done();
 	return notifier_to_errno(ret);
 }
 
