@@ -433,7 +433,7 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 
 	if (nr_to_scan > 0) {
 		ret = adjust_minadj(&min_score_adj);
-		lowmem_print(3, "lowmem_shrink %lu, %x, ofree %d %d, ma %d\n",
+		lowmem_print(3, "lowmem_shrink %lu, %x, ofree %d %d, ma %hd\n",
 				nr_to_scan, sc->gfp_mask, other_free,
 				other_file, min_score_adj);
 	}
@@ -519,6 +519,7 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 		selected_oom_score_adj = oom_score_adj;
 		lowmem_print(3, "select '%s' (%d), adj %hd, size %d, to kill\n",
 			     p->comm, p->pid, oom_score_adj, tasksize);
+
 	}
 	if (selected) {
 		long cache_size = other_file * (long)(PAGE_SIZE / 1024);
