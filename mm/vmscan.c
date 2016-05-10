@@ -1384,6 +1384,7 @@ putback_inactive_pages(struct mem_cgroup_zone *mz,
 		SetPageLRU(page);
 		lru = page_lru(page);
 		add_page_to_lru_list(zone, page, lru);
+
 		file = is_file_lru(lru);
 #if IS_ENABLED(CONFIG_ZCACHE)
 		if (file)
