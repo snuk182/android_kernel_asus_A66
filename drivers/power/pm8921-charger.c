@@ -4178,6 +4178,7 @@ static irqreturn_t dcin_valid_irq_handler(int irq, void *data)
 	}
 
 	power_supply_changed(&chip->batt_psy);
+
 	return IRQ_HANDLED;
 }
 
