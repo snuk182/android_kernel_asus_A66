@@ -251,13 +251,6 @@ int expand_files(struct files_struct *files, int nr)
 
 	fdt = files_fdtable(files);
 
-	/*
-	 * N.B. For clone tasks sharing a files structure, this test
-	 * will limit the total number of files that can be opened.
-	 */
-	if (nr >= rlimit(RLIMIT_NOFILE))
-		return -EMFILE;
-
 	/* Do we need to expand? */
 	if (nr < fdt->max_fds)
 		return 0;
@@ -484,7 +477,6 @@ out:
 	spin_unlock(&files->file_lock);
 	return error;
 }
-EXPORT_SYMBOL(alloc_fd);
 
 int alloc_fd(unsigned start, unsigned flags)
 {
@@ -684,23 +676,3 @@ struct file *fget_raw_light(unsigned int fd, int *fput_needed)
 
 	return file;
 }
-int iterate_fd(struct files_struct *files, unsigned n,
-		int (*f)(const void *, struct file *, unsigned),
-		const void *p)
-{
-	struct fdtable *fdt;
-	struct file *file;
-	int res = 0;
-	if (!files)
-		return 0;
-	spin_lock(&files->file_lock);
-	fdt = files_fdtable(files);
-	while (!res && n < fdt->max_fds) {
-		file = rcu_dereference_check_fdtable(files, fdt->fd[n++]);
-		if (file)
-			res = f(p, file, n);
-	}
-	spin_unlock(&files->file_lock);
-	return res;
-}
-EXPORT_SYMBOL(iterate_fd);
