@@ -291,6 +291,7 @@ static void dbg_log_event(struct urb *urb, char * event, unsigned extra)
 		}
 		//ASUS_BSP--- BennyCheng "add debug mechanism for hsic"
 		return;
+	}
 
 	if ((ep_addr & 0x0f) == 0x0) {
 		/*submit event*/
@@ -1128,6 +1129,16 @@ static int ehci_hsic_reset(struct usb_hcd *hcd)
 	return 0;
 }
 
+static int ehci_hsic_urb_enqueue(struct usb_hcd *hcd, struct urb *urb,
+		gfp_t mem_flags)
+{
+	dbg_log_event(urb, event_to_str(URB_SUBMIT), 0);
+	//ASUS_BSP+++ BennyCheng "add debug mechanism for hsic"
+	last_data_time = jiffies;
+	//ASUS_BSP--- BennyCheng "add debug mechanism for hsic"
+	return ehci_urb_enqueue(hcd, urb, mem_flags);
+}
+
 #define RESET_RETRY_LIMIT 3
 #define RESET_SIGNAL_TIME_SOF_USEC (50 * 1000)
 #define RESET_SIGNAL_TIME_USEC (20 * 1000)
@@ -1468,7 +1479,7 @@ static struct hc_driver msm_hsic_driver = {
 	/*
 	 * managing i/o requests and associated device resources
 	 */
-	.urb_enqueue		= ehci_urb_enqueue,
+	.urb_enqueue		= ehci_hsic_urb_enqueue,
 	.urb_dequeue		= ehci_urb_dequeue,
 	.endpoint_disable	= ehci_endpoint_disable,
 	.endpoint_reset		= ehci_endpoint_reset,

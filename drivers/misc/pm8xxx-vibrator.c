@@ -489,6 +489,7 @@ static int __devexit pm8xxx_vib_remove(struct platform_device *pdev)
 	hrtimer_cancel(&vib->vib_timer);
 	timed_output_dev_unregister(&vib->timed_dev);
 	platform_set_drvdata(pdev, NULL);
+    //remove_vibrator_voltage_proc_file();
 	kfree(vib);
 
 	return 0;

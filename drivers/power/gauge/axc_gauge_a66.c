@@ -36,7 +36,7 @@
 
 #define OCV_PER_SPEEDUP_UPDATE		12
 
-#define TIMES_FOR_GENERAL_READ_ADC		5
+#define TIMES_FOR_GENERAL_READ_ADC		15
 
 #define DEFAULT_DEVICE_RESISTOR_VALUE	150
 
@@ -832,7 +832,7 @@ static void AXC_Gauge_A66_ReadVoltCurrWithoutCali(
 		printk("%d,%d",volArray[i],currArray[i]);
 	}*/
     //Eason takeoff ADC read max & min+++    
-	if(5==anTimes){    
+	if(TIMES_FOR_GENERAL_READ_ADC==anTimes){    
 		printk("[BAT][Gau][A66]:%d,%d,%d,%d,%d,%d,%d,%d,%d,%d\n",volArray[0],volArray[1],volArray[2],volArray[3],volArray[anTimes-1],
 			currArray[0],currArray[1],currArray[2],currArray[3],currArray[anTimes-1]);
 		printk("[BAT][Gau][A66]:Vmax:%d,Vmin:%d,avgV:%d,Cmax:%d,Cmin:%d,avgC:%d\n",volArray[volMax],volArray[volMin],*volt,

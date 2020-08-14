@@ -214,8 +214,10 @@ static void adb_complete_in(struct usb_ep *ep, struct usb_request *req)
 {
 	struct adb_dev *dev = _adb_dev;
 
-	if (req->status != 0)
+	if (req->status != 0){
+		printk("adb_complete_in: req->status(%d)\n",req->status);
 		atomic_set(&dev->error, 1);
+	}
 
 	adb_req_put(dev, &dev->tx_idle, req);
 
@@ -227,8 +229,10 @@ static void adb_complete_out(struct usb_ep *ep, struct usb_request *req)
 	struct adb_dev *dev = _adb_dev;
 
 	dev->rx_done = 1;
-	if (req->status != 0 && req->status != -ECONNRESET)
+	if (req->status != 0 && req->status != -ECONNRESET){
+		printk("adb_complete_out: req->status(%d)\n",req->status);
 		atomic_set(&dev->error, 1);
+	}
 
 	wake_up(&dev->read_wq);
 }

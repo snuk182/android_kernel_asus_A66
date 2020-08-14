@@ -75,6 +75,10 @@ static struct vsycn_ctrl {
 	u32 last_vsync_ms;
 	struct work_struct clk_work;
 	wait_queue_head_t wait_queue;
+    //Mickey+++, add for get vsync ioctl
+    int wait2sync_count;
+    struct completion wait2vsync_comp;
+    //Mickey---
 } vsync_ctrl_db[MAX_CONTROLLER];
 
 static void vsync_irq_enable(int intr, int term)
@@ -555,6 +559,12 @@ static void primary_rdptr_isr(int cndx)
 
 	vctrl->last_vsync_ms = cur_vsync_ms;
 	wake_up_interruptible_all(&vctrl->wait_queue);
+    //Mickey+++, add for vsync ioctl
+    if (vctrl->wait2sync_count) {
+        complete(&vctrl->wait2vsync_comp);
+        vctrl->wait2sync_count = 0;
+    }
+    //Mickey---
 
 	if (vctrl->expire_tick) {
 		vctrl->expire_tick--;
@@ -708,6 +718,31 @@ ssize_t mdp4_dsi_cmd_show_event(struct device *dev,
 	return ret;
 }
 
+//Mickey+++, add for vsync ioctl
+unsigned long long int primary_get_vsync(void)
+{
+    struct vsycn_ctrl *vctrl;
+    unsigned long flags;
+    unsigned long long int timestamp = 0;
+    vctrl = &vsync_ctrl_db[0];
+
+    spin_lock_irqsave(&vctrl->spin_lock, flags);
+    if (vctrl->wait2sync_count == 0)
+        INIT_COMPLETION(vctrl->wait2vsync_comp);
+    vctrl->wait2sync_count++;
+    spin_unlock_irqrestore(&vctrl->spin_lock, flags);
+
+    if (!wait_for_completion_timeout(&vctrl->wait2vsync_comp, msecs_to_jiffies(35))) {
+        pr_debug("%s %d  TIMEOUT_\n", __func__, __LINE__);
+        timestamp = ktime_to_ns(ktime_get());
+    } else {
+		timestamp = ktime_to_ns(vctrl->vsync_time);
+	}
+    return timestamp; //even timeout, we should return the last vsync time
+}
+
+//Mickey---
+
 void mdp4_dsi_rdptr_init(int cndx)
 {
 	struct vsycn_ctrl *vctrl;
@@ -723,9 +758,11 @@ void mdp4_dsi_rdptr_init(int cndx)
 
 	vctrl->inited = 1;
 	vctrl->update_ndx = 0;
+    vctrl->wait2sync_count = 0;//Mickey+++, add for vsync ioctl
 	mutex_init(&vctrl->update_lock);
 	init_completion(&vctrl->ov_comp);
 	init_completion(&vctrl->dmap_comp);
+    init_completion(&vctrl->wait2vsync_comp);//Mickey, add for vsync ioctl
 	spin_lock_init(&vctrl->spin_lock);
 	init_waitqueue_head(&vctrl->wait_queue);
 	atomic_set(&vctrl->suspend, 1);

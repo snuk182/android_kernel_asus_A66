@@ -1290,7 +1290,9 @@ static void rmnet_smd_debugfs_init(struct rmnet_smd_dev *dev)
 
 static void rmnet_smd_debugfs_remove(void)
 {
+#if defined(CONFIG_DEBUG_FS)
 	debugfs_remove_recursive(dent_smd);
+#endif
 }
 #else
 static inline void rmnet_smd_debugfs_init(struct rmnet_smd_dev *dev) {}

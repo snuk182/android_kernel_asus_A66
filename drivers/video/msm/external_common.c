@@ -2388,7 +2388,7 @@ bool hdmi_common_get_video_format_from_drv_data(struct msm_fb_data_type *mfd)
 			break;
 		case 1280:
 			if (mfd->var_yres == 800)
-                format = HDMI_VFRMT_1280x800p60_16_10;
+                		format = HDMI_VFRMT_1280x800p60_16_10;
 			else if (mfd->var_yres == 1024)
 				format = HDMI_VFRMT_1280x1024p60_5_4;
 			else if (mfd->var_frame_rate == 50)

@@ -72,4 +72,8 @@ extern void mmc_queue_bounce_post(struct mmc_queue_req *);
 
 extern void print_mmc_packing_stats(struct mmc_card *card);
 
+//for sd card pre alloc
+extern void InitPreAllocSg(void);
+extern void DeInitPreAllocSg(void);
+
 #endif

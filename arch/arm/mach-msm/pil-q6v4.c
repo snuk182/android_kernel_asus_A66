@@ -23,7 +23,7 @@
 
 #include <mach/msm_bus.h>
 #include <mach/msm_iomap.h>
-
+#include <mach/msm_xo.h>
 #include "peripheral-loader.h"
 #include "pil-q6v4.h"
 #include "scm-pas.h"
@@ -67,6 +67,8 @@ struct q6v4_data {
 	struct regulator *pll_supply;
 	bool vreg_enabled;
 	struct clk *xo;
+    struct msm_xo_voter *xo1;
+    struct msm_xo_voter *xo2;	
 	struct pil_device *pil;
 };
 
@@ -75,7 +77,6 @@ static int pil_q6v4_init_image(struct pil_desc *pil, const u8 *metadata,
 {
 	const struct elf32_hdr *ehdr = (struct elf32_hdr *)metadata;
 	struct q6v4_data *drv = dev_get_drvdata(pil->dev);
-	pr_info(" ==> pil_q6v4_init_image fw\n");
 	drv->start_addr = ehdr->e_entry;
 	return 0;
 }
@@ -90,6 +91,13 @@ static int pil_q6v4_make_proxy_votes(struct pil_desc *pil)
 		dev_err(pil->dev, "Failed to enable XO\n");
 		goto err;
 	}
+    ret = msm_xo_mode_vote(drv->xo1, MSM_XO_MODE_ON);
+    if (ret)
+             goto err_xo1;
+
+    ret = msm_xo_mode_vote(drv->xo2, MSM_XO_MODE_ON);
+    if (ret)
+             goto err_xo2;	
 	if (drv->pll_supply) {
 		ret = regulator_enable(drv->pll_supply);
 		if (ret) {
@@ -99,6 +107,10 @@ static int pil_q6v4_make_proxy_votes(struct pil_desc *pil)
 	}
 	return 0;
 err_regulator:
+    msm_xo_mode_vote(drv->xo2, MSM_XO_MODE_OFF);
+err_xo2:
+    msm_xo_mode_vote(drv->xo1, MSM_XO_MODE_OFF);
+err_xo1:
 	clk_disable_unprepare(drv->xo);
 err:
 	return ret;
@@ -109,6 +121,8 @@ static void pil_q6v4_remove_proxy_votes(struct pil_desc *pil)
 	const struct q6v4_data *drv = dev_get_drvdata(pil->dev);
 	if (drv->pll_supply)
 		regulator_disable(drv->pll_supply);
+    msm_xo_mode_vote(drv->xo1, MSM_XO_MODE_OFF);
+    msm_xo_mode_vote(drv->xo2, MSM_XO_MODE_OFF);		
 	clk_disable_unprepare(drv->xo);
 }
 
@@ -303,7 +317,6 @@ static int pil_q6v4_init_image_trusted(struct pil_desc *pil,
 		const u8 *metadata, size_t size)
 {
 	const struct pil_q6v4_pdata *pdata = pil->dev->platform_data;
-	pr_info(" ==> trusted fw %s / %d\n", pdata->name, pdata->pas_id);
 	return pas_init_image(pdata->pas_id, metadata, size);
 }
 
@@ -429,10 +442,27 @@ static int __devinit pil_q6v4_driver_probe(struct platform_device *pdev)
 	drv->xo = devm_clk_get(&pdev->dev, "xo");
 	if (IS_ERR(drv->xo))
 		return PTR_ERR(drv->xo);
+   if (pdata->xo1_id) {
+		   drv->xo1 = msm_xo_get(pdata->xo1_id, pdata->name);
+		   if (IS_ERR(drv->xo1))
+				   return PTR_ERR(drv->xo1);
+   }
+
+   if (pdata->xo2_id) {
+		   drv->xo2 = msm_xo_get(pdata->xo2_id, pdata->name);
+		   if (IS_ERR(drv->xo2)) {
+				   msm_xo_put(drv->xo1);
+				   return PTR_ERR(drv->xo2);
+		   }
+   }
 
 	drv->pil = msm_pil_register(desc);
 	if (IS_ERR(drv->pil))
+	{
+	    msm_xo_put(drv->xo2);
+        msm_xo_put(drv->xo1);
 		return PTR_ERR(drv->pil);
+	}
 	return 0;
 }
 
@@ -440,6 +470,8 @@ static int __devexit pil_q6v4_driver_exit(struct platform_device *pdev)
 {
 	struct q6v4_data *drv = platform_get_drvdata(pdev);
 	msm_pil_unregister(drv->pil);
+    msm_xo_put(drv->xo2);
+    msm_xo_put(drv->xo1);	
 	return 0;
 }
 

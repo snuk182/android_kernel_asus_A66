@@ -77,7 +77,6 @@ static struct notifier_block panic_blk = {
 	.notifier_call	= panic_prep_restart,
 };
 
-//static void set_dload_mode(int on) //snuk182
 void set_dload_mode(int on)
 {
 	if (dload_mode_addr) {

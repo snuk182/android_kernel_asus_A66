@@ -379,6 +379,24 @@ static inline void smd_write_intr(unsigned int val,
 	__raw_writel(val, addr);
 }
 
+#ifdef CONFIG_WCNSS
+static inline void wakeup_v1_riva(void)
+{
+	/*
+	 * workaround hack for RIVA v1 hardware bug
+	 * trigger GPIO 40 to wake up RIVA from power collaspe
+	 * not to be sent to customers
+	 */
+	if (SOCINFO_VERSION_MAJOR(socinfo_get_version()) == 1) {
+		__raw_writel(0x0, MSM_TLMM_BASE + 0x1284);
+		__raw_writel(0x2, MSM_TLMM_BASE + 0x1284);
+	}
+	/* end workaround */
+}
+#else
+static inline void wakeup_v1_riva(void) {}
+#endif
+
 static inline void notify_modem_smd(void)
 {
 	static const struct interrupt_config_item *intr
@@ -425,6 +443,7 @@ static inline void notify_wcnss_smd(void)
 {
 	static const struct interrupt_config_item *intr
 		= &private_intr_config[SMD_WCNSS].smd;
+	wakeup_v1_riva();
 
 	if (intr->out_base) {
 		++interrupt_stats[SMD_WCNSS].smd_out_config_count;
@@ -494,6 +513,7 @@ static inline void notify_wcnss_smsm(void)
 {
 	static const struct interrupt_config_item *intr
 		= &private_intr_config[SMD_WCNSS].smsm;
+	wakeup_v1_riva();
 
 	if (intr->out_base) {
 		++interrupt_stats[SMD_WCNSS].smsm_out_config_count;
@@ -772,12 +792,14 @@ static void smd_channel_probe_worker(struct work_struct *work)
 
 	mutex_lock(&smd_probe_lock);
 	for (n = 0; n < 64; n++) {
+SMD_INFO("Allocating ch %d: %d\n", n, smd_ch_allocated[n]);
 		if (smd_ch_allocated[n])
 			continue;
 
 		/* channel should be allocated only if APPS
 		   processor is involved */
 		type = SMD_CHANNEL_TYPE(shared[n].type);
+SMD_INFO("--> %d: %d %d %d %s\n", n, shared[n].type, type, shared[n].ref_count, shared[n].name);
 		if (type >= ARRAY_SIZE(edge_to_pids) ||
 				edge_to_pids[type].local_pid != SMD_APPS)
 			continue;
@@ -967,7 +989,7 @@ void smd_channel_reset(uint32_t restart_pid)
 	struct smd_alloc_elm *shared;
 	unsigned long flags;
 
-	SMD_DBG("%s: starting reset\n", __func__);
+	SMD_INFO("%s: starting reset\n", __func__);
 
 	/* release any held spinlocks */
 	remote_spin_release(&remote_spinlock, restart_pid);
@@ -1030,7 +1052,7 @@ void smd_channel_reset(uint32_t restart_pid)
 	notify_wcnss_smd();
 	notify_rpm_smd();
 
-	SMD_DBG("%s: finished reset\n", __func__);
+	SMD_INFO("%s: finished reset\n", __func__);
 }
 
 /* how many bytes are available for reading */
@@ -1440,7 +1462,7 @@ void smd_sleep_exit(void)
 	do_smd_probe();
 
 	if (need_int) {
-		SMD_DBG("smd_sleep_exit need interrupt\n");
+		SMD_INFO("smd_sleep_exit need interrupt\n");
 		tasklet_schedule(&smd_fake_irq_tasklet);
 	}
 }
@@ -1476,7 +1498,7 @@ static int smd_stream_write(smd_channel_t *ch, const void *_data, int len,
 	int orig_len = len;
 	int r = 0;
 
-	SMD_DBG("smd_stream_write() %d -> ch%d\n", len, ch->n);
+	SMD_INFO("smd_stream_write() %d -> ch%d\n", len, ch->n);
 	if (len < 0)
 		return -EINVAL;
 	else if (len == 0)
@@ -1519,7 +1541,7 @@ static int smd_packet_write(smd_channel_t *ch, const void *_data, int len,
 	int ret;
 	unsigned hdr[5];
 
-	SMD_DBG("smd_packet_write() %d -> ch%d\n", len, ch->n);
+	SMD_INFO("smd_packet_write() %d -> ch%d\n", len, ch->n);
 	if (len < 0)
 		return -EINVAL;
 	else if (len == 0)
@@ -1534,7 +1556,7 @@ static int smd_packet_write(smd_channel_t *ch, const void *_data, int len,
 
 	ret = smd_stream_write(ch, hdr, sizeof(hdr), 0);
 	if (ret < 0 || ret != sizeof(hdr)) {
-		SMD_DBG("%s failed to write pkt header: "
+		SMD_INFO("%s failed to write pkt header: "
 			"%d returned\n", __func__, ret);
 		return -1;
 	}
@@ -1542,7 +1564,7 @@ static int smd_packet_write(smd_channel_t *ch, const void *_data, int len,
 
 	ret = smd_stream_write(ch, _data, len, user_buf);
 	if (ret < 0 || ret != len) {
-		SMD_DBG("%s failed to write pkt data: "
+		SMD_INFO("%s failed to write pkt data: "
 			"%d returned\n", __func__, ret);
 		return ret;
 	}
@@ -1693,6 +1715,8 @@ static int smd_alloc_channel(struct smd_alloc_elm *alloc_elm)
 {
 	struct smd_channel *ch;
 
+SMD_INFO("SMD ALLOC: %s %s %d", __FUNCTION__, alloc_elm->name, alloc_elm->type);
+WARN_ON(1);
 	ch = kzalloc(sizeof(struct smd_channel), GFP_KERNEL);
 	if (ch == 0) {
 		pr_err("smd_alloc_channel() out of memory\n");
@@ -1700,8 +1724,10 @@ static int smd_alloc_channel(struct smd_alloc_elm *alloc_elm)
 	}
 	ch->n = alloc_elm->cid;
 	ch->type = SMD_CHANNEL_TYPE(alloc_elm->type);
-
+SMD_INFO("SMD ALLOC TYPE: %s %d %d %d", alloc_elm->name, alloc_elm->type, ch->type, ch->n);
 	if (smd_alloc_v2(ch) && smd_alloc_v1(ch)) {
+
+	SMD_INFO("smd_alloc_v1/2() '%s'\n", ch->name);
 		kfree(ch);
 		return -1;
 	}
@@ -1809,7 +1835,7 @@ static int smd_alloc_loopback_channel(void)
 	ch->pdev.name = ch->name;
 	ch->pdev.id = ch->type;
 
-	SMD_INFO("%s: '%s' cid=%d\n", __func__, ch->name, ch->n);
+	SMD_INFO("SMD LOOPBACK %s: '%s' cid=%d\n", __func__, ch->name, ch->n);
 
 	mutex_lock(&smd_creation_mutex);
 	list_add(&ch->ch_list, &smd_ch_closed_list);
@@ -1847,6 +1873,7 @@ struct smd_channel *smd_get_channel(const char *name, uint32_t type)
 
 	mutex_lock(&smd_creation_mutex);
 	list_for_each_entry(ch, &smd_ch_closed_list, ch_list) {
+SMD_INFO("SMD CH closed: %s %d", ch->name, ch->type);
 		if (!strcmp(name, ch->name) &&
 			(type == ch->type)) {
 			list_del(&ch->ch_list);
@@ -1866,18 +1893,20 @@ int smd_named_open_on_edge(const char *name, uint32_t edge,
 	struct smd_channel *ch;
 	unsigned long flags;
 
+SMD_INFO("SMD OPEN %s %d %d", name, edge, smd_initialized);
 	if (smd_initialized == 0) {
 		SMD_INFO("smd_open() before smd_init()\n");
 		return -ENODEV;
 	}
 
-	SMD_DBG("smd_open('%s', %p, %p)\n", name, priv, notify);
+	SMD_INFO("smd_open('%s', %p, %p)\n", name, priv, notify);
 
 	ch = smd_get_channel(name, edge);
 	if (!ch) {
 		/* check closing list for port */
 		spin_lock_irqsave(&smd_lock, flags);
 		list_for_each_entry(ch, &smd_ch_closing_list, ch_list) {
+SMD_INFO("SMD CH closing: %s", ch->name);
 			if (!strncmp(name, ch->name, 20) &&
 				(edge == ch->type)) {
 				/* channel exists, but is being closed */
@@ -1888,6 +1917,7 @@ int smd_named_open_on_edge(const char *name, uint32_t edge,
 
 		/* check closing workqueue list for port */
 		list_for_each_entry(ch, &smd_ch_to_close_list, ch_list) {
+SMD_INFO("SMD CH to close: %s", ch->name);
 			if (!strncmp(name, ch->name, 20) &&
 				(edge == ch->type)) {
 				/* channel exists, but is being closed */
@@ -1899,6 +1929,7 @@ int smd_named_open_on_edge(const char *name, uint32_t edge,
 
 		/* one final check to handle closing->closed race condition */
 		ch = smd_get_channel(name, edge);
+SMD_INFO("--> %s %d %p", name, edge, ch);
 		if (!ch)
 			return -ENODEV;
 	}
@@ -1921,7 +1952,7 @@ int smd_named_open_on_edge(const char *name, uint32_t edge,
 
 	*_ch = ch;
 
-	SMD_DBG("smd_open: opening '%s'\n", ch->name);
+	SMD_INFO("smd_open: opening '%s'\n", ch->name);
 
 	spin_lock_irqsave(&smd_lock, flags);
 	if (SMD_CHANNEL_TYPE(ch->type) == SMD_APPS_MODEM)
@@ -1937,7 +1968,7 @@ int smd_named_open_on_edge(const char *name, uint32_t edge,
 	else
 		list_add(&ch->ch_list, &smd_ch_list_loopback);
 
-	SMD_DBG("%s: opening ch %d\n", __func__, ch->n);
+	SMD_INFO("%s: opening ch %d\n", __func__, ch->n);
 
 	if (edge != SMD_LOOPBACK_TYPE)
 		smd_state_change(ch, ch->last_state, SMD_SS_OPENING);
@@ -2018,7 +2049,7 @@ int smd_write_start(smd_channel_t *ch, int len)
 
 	if (smd_stream_write_avail(ch) < (SMD_HEADER_SIZE)) {
 		ch->pending_pkt_sz = 0;
-		SMD_DBG("%s: no space to write packet header\n", __func__);
+		SMD_INFO("%s: no space to write packet header\n", __func__);
 		return -EAGAIN;
 	}
 
@@ -2862,6 +2893,7 @@ int smsm_change_state(uint32_t smsm_entry,
 {
 	unsigned long flags;
 	uint32_t  old_state, new_state;
+    int ret;
 
 	if (smsm_entry >= SMSM_NUM_ENTRIES) {
 		pr_err("smsm_change_state: Invalid entry %d",
@@ -2873,6 +2905,15 @@ int smsm_change_state(uint32_t smsm_entry,
 		pr_err("smsm_change_state <SM NO STATE>\n");
 		return -EIO;
 	}
+
+    ret = kfifo_avail(&smsm_snapshot_fifo);
+	if (ret < SMSM_SNAPSHOT_SIZE) {
+        if( smsm_cb_wq ) {
+            flush_workqueue(smsm_cb_wq);
+            pr_err("%s: flush_workqueue(smsm_cb_wq).\n", __func__);
+	    }
+    }
+
 	spin_lock_irqsave(&smem_lock, flags);
 
 	old_state = __raw_readl(SMSM_STATE_ADDR(smsm_entry));
@@ -3344,7 +3385,7 @@ static int intr_init(struct interrupt_config_item *private_irq,
 					pdev,
 					platform_irq->irq_name
 				);
-	SMD_DBG("smd: %s: register irq: %s id: %d\n", __func__,
+	SMD_INFO("smd: %s: register irq: %s id: %d\n", __func__,
 				platform_irq->irq_name, irq_id);
 	ret = request_irq(irq_id,
 				private_irq->irq_handler,
@@ -3592,7 +3633,7 @@ static __init int modem_restart_late_init(void)
 	for (i = 0; i < ARRAY_SIZE(restart_notifiers); i++) {
 		nb = &restart_notifiers[i];
 		handle = subsys_notif_register_notifier(nb->name, &nb->nb);
-		SMD_DBG("%s: registering notif for '%s', handle=%p\n",
+		SMD_INFO("%s: registering notif for '%s', handle=%p\n",
 				__func__, nb->name, handle);
 	}
 	return 0;

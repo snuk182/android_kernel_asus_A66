@@ -28,6 +28,95 @@
 
 #define MMC_REQ_SPECIAL_MASK	(REQ_DISCARD | REQ_FLUSH)
 
+//for sd card pre alloc
+static struct scatterlist *mmc_alloc_sg(int sg_len, int *err);
+struct scatterlist* UsePreAllocSg(int len, int *error);
+void mmc_free_sg(struct scatterlist* sg);
+#define MAXCOUNT_PREALLOC_SG	8192
+#define MAXCOUNT_PREALLOC	4
+
+struct preallocsg
+{
+	struct scatterlist* sg;
+	int count;
+	int used;
+};
+
+struct preallocsg gPreAllocSg[MAXCOUNT_PREALLOC];
+void InitPreAllocSg(void)
+{
+	int i;
+	int ret;
+	pr_debug("InitPreAllocSg\n");
+	for ( i = 0 ; i < MAXCOUNT_PREALLOC ; i++ )
+	{
+		gPreAllocSg[i].sg = mmc_alloc_sg(MAXCOUNT_PREALLOC_SG, &ret);
+		gPreAllocSg[i].count = MAXCOUNT_PREALLOC_SG;
+		gPreAllocSg[i].used = 0;
+	}
+}
+
+static void mmc_alloc_free(const void *addr)
+{
+	if (is_vmalloc_addr(addr))
+		vfree(addr);
+	else
+		kfree(addr);
+}
+
+void mmc_free_sg(struct scatterlist* sg)
+{
+	int i;
+	for ( i = 0 ; i < MAXCOUNT_PREALLOC ; i++ )
+	{
+		if (gPreAllocSg[i].sg == sg)
+		{
+			pr_info("free pre alloc sg(%p) at %d\n", sg, i);
+			sg_init_table(gPreAllocSg[i].sg, gPreAllocSg[i].count);
+			gPreAllocSg[i].used = 0;
+			return;
+		}
+	}
+
+	pr_debug("sg(%p) not in list\n", sg);
+	// not found
+	mmc_alloc_free(sg);
+}
+
+void DeInitPreAllocSg(void)
+{
+	int i;
+	
+	pr_debug("DeInitPreAllocSg\n");
+	for ( i = 0 ; i < MAXCOUNT_PREALLOC ; i++ )
+	{
+		mmc_alloc_free(gPreAllocSg[i].sg);
+		gPreAllocSg[i].sg = 0;
+		gPreAllocSg[i].count = 0;
+		gPreAllocSg[i].used = 0;
+	}
+}
+
+struct scatterlist* UsePreAllocSg(int len, int *error)
+{
+	int i;
+	for ( i = 0 ; i < MAXCOUNT_PREALLOC ; i++ )
+	{
+		if ((gPreAllocSg[i].used == 0) && (gPreAllocSg[i].count > len))
+		{
+			*error = 0;
+			sg_init_table(gPreAllocSg[i].sg, gPreAllocSg[i].count);
+			gPreAllocSg[i].used = 1;
+
+			pr_info("found pre alloc sg at %d, len=%d, sg=%p\n", 
+				i, len, gPreAllocSg[i].sg);
+			return gPreAllocSg[i].sg;
+		}
+	}
+
+	return NULL;
+}
+
 /*
  * Based on benchmark tests the default num of requests to trigger the write
  * packing was determined, to keep the read latency as low as possible and
@@ -217,7 +306,19 @@ static void mmc_urgent_request(struct request_queue *q)
 static struct scatterlist *mmc_alloc_sg(int sg_len, int *err)
 {
 	struct scatterlist *sg;
-	size_t size = sizeof(struct scatterlist)*sg_len;
+	size_t size = sg_len;
+	
+	pr_info("mmc_alloc_sg sg_len:%d\n", sg_len);
+	if (sg_len != 1)
+	{
+		sg = UsePreAllocSg(sg_len, err);
+		if (sg)
+		{
+			return sg;
+		}
+	}
+
+	size = sizeof(struct scatterlist)*sg_len;
 
 	if (size >= PAGE_SIZE)
 		sg = vmalloc(size);
@@ -232,14 +333,6 @@ static struct scatterlist *mmc_alloc_sg(int sg_len, int *err)
 	}
 
 	return sg;
-}
-
-static void mmc_alloc_free(const void *addr)
-{
-	if (is_vmalloc_addr(addr))
-		vfree(addr);
-	else
-		kfree(addr);
 }
 
 static void mmc_queue_setup_discard(struct request_queue *q,
@@ -407,18 +500,22 @@ int mmc_init_queue(struct mmc_queue *mq, struct mmc_card *card,
 
 	return 0;
  free_bounce_sg:
-	mmc_alloc_free(mqrq_cur->bounce_sg);
+	//mmc_alloc_free(mqrq_cur->bounce_sg);
+	mmc_free_sg(mqrq_cur->bounce_sg);
 	mqrq_cur->bounce_sg = NULL;
-	mmc_alloc_free(mqrq_prev->bounce_sg);
+	//mmc_alloc_free(mqrq_prev->bounce_sg);
+	mmc_free_sg(mqrq_prev->bounce_sg);
 	mqrq_prev->bounce_sg = NULL;
 
  cleanup_queue:
-	mmc_alloc_free(mqrq_cur->sg);
+	//mmc_alloc_free(mqrq_cur->sg);
+	mmc_free_sg(mqrq_cur->sg);
 	mqrq_cur->sg = NULL;
 	mmc_alloc_free(mqrq_cur->bounce_buf);
 	mqrq_cur->bounce_buf = NULL;
 
-	mmc_alloc_free(mqrq_prev->sg);
+	//mmc_alloc_free(mqrq_prev->sg);
+	mmc_free_sg(mqrq_prev->sg);
 	mqrq_prev->sg = NULL;
 	mmc_alloc_free(mqrq_prev->bounce_buf);
 	mqrq_prev->bounce_buf = NULL;
@@ -446,19 +543,23 @@ void mmc_cleanup_queue(struct mmc_queue *mq)
 	blk_start_queue(q);
 	spin_unlock_irqrestore(q->queue_lock, flags);
 
-	mmc_alloc_free(mqrq_cur->bounce_sg);
+	//mmc_alloc_free(mqrq_cur->bounce_sg);
+	mmc_free_sg(mqrq_cur->bounce_sg);
 	mqrq_cur->bounce_sg = NULL;
 
-	mmc_alloc_free(mqrq_cur->sg);
+	//mmc_alloc_free(mqrq_cur->sg);
+	mmc_free_sg(mqrq_cur->sg);
 	mqrq_cur->sg = NULL;
 
 	mmc_alloc_free(mqrq_cur->bounce_buf);
 	mqrq_cur->bounce_buf = NULL;
 
-	mmc_alloc_free(mqrq_prev->bounce_sg);
+	//mmc_alloc_free(mqrq_prev->bounce_sg);
+	mmc_free_sg(mqrq_prev->bounce_sg);
 	mqrq_prev->bounce_sg = NULL;
 
-	mmc_alloc_free(mqrq_prev->sg);
+	//mmc_alloc_free(mqrq_prev->sg);
+	mmc_free_sg(mqrq_prev->sg);
 	mqrq_prev->sg = NULL;
 
 	mmc_alloc_free(mqrq_prev->bounce_buf);

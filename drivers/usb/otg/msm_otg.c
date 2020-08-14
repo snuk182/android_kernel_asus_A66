@@ -4834,6 +4834,7 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 				(unsigned long) motg);
 	ret = request_irq(motg->irq, msm_otg_irq, IRQF_SHARED,
 					"msm_otg", motg);
+	printk("msm_otg_irq -->IRQ=%d\n",motg->irq);
 	if (ret) {
 		dev_err(&pdev->dev, "request irq failed\n");
 		goto destroy_wlock;
@@ -4878,6 +4879,7 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 						IRQF_TRIGGER_RISING |
 						IRQF_TRIGGER_FALLING,
 						"msm_otg", motg);
+			printk("msm_pmic_id_irq --> IRQ=%d\n",motg->pdata->pmic_id_irq);
 			if (ret) {
 				dev_err(&pdev->dev, "request irq failed for PMIC ID\n");
 				goto remove_phy;

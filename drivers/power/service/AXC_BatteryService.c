@@ -3241,9 +3241,11 @@ static AXC_BatteryService g_AXC_BatteryService={
 AXI_BatteryServiceFacade *getBatteryService(AXI_BatteryServiceFacadeCallback *callback)
 {
     if(NULL == g_AXC_BatteryService.callback){
-		printk("AXC_BatteryService_constructor() \n");
+	printk("AXC_BatteryService_constructor() \n");
+
         AXC_BatteryService_constructor(&g_AXC_BatteryService, callback);
     }
+
     return &g_AXC_BatteryService.miParent;
 }
 

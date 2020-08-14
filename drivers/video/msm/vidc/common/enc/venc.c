@@ -31,6 +31,8 @@
 #include <media/msm/vcd_api.h>
 #include <media/msm/vidc_init.h>
 
+#include <linux/asusdebug.h>
+
 #include "venc_internal.h"
 #include "vcd_res_tracker_api.h"
 
@@ -1044,6 +1046,7 @@ static long vid_enc_ioctl(struct file *file,
 	}
 	case VEN_IOCTL_CMD_START:
 	{
+		ASUSEvtlog("[BAT][VID]EVTLOG_VIDEO_RECORD_START\n");
 		INFO("\n %s(): Executing VEN_IOCTL_CMD_START", __func__);
 		result = vid_enc_start_stop(client_ctx, true);
 		if (!result) {
@@ -1055,8 +1058,10 @@ static long vid_enc_ioctl(struct file *file,
 	}
 	case VEN_IOCTL_CMD_STOP:
 	{
+		ASUSEvtlog("[BAT][VID]EVTLOG_VIDEO_RECORD_STOP\n");
 		INFO("\n %s(): Executing VEN_IOCTL_CMD_STOP", __func__);
 		result = vid_enc_start_stop(client_ctx, false);
+		msleep(20);	//ASUS_BSP Stimber "Add delay for stop recording"
 		if (!result) {
 			ERR("setting VEN_IOCTL_CMD_STOP failed\n");
 			return -EIO;

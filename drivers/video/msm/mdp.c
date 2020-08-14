@@ -2609,6 +2609,7 @@ static struct msm_bus_scale_pdata mdp_bus_scale_table = {
 	.name = "mdp",
 };
 static uint32_t mdp_bus_scale_handle;
+extern bool g_p01State;//Mickey+++
 static int mdp_bus_scale_register(void)
 {
 	struct msm_bus_scale_pdata *bus_pdata = &mdp_bus_scale_table;
@@ -2655,7 +2656,10 @@ int mdp_bus_scale_update_request(u64 ab_p0, u64 ib_p0, u64 ab_p1, u64 ib_p1)
 		 (u32)mdp_bus_scale_handle, bus_index,
 		 mdp_bus_usecases[bus_index].vectors[1].ab,
 		 mdp_bus_usecases[bus_index].vectors[1].ib);
-
+    //Mickey+++
+    if (g_p01State && (bus_index!=0))
+        bus_index = 5;
+    //Mickey---
 	return msm_bus_scale_client_update_request
 		(mdp_bus_scale_handle, bus_index);
 }
@@ -3452,12 +3456,12 @@ static void mdp_early_suspend(struct early_suspend *h)
 #ifdef CONFIG_FB_MSM_DTV
 	mdp4_dtv_set_black_screen();
 #endif
-	mdp_footswitch_ctrl(FALSE);
+	//mdp_footswitch_ctrl(FALSE);
 }
 
 static void mdp_early_resume(struct early_suspend *h)
 {
-	mdp_footswitch_ctrl(TRUE);
+	//mdp_footswitch_ctrl(TRUE);
 	mutex_lock(&mdp_suspend_mutex);
 	mdp_suspended = FALSE;
 	mutex_unlock(&mdp_suspend_mutex);

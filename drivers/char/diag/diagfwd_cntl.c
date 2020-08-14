@@ -219,6 +219,7 @@ static int diag_smd_cntl_probe(struct platform_device *pdev)
 
 	/* open control ports only on 8960 & newer targets */
 	if (chk_apps_only()) {
+pr_info("Open SMD DIAG %d", pdev->id);
 		if (pdev->id == SMD_APPS_MODEM) {
 			index = MODEM_DATA;
 			r = smd_open("DIAG_CNTL",
@@ -247,8 +248,10 @@ static int diag_smd_cntl_probe(struct platform_device *pdev)
 					driver->smd_cntl[index].ch;
 		}
 
-		pr_debug("diag: open CNTL port, ID = %d,r = %d\n", pdev->id, r);
-	}
+		pr_info("diag: open CNTL port, ID = %d,r = %d\n", pdev->id, r);
+	} else {
+pr_info("Unsupported diag smd!!!!");
+}
 	return 0;
 }
 

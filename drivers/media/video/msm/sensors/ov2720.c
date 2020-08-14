@@ -609,12 +609,14 @@ static struct msm_camera_i2c_conf_array ov2720_confs[] = {
 	ARRAY_SIZE(ov2720_vga_settings), 0, MSM_CAMERA_I2C_BYTE_DATA},
 	{&ov2720_720_settings[0],
 	ARRAY_SIZE(ov2720_720_settings), 0, MSM_CAMERA_I2C_BYTE_DATA},
+#if 0
 	{&ov2720_60fps_settings[0],
 	ARRAY_SIZE(ov2720_60fps_settings), 0, MSM_CAMERA_I2C_BYTE_DATA},
 	{&ov2720_90fps_settings[0],
 	ARRAY_SIZE(ov2720_90fps_settings), 0, MSM_CAMERA_I2C_BYTE_DATA},
 	{&ov2720_120fps_settings[0],
 	ARRAY_SIZE(ov2720_120fps_settings), 0, MSM_CAMERA_I2C_BYTE_DATA},
+#endif
 };
 #endif
 //ASUS_BSP --- Stimber "[A60K][8M][NA][Others]Full porting for 8M camera with ISP"
@@ -652,30 +654,30 @@ static struct msm_sensor_output_info_t ov2720_dimensions[] = {
 //ASUS_BSP --- Stimber "Add Full HD resolution for recording"
 #if 0
 	{
-		.x_output = 0x280, /* 640 */
-		.y_output = 0x1E0, /* 480 */
+		.x_output = 640,//0x280, /* 640 */
+		.y_output = 480,//0x1E0, /* 480 */
 		.line_length_pclk = 0x30C, /* 780 */
 		.frame_length_lines = 0x200, /* 512 */
-		.vt_pixel_clk = 24000000,
-		.op_pixel_clk = 24000000,
+		.vt_pixel_clk = 216000000,//24000000,
+		.op_pixel_clk = 216000000,//24000000,
 		.binning_factor = 1,
 	},
 	{
-		.x_output = 0x280, /* 640 */
-		.y_output = 0x1E0, /* 480 */
+		.x_output = 640,//0x280, /* 640 */
+		.y_output = 480,//0x1E0, /* 480 */
 		.line_length_pclk = 0x30C, /* 780 */
 		.frame_length_lines = 0x200, /* 512 */
-		.vt_pixel_clk = 36000000,
-		.op_pixel_clk = 36000000,
+		.vt_pixel_clk = 216000000,//36000000,
+		.op_pixel_clk = 216000000,//36000000,
 		.binning_factor = 1,
 	},
 	{
-		.x_output = 0x280, /* 640 */
-		.y_output = 0x1E0, /* 480 */
+		.x_output = 640,//0x280, /* 640 */
+		.y_output = 480,//0x1E0, /* 480 */
 		.line_length_pclk = 0x30C, /* 780 */
 		.frame_length_lines = 0x200, /* 512 */
-		.vt_pixel_clk = 48000000,
-		.op_pixel_clk = 48000000,
+		.vt_pixel_clk = 216000000,//48000000,
+		.op_pixel_clk = 216000000,//48000000,
 		.binning_factor = 1,
 	},
 #endif

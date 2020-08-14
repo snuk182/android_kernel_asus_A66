@@ -2773,8 +2773,9 @@ static int mdp4_overlay_req2pipe(struct mdp_overlay *req, int mixer,
 	return 0;
 }
 
+extern bool g_p01State;//Mickey+++
 static int mdp4_calc_req_mdp_clk(struct msm_fb_data_type *mfd,
-				 u32 src_h, u32 dst_h, u32 src_w, u32 dst_w)
+				 u32 src_h, u32 dst_h, u32 src_w, u32 dst_w, u32 mixer_num)
 {
 	u32 pclk, hsync;
 	u32 xscale, yscale;
@@ -2905,7 +2906,12 @@ static int mdp4_calc_req_mdp_clk(struct msm_fb_data_type *mfd,
 	}
 	pr_debug("%s: required mdp clk %d\n", __func__, (u32)rst);
 
-	return (u32)rst;
+	if (g_p01State && mixer_num == 1
+			&& src_w == 1080 && src_h == 1920) {
+            return 160000000;
+    	} else {
+		return (u32)rst;
+	}
 }
 
 static int mdp4_calc_req_blt(struct msm_fb_data_type *mfd,
@@ -2925,7 +2931,7 @@ static int mdp4_calc_req_blt(struct msm_fb_data_type *mfd,
 
 	if (mdp4_calc_req_mdp_clk
 		(mfd, req->src_rect.h, req->dst_rect.h,
-		 req->src_rect.w, req->dst_rect.w) > mdp_max_clk)
+		 req->src_rect.w, req->dst_rect.w, 0) > mdp_max_clk)
 		ret = -EINVAL;
 
 	return ret;
@@ -2962,7 +2968,7 @@ static int mdp4_calc_pipe_mdp_clk(struct msm_fb_data_type *mfd,
 		 __func__, pipe->dst_w, pipe->dst_h, pipe->dst_x, pipe->dst_y);
 
 	pipe->req_clk = mdp4_calc_req_mdp_clk
-		(mfd, pipe->src_h, pipe->dst_h, pipe->src_w, pipe->dst_w);
+		(mfd, pipe->src_h, pipe->dst_h, pipe->src_w, pipe->dst_w, pipe->mixer_num);
 
 	pr_debug("%s: required mdp clk %d mixer %d pipe ndx %d\n",
 		 __func__, pipe->req_clk, pipe->mixer_num, pipe->pipe_ndx);
@@ -3618,18 +3624,24 @@ int mdp4_overlay_unset(struct fb_info *info, int ndx)
 	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)info->par;
 	struct mdp4_overlay_pipe *pipe;
 
-	if (mfd == NULL)
+	if (mfd == NULL) {
+		printk("%s: mfd is NULL\n",__func__); //Mickey+++, add for debug!
 		return -ENODEV;
+	}
 
 	if (mutex_lock_interruptible(&mfd->dma->ov_mutex))
 		return -EINTR;
 
 	pipe = mdp4_overlay_ndx2pipe(ndx);
 
+	//Mickey+++, we treat pipe null as unset successfully
 	if (pipe == NULL) {
 		mutex_unlock(&mfd->dma->ov_mutex);
-		return -ENODEV;
+		//return -ENODEV;
+        printk("%s :pipe is NULL, overlay unset successfully\n",__func__);
+        return 0;
 	}
+	//Mickey---
 
 	if (pipe->pipe_type == OVERLAY_TYPE_BF) {
 		mdp4_overlay_borderfill_stage_down(pipe);
@@ -3720,6 +3732,20 @@ int mdp4_overlay_vsync_ctrl(struct fb_info *info, int enable)
 
 	return 0;
 }
+
+//Mickey+++, add for new ioctl to get vsync
+unsigned long long int primary_get_vsync(void);
+unsigned long long int dtv_get_vsync(void);
+unsigned long long int mdp4_overlay_get_vsync(struct fb_info *info)
+{
+    if (!hdmi_prim_display && info->node == 0) {
+        return primary_get_vsync();
+    } else if (hdmi_prim_display || info->node == 1) {
+        return dtv_get_vsync();
+    }
+    return 0;
+}
+//Mickey---
 
 
 struct tile_desc {

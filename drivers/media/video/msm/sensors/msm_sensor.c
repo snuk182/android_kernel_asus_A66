@@ -375,8 +375,13 @@ int32_t msm_sensor_get_output_info(struct msm_sensor_ctrl_t *s_ctrl,
 
 static int32_t msm_sensor_release(struct msm_sensor_ctrl_t *s_ctrl)
 {
+	printk("%s called\n", __func__);
+#if 0
 	CDBG("%s called\n", __func__);
 	s_ctrl->func_tbl->sensor_stop_stream(s_ctrl);
+#endif
+	msleep(10); 
+	printk("msm_sensor_release end");
 	return 0;
 }
 

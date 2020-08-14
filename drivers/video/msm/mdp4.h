@@ -435,6 +435,7 @@ struct mdp4_statistic {
 	ulong err_stage;
 	ulong err_play;
 	ulong err_underflow;
+	ulong hdmi_pend_count;
 };
 
 struct vsync_update {

@@ -82,6 +82,7 @@ int wcd9xxx_reg_read(struct wcd9xxx *wcd9xxx, unsigned short reg)
 }
 EXPORT_SYMBOL_GPL(wcd9xxx_reg_read);
 
+static int b_ear_hp = 0; 
 static int wcd9xxx_write(struct wcd9xxx *wcd9xxx, unsigned short reg,
 			int bytes, void *src, bool interface_reg)
 {
@@ -91,6 +92,42 @@ static int wcd9xxx_write(struct wcd9xxx *wcd9xxx, unsigned short reg,
 		pr_err("%s: Error, invalid write length\n", __func__);
 		return -EINVAL;
 	}
+
+    //wendy_sz++
+    if (reg == 0x380) {
+        if (*buf != 0 ) b_ear_hp = 1;
+        else            b_ear_hp = 0;
+    }
+    
+    if (b_ear_hp == 1) {
+        if ((reg == 0x1a2) && (*buf & 0x80)) {
+            dev_dbg(wcd9xxx->dev, "%s: Delay, avoid POP\n", __func__);
+            return 0;
+        }
+    
+        if ((reg == 0x1bc) && (*buf & 0x10)) {
+            u8 tmp = 0x80;
+            dev_dbg(wcd9xxx->dev, "%s: Delay, avoid POP2\n", __func__);
+            wcd9xxx->write_dev(wcd9xxx, 0x1bc, 1, src, false);
+            wcd9xxx->write_dev(wcd9xxx, 0x1a2, 1, &tmp, false);
+            return 0;
+        }
+
+        if ((reg == 0x1ab) && (*buf & 0x30)) {
+            u8 tmp = 0x80;
+            dev_dbg(wcd9xxx->dev, "%s: Delay, avoid POP3\n", __func__);
+            wcd9xxx->write_dev(wcd9xxx, 0x1ab, 1, src, false);
+            wcd9xxx->write_dev(wcd9xxx, 0x1a2, 1, &tmp, false);
+            return 0;
+        }
+    }
+   
+    if (reg == 0x101)   *buf |= 0x11;
+    if (reg == 0x12b)   *buf = 0x86;
+    if (reg == 0x110)   *buf |= 0x80;
+    if (reg == 0x128)   *buf |= 0x80;
+    //printk("[WCD9310]Write %02x to R%d(0x%x)\n", *buf, reg, reg);
+    //wendy_sz++
 
 	dev_dbg(wcd9xxx->dev, "Write %02x to 0x%x\n",
 		 *buf, reg);
@@ -311,6 +348,29 @@ static void wcd9xxx_free_reset(struct wcd9xxx *wcd9xxx)
 		wcd9xxx->reset_gpio = 0;
 	}
 }
+
+//wendy_sz++
+static int wcd9xxx_or_reg(struct wcd9xxx *wcd9xxx, unsigned short reg, u8 val, bool b_or)
+{
+    u8  buf;
+    int ret = 0;
+
+    mutex_lock(&wcd9xxx->io_lock);
+    ret = wcd9xxx->read_dev(wcd9xxx, reg, 1, &buf, false);
+    mutex_unlock(&wcd9xxx->io_lock);
+
+    if (b_or)   buf |= val;
+    else        buf &= ~val;
+
+    mutex_lock(&wcd9xxx->io_lock);
+    printk("%s: b_or %d, reg 0x%x, val 0x%x\n", __func__, b_or, reg, buf);
+    ret = wcd9xxx->write_dev(wcd9xxx, reg, 1, &buf, false);
+    mutex_unlock(&wcd9xxx->io_lock);
+
+    return ret;
+}
+//wendy_sz++
+
 static int wcd9xxx_check_codec_type(struct wcd9xxx *wcd9xxx,
 					struct mfd_cell **wcd9xxx_dev,
 					int *wcd9xxx_dev_size)
@@ -398,6 +458,14 @@ static int wcd9xxx_device_init(struct wcd9xxx *wcd9xxx, int irq)
 		goto err_irq;
 	}
 	return ret;
+	
+	//wendy_sz++
+    ret = wcd9xxx_or_reg(wcd9xxx, 0x101, 0x11, true);
+    ret = wcd9xxx_reg_write(wcd9xxx, 0x12b, 0x86);
+    ret = wcd9xxx_or_reg(wcd9xxx, 0x110, 0x80, true);
+    ret = wcd9xxx_or_reg(wcd9xxx, 0x128, 0x80, true);
+    //wendy_sz++
+	
 err_irq:
 	wcd9xxx_irq_exit(wcd9xxx);
 err:
@@ -1267,7 +1335,14 @@ static int wcd9xxx_resume(struct wcd9xxx *wcd9xxx)
 
 static int wcd9xxx_slim_resume(struct slim_device *sldev)
 {
+	int ret = 0;//wendy_sz++
 	struct wcd9xxx *wcd9xxx = slim_get_devicedata(sldev);
+	//wendy_sz++
+    ret = wcd9xxx_or_reg(wcd9xxx, 0x101, 0x11, true);
+    ret = wcd9xxx_reg_write(wcd9xxx, 0x12b, 0x86);
+    ret = wcd9xxx_or_reg(wcd9xxx, 0x110, 0x80, true);
+    ret = wcd9xxx_or_reg(wcd9xxx, 0x128, 0x80, true);
+    //wendy_sz++
 	return wcd9xxx_resume(wcd9xxx);
 }
 
@@ -1324,9 +1399,23 @@ static int wcd9xxx_suspend(struct wcd9xxx *wcd9xxx, pm_message_t pmesg)
 	return ret;
 }
 
+extern int g_playing_LPA;
+extern int g_flag_csvoice_fe_connected;
+extern int FMStatus;
 static int wcd9xxx_slim_suspend(struct slim_device *sldev, pm_message_t pmesg)
 {
+	int ret = 0;//wendy_sz++
 	struct wcd9xxx *wcd9xxx = slim_get_devicedata(sldev);
+	//wendy_sz++
+    if ((!g_flag_csvoice_fe_connected) && (!g_playing_LPA) && (!FMStatus))
+    {
+        u8  buf = 0x16;
+        ret = wcd9xxx_or_reg(wcd9xxx, 0x101, 0x11, false);
+        ret = wcd9xxx->write_dev(wcd9xxx, 0x12b, 1, &buf, false);
+        ret = wcd9xxx_or_reg(wcd9xxx, 0x110, 0x80, false);
+        ret = wcd9xxx_or_reg(wcd9xxx, 0x128, 0x80, false);
+    }
+    //wendy_sz++
 	return wcd9xxx_suspend(wcd9xxx, pmesg);
 }
 

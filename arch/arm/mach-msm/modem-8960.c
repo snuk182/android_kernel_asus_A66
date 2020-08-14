@@ -135,7 +135,7 @@ void modem_crash_shutdown(const struct subsys_desc *subsys)
 	crash_shutdown = 1;
 	smsm_reset_modem(SMSM_RESET);
 }
-
+#ifndef ASUS_SHIP_BUILD 
 /* FIXME: Get address, size from PIL */
 static struct ramdump_segment modemsw_segments[] = {
 	{0x89000000, 0x8D400000 - 0x89000000},
@@ -148,11 +148,10 @@ static struct ramdump_segment modemfw_segments[] = {
 static struct ramdump_segment smem_segments[] = {
 	{0x80000000, 0x00200000},
 };
-
+#endif
 static void *modemfw_ramdump_dev;
 static void *modemsw_ramdump_dev;
 static void *smem_ramdump_dev;
-
 #ifndef ASUS_SHIP_BUILD
 // ASUS_BSP+++ Wenli "Modify for modem restart"
 #include <linux/rtc.h>

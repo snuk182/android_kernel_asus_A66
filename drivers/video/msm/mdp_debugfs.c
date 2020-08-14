@@ -333,6 +333,11 @@ static ssize_t mdp_stat_read(
 	bp += len;
 	dlen -= len;
 
+    len = snprintf(bp, dlen, "hdmi wait:  %08lu\n",
+                    mdp4_stat.hdmi_pend_count);
+    bp += len;
+    dlen -= len;
+
 	len = snprintf(bp, dlen, "primary:   vsync: %08lu\t",
 					mdp4_stat.intr_vsync_p);
 	bp += len;

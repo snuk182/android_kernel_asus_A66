@@ -3271,6 +3271,8 @@ static int __init mmc_blk_init(void)
 	if (res)
 		goto out2;
 
+	InitPreAllocSg();
+	
 	return 0;
  out2:
 	unregister_blkdev(MMC_BLOCK_MAJOR, "mmc");
@@ -3282,6 +3284,7 @@ static void __exit mmc_blk_exit(void)
 {
 	mmc_unregister_driver(&mmc_driver);
 	unregister_blkdev(MMC_BLOCK_MAJOR, "mmc");
+	DeInitPreAllocSg();
 }
 
 module_init(mmc_blk_init);

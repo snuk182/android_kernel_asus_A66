@@ -510,8 +510,11 @@ static int hci_smd_register_smd(struct hci_smd_data *hsmd)
 	rc = smd_named_open_on_edge(EVENT_CHANNEL, SMD_APPS_WCNSS,
 			&hsmd->event_channel, hdev, hci_smd_notify_event);
 	if (rc < 0) {
-		BT_ERR("Cannot open the command channel");
-		hci_free_dev(hdev);
+		BT_ERR("Cannot open the command channel: %d %s %d", rc, EVENT_CHANNEL, SMD_APPS_WCNSS);
+                //ASUS_BSP++ CHANCE "use kfree since hdev not registered yet"
+                //hci_free_dev(hdev);
+		kfree(hdev);
+                //ASUS_BSP-- CHANCE "use kfree since hdev not registered yet"
 		hsmd->hdev = NULL;
 		return -ENODEV;
 	}
@@ -520,7 +523,10 @@ static int hci_smd_register_smd(struct hci_smd_data *hsmd)
 			&hsmd->data_channel, hdev, hci_smd_notify_data);
 	if (rc < 0) {
 		BT_ERR("Failed to open the Data channel");
-		hci_free_dev(hdev);
+                //ASUS_BSP++ CHANCE "use kfree since hdev not registered yet"
+                //hci_free_dev(hdev);
+		kfree(hdev);
+                //ASUS_BSP-- CHANCE "use kfree since hdev not registered yet"
 		hsmd->hdev = NULL;
 		return -ENODEV;
 	}

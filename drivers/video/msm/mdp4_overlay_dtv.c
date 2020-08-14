@@ -84,6 +84,10 @@ static struct vsycn_ctrl {
 	int vsync_irq_enabled;
 	ktime_t vsync_time;
 	wait_queue_head_t wait_queue;
+    //Mickey+++, add for get vsync ioctl
+    int wait2sync_count;
+    struct completion wait2vsync_comp;
+    //Mickey---
 } vsync_ctrl_db[MAX_CONTROLLER];
 
 static void vsync_irq_enable(int intr, int term)
@@ -197,6 +201,10 @@ static void mdp4_dtv_pipe_clean(struct vsync_update *vp)
 	vp->update_cnt = 0;     /* empty queue */
 }
 
+int dtv_frame_rate = 60; //Mickey+++
+static int j_cnt = 0;
+#define J_THRESH 4
+
 static void mdp4_dtv_blt_ov_update(struct mdp4_overlay_pipe *pipe);
 static void mdp4_dtv_wait4dmae(int cndx);
 
@@ -211,8 +219,36 @@ int mdp4_dtv_pipe_commit(int cndx, int wait)
 	struct mdp4_overlay_pipe *real_pipe;
 	unsigned long flags;
 	int cnt = 0;
+    int counter = (1000/dtv_frame_rate)+1;//Mickey+++
 
-	vctrl = &vsync_ctrl_db[cndx];
+    vctrl = &vsync_ctrl_db[cndx];
+
+    spin_lock_irqsave(&vctrl->spin_lock, flags);
+    j_cnt++;
+    // release spinlock
+    if(j_cnt<J_THRESH){
+        spin_unlock_irqrestore(&vctrl->spin_lock, flags);
+    }
+    else{
+        spin_unlock_irqrestore(&vctrl->spin_lock, flags);
+
+        for(i=0; i<counter; i++){ // for 60 fps hdmi use case, for 30fps use case, you have to enlarge the index
+            usleep(1000);
+            spin_lock_irqsave(&vctrl->spin_lock, flags);
+            if(j_cnt<J_THRESH){
+                spin_unlock_irqrestore(&vctrl->spin_lock, flags);
+                break;
+            }
+            spin_unlock_irqrestore(&vctrl->spin_lock, flags);
+        }
+        if(i==counter){
+			j_cnt--;//Mickey+++, since it commit anyway, we don't count it in
+            pr_debug("j: fatal error \n");
+        }
+        mdp4_stat.hdmi_pend_count+=i;
+
+    }
+
 	mutex_lock(&vctrl->update_lock);
 	undx =  vctrl->update_ndx;
 	vp = &vctrl->vlist[undx];
@@ -423,6 +459,29 @@ ssize_t mdp4_dtv_show_event(struct device *dev,
 	buf[strlen(buf) + 1] = '\0';
 	return ret;
 }
+//Mickey+++, add for ioctl to get vsync
+unsigned long long int dtv_get_vsync(void)
+{
+    struct vsycn_ctrl *vctrl;
+    unsigned long flags;
+    unsigned long long int timestamp = 0;
+    vctrl = &vsync_ctrl_db[0];
+
+    spin_lock_irqsave(&vctrl->spin_lock, flags);
+    if (vctrl->wait2sync_count == 0)
+        INIT_COMPLETION(vctrl->wait2vsync_comp);
+    vctrl->wait2sync_count++;
+    spin_unlock_irqrestore(&vctrl->spin_lock, flags);
+
+    if (!wait_for_completion_timeout(&vctrl->wait2vsync_comp, msecs_to_jiffies(35))) {
+        pr_debug("%s %d  TIMEOUT_\n", __func__, __LINE__);
+        timestamp = ktime_to_ns(ktime_get());
+    } else {
+		timestamp = ktime_to_ns(vctrl->vsync_time);
+	}
+    return timestamp; //even timeout, we should return the last vsync time
+}
+//Mickey---
 
 void mdp4_dtv_vsync_init(int cndx)
 {
@@ -441,9 +500,11 @@ void mdp4_dtv_vsync_init(int cndx)
 
 	vctrl->inited = 1;
 	vctrl->update_ndx = 0;
+    vctrl->wait2sync_count = 0;//Mickey+++, add for vsync ioctl
 	mutex_init(&vctrl->update_lock);
 	init_completion(&vctrl->ov_comp);
 	init_completion(&vctrl->dmae_comp);
+    init_completion(&vctrl->wait2vsync_comp);//Mickey, add for vsync ioctl
 	atomic_set(&vctrl->suspend, 1);
 	spin_lock_init(&vctrl->spin_lock);
 	init_waitqueue_head(&vctrl->wait_queue);
@@ -506,6 +567,13 @@ static int mdp4_dtv_start(struct msm_fb_data_type *mfd)
 			outpdw(MDP_BASE + 0x0038, mdp4_display_intf);
 		}
 	}
+    //Mickey+++, reinit qseed table each time when dtv start to avoid grid on overlay in pad mode
+    else
+    {
+        mdp4_vg_qseed_init(0);
+        mdp4_vg_qseed_init(1);
+    }
+    //Mickey---
 	mdp4_overlay_dmae_cfg(mfd, 0);
 
 	/*
@@ -620,7 +688,7 @@ int mdp4_dtv_on(struct platform_device *pdev)
 	vctrl->dev = mfd->fbi->dev;
 	vctrl->vsync_irq_enabled = 0;
 
-	mdp_footswitch_ctrl(TRUE);
+	//mdp_footswitch_ctrl(TRUE);
 	/* Mdp clock enable */
 	mdp_clk_ctrl(1);
 
@@ -699,6 +767,7 @@ int mdp4_dtv_off(struct platform_device *pdev)
 			mdp4_overlay_pipe_free(pipe, 1);
 			vctrl->base_pipe = NULL;
 		}
+		msleep(20);//Mickey+++, delay one frame before turn off dtv
 	}
 
 	mdp4_dtv_tg_off(vctrl);
@@ -719,7 +788,7 @@ int mdp4_dtv_off(struct platform_device *pdev)
 	}
 
 	ret = panel_next_off(pdev);
-	mdp_footswitch_ctrl(FALSE);
+	//mdp_footswitch_ctrl(FALSE);
 
 	/*
 	 * clean up ion freelist
@@ -935,6 +1004,13 @@ void mdp4_external_vsync_dtv(void)
 	vctrl->vsync_time = ktime_get();
 	wake_up_interruptible_all(&vctrl->wait_queue);
 	spin_unlock(&vctrl->spin_lock);
+
+    //Mickey+++, add for vsync ioctl
+    if (vctrl->wait2sync_count) {
+        complete(&vctrl->wait2vsync_comp);
+        vctrl->wait2sync_count = 0;
+    }
+    //Mickey---
 }
 
 /*
