@@ -9,7 +9,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
-//snuk182 !!
+
 #include <linux/module.h>
 #include <linux/string.h>
 #include <linux/device.h>
@@ -577,7 +577,7 @@ static void msm_pil_debugfs_remove(struct pil_device *pil)
 }
 #else
 static int __init msm_pil_debugfs_init(void) { return 0; };
-static void __exit msm_pil_debugfs_exit(void) { return; };	//ASUS_BSP: fix for miniporting++
+static void __exit msm_pil_debugfs_exit(void) { };
 static int msm_pil_debugfs_add(struct pil_device *pil) { return 0; }
 static void msm_pil_debugfs_remove(struct pil_device *pil) { }
 #endif
