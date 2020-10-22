@@ -890,6 +890,7 @@ extern bool hdmi_exist(void);//Mickey+++
 extern bool g_skipHPD;//Mickey+++
 static void hdmi_msm_hpd_state_work(struct work_struct *work)
 {
+	int hdmi_status;
 	boolean hpd_state = false;
 	char *envp[2];
 
@@ -914,16 +915,17 @@ static void hdmi_msm_hpd_state_work(struct work_struct *work)
         hdmi_msm_state->hpd_cable_chg_detected = FALSE;
         mutex_unlock(&hdmi_msm_state_mutex);
         HDMI_OUTP(0x0254, 4 | 0);
+        DEV_INFO("%s:skip hpd while in suspend\n", __func__);
         return;
     }
 	DEV_DBG("%s:Got interrupt\n", __func__);
 	/* HPD_INT_STATUS[0x0250] */
 	hpd_state = (HDMI_INP(0x0250) & 0x2) >> 1;
-    hdmi_exist_realtime();//Mickey+++, update hdmi status
+    hdmi_status = hdmi_exist_realtime();//Mickey+++, update hdmi status
 	mutex_lock(&external_common_state_hpd_mutex);
 	mutex_lock(&hdmi_msm_state_mutex);
-	if ((external_common_state->hpd_state != hpd_state) || (hdmi_msm_state->
-			hpd_prev_state != external_common_state->hpd_state)) {
+	if ((external_common_state->hpd_state != hpd_state) || 
+		(hdmi_msm_state->hpd_prev_state != external_common_state->hpd_state) ) {
 		external_common_state->hpd_state = hpd_state;
 		hdmi_msm_state->hpd_prev_state =
 				external_common_state->hpd_state;
@@ -933,7 +935,7 @@ static void hdmi_msm_hpd_state_work(struct work_struct *work)
 		mutex_unlock(&external_common_state_hpd_mutex);
 		hdmi_msm_state->hpd_stable = 0;
 		mutex_unlock(&hdmi_msm_state_mutex);
-		mod_timer(&hdmi_msm_state->hpd_state_timer, jiffies + HZ/5);//Mickey+++
+		mod_timer(&hdmi_msm_state->hpd_state_timer, jiffies + msecs_to_jiffies(360));//Mickey+++
 		return;
 	}
 	mutex_unlock(&external_common_state_hpd_mutex);
@@ -946,10 +948,11 @@ static void hdmi_msm_hpd_state_work(struct work_struct *work)
 	}
 
 	hdmi_msm_state->hpd_stable = 1;
-	DEV_INFO("HDMI HPD: event detected\n");
+	DEV_INFO("HDMI HPD: event detected!\n");
 
 	if (!hdmi_msm_state->hpd_cable_chg_detected) {
 		mutex_unlock(&hdmi_msm_state_mutex);
+		DEV_INFO("hpd cable change not detected!\n");
 		if (hpd_state && hdmi_exist_realtime()) { //Mickey+++, double check if hdmi exist by reading interrupt pin status
 			if (!external_common_state->
 					disp_mode_list.num_of_elements)
@@ -970,7 +973,6 @@ static void hdmi_msm_hpd_state_work(struct work_struct *work)
                     g_fb0_off = true;
                 }
 #endif
-            g_hdmi_status = 1;//joe1_++
             g_pad_virtual_remove = false;//Mickey+++
 		}
 	} else {
@@ -985,7 +987,14 @@ static void hdmi_msm_hpd_state_work(struct work_struct *work)
 		switch_set_state(&external_common_state->sdev, 0);
 		DEV_INFO("Hdmi state switch to %d: %s\n",
 			external_common_state->sdev.state,  __func__);
-		if (hpd_state && hdmi_exist_realtime()) {//Mickey+++, double check if hdmi exist by reading interrupt pin status
+		
+		hdmi_status = hdmi_exist_realtime() && hpd_state;
+		if(hdmi_status == g_hdmi_status) {
+			DEV_INFO("hdmi status not changed!\n");
+			goto end;
+		}
+		
+		if (hdmi_status) {//Mickey+++, double check if hdmi exist by reading interrupt pin status
             if (!g_pad_virtual_remove)
                 hdmi_msm_state->pd->ddc_switch(false,true);//Mickey, turn on GSBI level shifter
             else
@@ -1082,7 +1091,7 @@ static void hdmi_msm_hpd_state_work(struct work_struct *work)
             //Mickey---
 		}
 	}
-
+end:
 	/* HPD_INT_CTRL[0x0254]
 	 *   31:10 Reserved
 	 *   9     RCV_PLUGIN_DET_MASK	receiver plug in interrupt mask.
@@ -1221,7 +1230,7 @@ static irqreturn_t hdmi_msm_isr(int irq, void *dev_id)
         if (g_skipHPD && g_p01State)
             mod_timer(&hdmi_msm_state->hpd_state_timer, jiffies + HZ/2);
         else
-		    mod_timer(&hdmi_msm_state->hpd_state_timer, jiffies + HZ/5);
+		    mod_timer(&hdmi_msm_state->hpd_state_timer, jiffies + msecs_to_jiffies(360));
         //Mickey---
 		mutex_unlock(&hdmi_msm_state_mutex);
 		/*

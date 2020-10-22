@@ -66,10 +66,17 @@ DEFINE_PER_CPU(atomic_t, msm_rtb_idx_cpu);
 static atomic_t msm_rtb_idx;
 #endif
 
+#ifdef ASUS_SHIP_BUILD
+struct msm_rtb_state msm_rtb = {
+	.filter = 1 << LOGK_LOGBUF,
+	.enabled = 0,
+};
+#else
 struct msm_rtb_state msm_rtb = {
 	.filter = 1 << LOGK_LOGBUF,
 	.enabled = 1,
 };
+#endif
 
 module_param_named(filter, msm_rtb.filter, uint, 0644);
 module_param_named(enable, msm_rtb.enabled, int, 0644);

@@ -223,13 +223,14 @@ int mdp4_dtv_pipe_commit(int cndx, int wait)
 	
 	if(vp == NULL || pipe == NULL) {
 		pr_err("%s: vctrl isn't initialized\n", __func__);
-       return -1;
+		mutex_unlock(&vctrl->update_lock);
+		return -1;
     }       
 
 	mixer = pipe->mixer_num;
 	mdp4_overlay_iommu_unmap_freelist(mixer);
-
-	if (vp->update_cnt == 0) {
+	
+	if (vp->update_cnt == 0 || !vctrl->vsync_irq_enabled) {
 		mutex_unlock(&vctrl->update_lock);
 		return 0;
 	}
@@ -615,7 +616,7 @@ int mdp4_dtv_on(struct platform_device *pdev)
 	vctrl->dev = mfd->fbi->dev;
 	vctrl->fake_vsync = 1;
 
-	mdp_footswitch_ctrl(TRUE);
+	//mdp_footswitch_ctrl(TRUE);
 	/* Mdp clock enable */
 	mdp_clk_ctrl(1);
 
@@ -685,7 +686,7 @@ int mdp4_dtv_off(struct platform_device *pdev)
 	mdp4_overlay_panel_mode_unset(MDP4_MIXER1, MDP4_PANEL_DTV);
 
 	ret = panel_next_off(pdev);
-	mdp_footswitch_ctrl(FALSE);
+	//mdp_footswitch_ctrl(FALSE);
 	vctrl->fake_vsync = 1;
 
 	/* Mdp clock disable */

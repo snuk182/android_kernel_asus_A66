@@ -511,6 +511,13 @@ _kgsl_sharedmem_page_alloc(struct kgsl_memdesc *memdesc,
 
 	memdesc->sg = kgsl_sg_alloc(sglen);
 
+	memdesc->sglen = sglen;
+
+      /*
+	 * The following two ENOMEM error handling will call kgsl_sharedmem_free, then kgsl_sg_free
+	 * which need memdesc->sglen, so assign it before goto done section
+	*/
+	
 	if (memdesc->sg == NULL) {
 		KGSL_CORE_ERR("vmalloc(%d) failed\n",
 			sglen * sizeof(struct scatterlist));
@@ -536,7 +543,7 @@ _kgsl_sharedmem_page_alloc(struct kgsl_memdesc *memdesc,
 
 	kmemleak_not_leak(memdesc->sg);
 
-	memdesc->sglen = sglen;
+	//memdesc->sglen = sglen;
 	sg_init_table(memdesc->sg, sglen);
 
 	for (i = 0; i < PAGE_ALIGN(size) / PAGE_SIZE; i++) {

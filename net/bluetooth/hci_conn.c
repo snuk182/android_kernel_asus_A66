@@ -985,7 +985,7 @@ void hci_conn_enter_active_mode(struct hci_conn *conn, __u8 force_active)
 timer:
 	if (hdev->idle_timeout > 0) {
 		spin_lock_bh(&conn->lock);
-		if (conn->conn_valid) {
+		if (conn->conn_valid && lmp_sniff_capable(conn)) {
 			mod_timer(&conn->idle_timer,
 				jiffies + msecs_to_jiffies(hdev->idle_timeout));
 			wake_lock(&conn->idle_lock);

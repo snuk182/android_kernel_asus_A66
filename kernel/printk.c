@@ -853,6 +853,9 @@ asmlinkage int printk(const char *fmt, ...)
 	va_list args;
 	int r;
 	unsigned char *p;
+#ifdef CONFIG_MSM_RTB
+	void *caller = NULL;
+#endif	
 	
 // +++ ASUS_BSP : add for user build
 #ifdef ASUS_SHIP_BUILD
@@ -863,7 +866,7 @@ asmlinkage int printk(const char *fmt, ...)
 	
 
 #ifdef CONFIG_MSM_RTB
-	void *caller = __builtin_return_address(0);
+	caller = __builtin_return_address(0);
 
 	uncached_logk_pc(LOGK_LOGBUF, caller, (void *)log_end);
 #endif
@@ -1394,7 +1397,7 @@ MODULE_PARM_DESC(console_suspend, "suspend console during suspend"
  */
 void suspend_console(void)
 {
-        ASUSEvtlog("System Suspend");
+        ASUSEvtlog("[UTS] System Suspend");
 	suspend_in_progress = 1;
 	if (!console_suspend_enabled)
 		return;
@@ -1410,7 +1413,7 @@ void resume_console(void)
         int i;  //Ledger
 
         suspend_in_progress = 0;
-        ASUSEvtlog("System Resume");
+        ASUSEvtlog("[UTS] System Resume");
 
 #if 0
 //++Ledger

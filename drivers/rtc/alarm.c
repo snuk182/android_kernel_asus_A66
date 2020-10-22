@@ -240,6 +240,9 @@ int alarm_cancel(struct alarm *alarm)
 		cpu_relax();
 	}
 }
+// ASUS_BSP+++ VictorFu "Add Event log"
+extern struct timezone sys_tz;
+// ASUS_BSP--- VictorFu "Add Event log"        
 
 /**
  * alarm_set_rtc - set the kernel and rtc walltime
@@ -252,6 +255,30 @@ int alarm_set_rtc(struct timespec new_time)
 	unsigned long flags;
 	struct rtc_time rtc_new_rtc_time;
 	struct timespec tmp_time;
+
+
+    // ASUS_BSP+++ Shawn_Huang "Set Default Time"
+    struct rtc_time ori_tm,new_tm;
+
+    if(false == IsRtcReady){
+        
+        printk("[RTC]%s:%ld\n",__FUNCTION__,new_time.tv_sec);        
+
+        if(new_time.tv_sec < 31536000){
+
+            new_time.tv_sec = 1338508800;
+
+        }
+
+    }
+
+    getnstimeofday(&tmp_time);
+    tmp_time.tv_sec -= sys_tz.tz_minuteswest * 60;
+    rtc_time_to_tm(tmp_time.tv_sec, &ori_tm);
+    // ASUS_BSP--- Shawn_Huang "Set Default Time"
+
+
+
 
 	rtc_time_to_tm(new_time.tv_sec, &rtc_new_rtc_time);
 
@@ -297,9 +324,28 @@ int alarm_set_rtc(struct timespec new_time)
 		pr_alarm(ERROR, "alarm_set_rtc: "
 			"Failed to set RTC, time will be lost on reboot\n");
 err:
+            // ASUS_BSP+++ VictorFu "Add Event log"
+            getnstimeofday(&tmp_time);
+            tmp_time.tv_sec -= sys_tz.tz_minuteswest * 60;
+            rtc_time_to_tm(tmp_time.tv_sec, &new_tm);
+            ASUSEvtlog("[UTS] RTC update: Current Datatime: %04d-%02d-%02d %02d:%02d:%02d,Update Datatime: %04d-%02d-%02d %02d:%02d:%02d\r\n", 
+                    ori_tm.tm_year + 1900, 
+                    ori_tm.tm_mon + 1, 
+                    ori_tm.tm_mday, 
+                    ori_tm.tm_hour, 
+                    ori_tm.tm_min, 
+                    ori_tm.tm_sec, 
+                    new_tm.tm_year + 1900, 
+                    new_tm.tm_mon + 1, 
+                    new_tm.tm_mday, 
+                    new_tm.tm_hour, 
+                    new_tm.tm_min, 
+                    new_tm.tm_sec);
+            // ASUS_BSP--- VictorFu "Add Event log"        
 	wake_unlock(&alarm_rtc_wake_lock);
 	mutex_unlock(&alarm_setrtc_mutex);
 
+	ASUSEvtlog("[UTS] Power on");
     IsRtcReady = true; //ASUS BSP Eason_Chang
     g_RTC_update = true; //ASUS BSP Eason_Chang : In suspend have same cap don't update savedTime
     

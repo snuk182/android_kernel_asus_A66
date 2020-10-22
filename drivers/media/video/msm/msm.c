@@ -972,6 +972,17 @@ static int msm_camera_v4l2_s_ctrl(struct file *f, void *pctx,
 			 __func__, pcam_inst, pcam_inst->my_index);
 		pcam_inst->is_mem_map_inst = 1;
 		break;
+	case MSM_V4L2_PID_MMAP_ENTRY:
+		if (copy_from_user(&pcam_inst->mem_map,
+			(void *)ctrl->value,
+			sizeof(struct msm_mem_map_info))) {
+			rc = -EFAULT;
+		} else
+			D("%s:mmap entry:cookie=0x%x,mem_type=%d,len=%d\n",
+				__func__, pcam_inst->mem_map.cookie,
+				pcam_inst->mem_map.mem_type,
+				pcam_inst->mem_map.length);
+		break;
 	default:
 		if (ctrl->id == MSM_V4L2_PID_CAM_MODE)
 			pcam->op_mode = ctrl->value;

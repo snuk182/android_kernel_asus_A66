@@ -409,7 +409,7 @@ static int hci_smd_hci_register_dev(struct hci_smd_data *hsmd)
 		return 0;
 	} else
 		BT_INFO("HCI device registration is starting");
-	if (hci_register_dev(hdev) < 0) {
+	if (hdev && hci_register_dev(hdev) < 0) {
 		BT_ERR("Can't register HCI device");
 		hci_free_dev(hdev);
 		hsmd->hdev = NULL;
@@ -455,7 +455,10 @@ static int hci_smd_register_smd(struct hci_smd_data *hsmd)
 			&hsmd->event_channel, hdev, hci_smd_notify_event);
 	if (rc < 0) {
 		BT_ERR("Cannot open the command channel");
-		hci_free_dev(hdev);
+                //ASUS_BSP++ CHANCE "use kfree since hdev not registered yet"
+                //hci_free_dev(hdev);
+		kfree(hdev);
+                //ASUS_BSP-- CHANCE "use kfree since hdev not registered yet"
 		hsmd->hdev = NULL;
 		return -ENODEV;
 	}
@@ -464,7 +467,10 @@ static int hci_smd_register_smd(struct hci_smd_data *hsmd)
 			&hsmd->data_channel, hdev, hci_smd_notify_data);
 	if (rc < 0) {
 		BT_ERR("Failed to open the Data channel");
-		hci_free_dev(hdev);
+                //ASUS_BSP++ CHANCE "use kfree since hdev not registered yet"
+                //hci_free_dev(hdev);
+		kfree(hdev);
+                //ASUS_BSP-- CHANCE "use kfree since hdev not registered yet"
 		hsmd->hdev = NULL;
 		return -ENODEV;
 	}

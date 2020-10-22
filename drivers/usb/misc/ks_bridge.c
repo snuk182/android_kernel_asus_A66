@@ -239,10 +239,11 @@ read_start:
 		size_t len;
 
 		pkt = list_first_entry(&ksb->to_ks_list, struct data_pkt, list);
-		len = min_t(size_t, space, pkt->len - pkt->n_read);
+		len = min_t(size_t, space, pkt->len);
+		pkt->n_read += len;
 		spin_unlock_irqrestore(&ksb->lock, flags);
 
-		ret = copy_to_user(buf + copied, pkt->buf + pkt->n_read, len);
+		ret = copy_to_user(buf + copied, pkt->buf, len);
 		if (ret) {
 			pr_err("copy_to_user failed err:%d\n", ret);
 			ksb_free_data_pkt(pkt);
@@ -250,7 +251,6 @@ read_start:
 			return ret;
 		}
 
-		pkt->n_read += len;
 		space -= len;
 		copied += len;
 
@@ -518,13 +518,8 @@ static void ksb_rx_cb(struct urb *urb)
 
 	pr_debug("status:%d actual:%d", urb->status, urb->actual_length);
 
-	/*non zero len of data received while unlinking urb*/
-	if (urb->status == -ENOENT && urb->actual_length > 0)
-		goto add_to_list;
-
 	if (urb->status < 0) {
-		if (urb->status != -ESHUTDOWN && urb->status != -ENOENT
-				&& urb->status != -EPROTO)
+		if (urb->status != -ESHUTDOWN && urb->status != -ENOENT)
 			pr_err_ratelimited("urb failed with err:%d",
 					urb->status);
 		_ksb_free_data_pkt(pkt, GFP_ATOMIC);
@@ -538,7 +533,6 @@ static void ksb_rx_cb(struct urb *urb)
 		goto resubmit_urb;
 	}
 
-add_to_list:
 	spin_lock(&ksb->lock);
 	pkt->len = urb->actual_length;
 	list_add_tail(&pkt->list, &ksb->to_ks_list);
@@ -671,7 +665,6 @@ ksb_usb_probe(struct usb_interface *ifc, const struct usb_device_id *id)
 	ksb->fs_dev = (struct miscdevice *)id->driver_info;
 	misc_register(ksb->fs_dev);
 
-	ifc->needs_remote_wakeup = 1;
 	usb_enable_autosuspend(ksb->udev);
 
 	pr_debug("usb dev connected");
@@ -685,7 +678,7 @@ static int ksb_usb_suspend(struct usb_interface *ifc, pm_message_t message)
 
 	dbg_log_event(ksb, "SUSPEND", 0, 0);
 
-	pr_debug("read cnt: %d", ksb->alloced_read_pkts);
+	pr_info("read cnt: %d", ksb->alloced_read_pkts);
 
 	usb_kill_anchored_urbs(&ksb->submitted);
 
@@ -734,7 +727,6 @@ static void ksb_usb_disconnect(struct usb_interface *ifc)
 	spin_unlock_irqrestore(&ksb->lock, flags);
 
 	misc_deregister(ksb->fs_dev);
-	ifc->needs_remote_wakeup = 0;
 	usb_put_dev(ksb->udev);
 	ksb->ifc = NULL;
 	usb_set_intfdata(ifc, NULL);

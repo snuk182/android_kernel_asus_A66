@@ -60,7 +60,7 @@ struct completion mdp_ppp_comp;
 struct semaphore mdp_ppp_mutex;
 struct semaphore mdp_pipe_ctrl_mutex;
 
-unsigned long mdp_timer_duration = (2*HZ);   /* 50 msecond */ //Mickey change to 2 seconds
+unsigned long mdp_timer_duration = (HZ/20);   /* 50 msecond */
 
 boolean mdp_ppp_waiting = FALSE;
 uint32 mdp_tv_underflow_cnt;
@@ -2933,12 +2933,12 @@ static void mdp_early_suspend(struct early_suspend *h)
 #ifdef CONFIG_FB_MSM_DTV
 	mdp4_dtv_set_black_screen();
 #endif
-	mdp_footswitch_ctrl(FALSE);
+	//mdp_footswitch_ctrl(FALSE);
 }
 
 static void mdp_early_resume(struct early_suspend *h)
 {
-	mdp_footswitch_ctrl(TRUE);
+	//mdp_footswitch_ctrl(TRUE);
 	mutex_lock(&mdp_suspend_mutex);
 	mdp_suspended = FALSE;
 	mutex_unlock(&mdp_suspend_mutex);
