@@ -2255,7 +2255,7 @@ static void process_T9_message(u8 *message, struct mxt_data *mxt)
 					first_finger[touch_number].start_x = finger[touch_number].x;
 					first_finger[touch_number].start_y = finger[touch_number].y;
 
-					printk("[joe1] g_bIsCmdCalibrationOk:press: touch_number=%d; start_x=%d; start_y=%d\n", touch_number, first_finger[touch_number].start_x, first_finger[touch_number].start_y);
+					//printk("[joe1] g_bIsCmdCalibrationOk:press: touch_number=%d; start_x=%d; start_y=%d\n", touch_number, first_finger[touch_number].start_x, first_finger[touch_number].start_y);
 				}
 			}
 		}
@@ -2278,7 +2278,7 @@ static void process_T9_message(u8 *message, struct mxt_data *mxt)
 					{
 						bCheckFingerMove = false;
 
-						printk("[touch] g_bIsCmdCalibrationOk:release:i=%d; status=%d: bCheckFingerMove=false\n", i, first_finger[i].status);
+						//printk("[touch] g_bIsCmdCalibrationOk:release:i=%d; status=%d: bCheckFingerMove=false\n", i, first_finger[i].status);
 							
 						break;
 					}
@@ -2286,7 +2286,7 @@ static void process_T9_message(u8 *message, struct mxt_data *mxt)
 					{
 						bCheckFingerMove = true;
 
-						printk("[touch] g_bIsCmdCalibrationOk:release:i=%d; status=%d: bCheckFingerMove=true\n", i, first_finger[i].status);
+						//printk("[touch] g_bIsCmdCalibrationOk:release:i=%d; status=%d: bCheckFingerMove=true\n", i, first_finger[i].status);
 					}
 				}
 

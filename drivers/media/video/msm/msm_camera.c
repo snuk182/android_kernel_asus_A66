@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2009-2012, 2015 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -34,7 +34,8 @@
 #include <mach/camera.h>
 #include <linux/syscalls.h>
 #include <linux/hrtimer.h>
-#include <linux/ion.h>
+#include <linux/msm_ion.h>
+
 #include <mach/cpuidle.h>
 DEFINE_MUTEX(ctrl_cmd_lock);
 
@@ -279,10 +280,11 @@ static int check_overlap(struct hlist_head *ptype,
 static int check_pmem_info(struct msm_pmem_info *info, int len)
 {
 	if (info->offset < len &&
-	    info->offset + info->len <= len &&
-	    info->planar0_off < len &&
-	    info->planar1_off < len &&
-	    info->planar2_off < len)
+		info->offset <= (UINT_MAX - info->len) &&
+		info->offset + info->len <= len &&
+		info->planar0_off < len &&
+		info->planar1_off < len &&
+		info->planar2_off < len)
 		return 0;
 
 	pr_err("%s: check failed: off %d len %d y 0x%x cbcr_p1 0x%x p2_add 0x%x(total len %d)\n",
@@ -1101,6 +1103,7 @@ static int msm_divert_frame(struct msm_sync *sync,
 		return rc;
 	}
 
+        memset(&(buf.fmain), 0, sizeof(struct msm_frame));
 	buf.fmain.buffer = (unsigned long)pinfo.vaddr;
 	buf.fmain.planar0_off = pinfo.planar0_off;
 	buf.fmain.planar1_off = pinfo.planar1_off;
@@ -1235,7 +1238,7 @@ static int msm_get_stats(struct msm_sync *sync, void __user *arg)
 	}
 
 	rc = 0;
-
+        memset(&stats, 0, sizeof(stats));
 	qcmd = msm_dequeue(&sync->event_q, list_config);
 	if (!qcmd) {
 		/* Should be associated with wait_event
@@ -2483,6 +2486,7 @@ static int msm_set_crop(struct msm_sync *sync, void __user *arg)
 		ERR_COPY_FROM_USER();
 		sync->croplen = 0;
 		kfree(sync->cropinfo);
+		sync->cropinfo = NULL;
 		mutex_unlock(&sync->lock);
 		return -EFAULT;
 	}
@@ -3961,7 +3965,7 @@ static int msm_sync_init(struct msm_sync *sync,
 	msm_queue_init(&sync->vpe_q, "vpe");
 
 	pm_qos_add_request(&sync->idle_pm_qos, PM_QOS_CPU_DMA_LATENCY,
-		PM_QOS_DEFAULT_VALUE);
+					   PM_QOS_DEFAULT_VALUE);
 
 	rc = msm_camio_probe_on(pdev);
 	if (rc < 0) {

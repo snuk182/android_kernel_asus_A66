@@ -224,6 +224,10 @@ static void input_handle_event(struct input_dev *dev,
 		switch (code) {
 		case SYN_CONFIG:
 			disposition = INPUT_PASS_TO_ALL;
+		case SYN_TIME_SEC:
+		case SYN_TIME_NSEC:
+			dev->sync = false;
+			disposition = INPUT_PASS_TO_ALL;
 			break;
 
 		case SYN_REPORT:
@@ -1707,6 +1711,10 @@ void input_set_capability(struct input_dev *dev, unsigned int type, unsigned int
 		break;
 
 	case EV_ABS:
+		input_alloc_absinfo(dev);
+		if (!dev->absinfo)
+			return;
+
 		__set_bit(code, dev->absbit);
 		break;
 

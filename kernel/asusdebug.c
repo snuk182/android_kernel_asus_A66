@@ -1138,10 +1138,11 @@ void ASUSEvtlog(const char *fmt, ...)
         getnstimeofday(&ts);
         ts.tv_sec -= sys_tz.tz_minuteswest * 60; // to get correct timezone information
         rtc_time_to_tm(ts.tv_sec, &tm);
-        sprintf(buffer, "%04d-%02d-%02d %02d:%02d:%02d :", tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec);
+        getrawmonotonic(&ts);
+        sprintf(buffer, "(%ld)%04d-%02d-%02d %02d:%02d:%02d :",ts.tv_sec,tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec);
     
         va_start(args, fmt);
-        vscnprintf(buffer + strlen(buffer), ASUS_EVTLOG_STR_MAXLEN, fmt, args);
+        vscnprintf(buffer + strlen(buffer), ASUS_EVTLOG_STR_MAXLEN - strlen(buffer), fmt, args);
         va_end(args);
         //printk(buffer);
         queue_work(ASUSEvtlog_workQueue, &eventLog_Work);
@@ -1236,9 +1237,11 @@ static void asusdebug_early_resume(struct early_suspend *h)
 EXPORT_SYMBOL(entering_suspend);
 
 struct early_suspend asusdebug_early_suspend_handler = {
+#ifdef CONFIG_HAS_EARLYSUSPEND
     .level = EARLY_SUSPEND_LEVEL_BLANK_SCREEN,
     .suspend = asusdebug_early_suspend,
     .resume = asusdebug_early_resume,
+#endif
 };
 
 static int __init proc_asusdebug_init(void)

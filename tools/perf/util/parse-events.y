@@ -1,5 +1,4 @@
 
-%name-prefix "parse_events_"
 %parse-param {struct list_head *list_all}
 %parse-param {struct list_head *list_event}
 %parse-param {int *idx}
@@ -156,13 +155,13 @@ PE_RAW
 event_legacy_shared_raw:
 PE_SH_RAW
 {
-	ABORT_ON(parse_events_add_numeric(list_event, idx, 6, $1, NULL));
+	ABORT_ON(parse_events_add_numeric_legacy(list_event, idx, "msm-l2", $1, NULL));
 }
 
 event_legacy_fabric_raw:
 PE_FAB_RAW
 {
-	ABORT_ON(parse_events_add_numeric(list_event, idx, 7, $1, NULL));
+	ABORT_ON(parse_events_add_numeric_legacy(list_event, idx, "msm-busmon", $1, NULL));
 }
 
 event_config:

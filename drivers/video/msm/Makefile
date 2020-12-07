@@ -1,5 +1,3 @@
-KBUILD_CFLAGS += -Wno-sizeof-pointer-memaccess
-
 ifeq ($(CONFIG_FB_MSM_MDSS),y)
 obj-y += mdss/
 else
@@ -12,11 +10,13 @@ ifeq ($(CONFIG_FB_MSM_MDP_HW),y)
 # MDP
 obj-y += mdp.o
 
-obj-$(CONFIG_DEBUG_FS) += mdp_debugfs.o
+# MDP Arbitrator
+obj-$(CONFIG_FB_MSM_MDP_ARB) += mdp_arb.o
+
+obj-$(CONFIG_MDP_DEBUG_FS) += mdp_debugfs.o
 
 ifeq ($(CONFIG_FB_MSM_MDP40),y)
 obj-y += mdp4_util.o
-obj-y += mdp4_hsic.o
 else
 obj-y += mdp_hw_init.o
 obj-y += mdp_ppp.o
@@ -47,6 +47,7 @@ obj-y += mdp4_dtv.o
 obj-y += mdp4_overlay_dtv.o
 endif
 
+obj-$(CONFIG_MSM_DBA) += msm_dba/
 obj-y += mdp_dma.o
 obj-y += mdp_dma_s.o
 obj-y += mdp_vsync.o
@@ -85,7 +86,12 @@ obj-$(CONFIG_FB_MSM_MIPI_DSI_RENESAS) += mipi_renesas.o
 obj-$(CONFIG_FB_MSM_MIPI_DSI_TRULY) += mipi_truly.o
 obj-$(CONFIG_FB_MSM_MIPI_DSI_NT35510) += mipi_NT35510.o
 obj-$(CONFIG_FB_MSM_MIPI_DSI_NT35516) += mipi_truly_tft540960_1_e.o
+obj-$(CONFIG_FB_MSM_MIPI_DSI_NT35590) += mipi_NT35590.o
 obj-$(CONFIG_FB_MSM_MIPI_DSI_SIMULATOR) += mipi_simulator.o
+obj-$(CONFIG_FB_MSM_MIPI_DSI_I2C) += mipi_dsi_i2c.o
+
+# ADV7533
+obj-y += adv7533.o
 
 # MIPI Bridge
 obj-$(CONFIG_FB_MSM_MIPI_DSI_TC358764_DSI2LVDS) += mipi_tc358764_dsi2lvds.o
@@ -128,6 +134,7 @@ obj-y += mipi_orise_video_720p_pt.o mipi_orise_cmd_720p_pt.o
 obj-y += mipi_renesas_video_fwvga_pt.o mipi_renesas_cmd_fwvga_pt.o
 obj-y += mipi_NT35510_video_wvga_pt.o mipi_NT35510_cmd_wvga_pt.o
 obj-y += mipi_truly_tft540960_1_e_video_qhd_pt.o mipi_truly_tft540960_1_e_cmd_qhd_pt.o
+obj-y += mipi_NT35590_cmd_720p_pt.o mipi_NT35590_video_720p_pt.o
 obj-y += mipi_chimei_wxga_pt.o
 obj-y += mipi_chimei_wuxga.o
 obj-y += mipi_truly_video_wvga_pt.o
@@ -147,6 +154,8 @@ obj-$(CONFIG_FB_MSM_MIPI_NT35510_CMD_WVGA_PT) += mipi_NT35510_cmd_wvga_pt.o
 obj-$(CONFIG_FB_MSM_MIPI_NT35510_VIDEO_WVGA_PT) += mipi_NT35510_video_wvga_pt.o
 obj-$(CONFIG_FB_MSM_MIPI_NT35516_CMD_QHD_PT) += mipi_truly_tft540960_1_e_cmd_qhd_pt.o
 obj-$(CONFIG_FB_MSM_MIPI_NT35516_VIDEO_QHD_PT) += mipi_truly_tft540960_1_e_video_qhd_pt.o
+obj-$(CONFIG_FB_MSM_MIPI_NT35590_CMD_720P_PT) += mipi_NT35590_cmd_720p_pt.o
+obj-$(CONFIG_FB_MSM_MIPI_NT35590_VIDEO_720P_PT) += mipi_NT35590_video_720p_pt.o
 obj-$(CONFIG_FB_MSM_MIPI_SIMULATOR_VIDEO) += mipi_simulator_video.o
 obj-$(CONFIG_FB_MSM_MIPI_CHIMEI_WXGA) += mipi_chimei_wxga_pt.o
 obj-$(CONFIG_FB_MSM_MIPI_CHIMEI_WUXGA) += mipi_chimei_wuxga.o
@@ -169,10 +178,14 @@ obj-$(CONFIG_FB_MSM_LCDC_SAMSUNG_OLED_PT) += lcdc_samsung_oled_pt.o
 obj-$(CONFIG_FB_MSM_HDMI_ADV7520_PANEL) += adv7520.o
 obj-$(CONFIG_FB_MSM_LCDC_ST15_WXGA) += lcdc_st15.o
 obj-$(CONFIG_FB_MSM_LVDS_CHIMEI_WXGA) += lvds_chimei_wxga.o
+obj-$(CONFIG_FB_MSM_LVDS_FPDL3_WXGA) += lvds_fpdl3_wxga.o
 obj-$(CONFIG_FB_MSM_LVDS_FRC_FHD) += lvds_frc_fhd.o
 obj-$(CONFIG_FB_MSM_HDMI_MSM_PANEL) += hdmi_msm.o
 obj-$(CONFIG_FB_MSM_EXT_INTERFACE_COMMON) += external_common.o
 obj-$(CONFIG_FB_MSM_LCDC_TRULY_HVGA_IPS3P2335) += lcdc_truly_ips3p2335.o
+
+obj-$(CONFIG_FB_MSM_MIPI_DSI_I2C) += mipi_dsi_i2c_video_wvga.o
+obj-$(CONFIG_FB_MSM_MIPI_DSI_I2C) += mipi_dsi_i2c_video_xga.o
 
 obj-$(CONFIG_FB_MSM_TVOUT) += tvout_msm.o
 
@@ -186,6 +199,9 @@ obj-$(CONFIG_FB_MSM_EXTMDDI_SVGA) += mddi_ext_lcd.o
 obj-$(CONFIG_FB_MSM_WRITEBACK_MSM_PANEL) += mdp4_wfd_writeback_panel.o
 obj-$(CONFIG_FB_MSM_WRITEBACK_MSM_PANEL) += mdp4_wfd_writeback.o
 obj-$(CONFIG_FB_MSM_WRITEBACK_MSM_PANEL) += mdp4_overlay_writeback.o
+
+obj-$(CONFIG_FB_MSM_DMA_S_PANEL) += mdp4_dma_s_panel.o
+
 else
 obj-$(CONFIG_FB_MSM_EBI2) += ebi2_host.o
 obj-$(CONFIG_FB_MSM_EBI2) += ebi2_lcd.o

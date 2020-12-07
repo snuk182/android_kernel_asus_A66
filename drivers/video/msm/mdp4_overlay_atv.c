@@ -1,4 +1,4 @@
-/* Copyright (c) 2010, 2012 Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010, 2012, 2014-2015 The Linux Foundation. All rights reserved
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -43,6 +43,7 @@ int mdp4_atv_on(struct platform_device *pdev)
 	struct fb_var_screeninfo *var;
 	struct msm_fb_data_type *mfd;
 	struct mdp4_overlay_pipe *pipe;
+	struct pipe_alloc alloc;
 	int ret;
 
 	mfd = (struct msm_fb_data_type *)platform_get_drvdata(pdev);
@@ -62,14 +63,17 @@ int mdp4_atv_on(struct platform_device *pdev)
 
 	if (atv_pipe == NULL) {
 		ptype = mdp4_overlay_format2type(mfd->fb_imgType);
-		pipe = mdp4_overlay_pipe_alloc(ptype, MDP4_MIXER1);
+		memset(&alloc, 0, sizeof(alloc));
+		alloc.ptype = ptype;
+		alloc.mixer = MDP4_MIXER1;
+		pipe = mdp4_overlay_pipe_alloc(&alloc);
 		if (pipe == NULL)
 			return -EBUSY;
 		pipe->pipe_used++;
 		pipe->mixer_stage  = MDP4_MIXER_STAGE_BASE;
 		pipe->mixer_num  = MDP4_MIXER1;
 		pipe->src_format = mfd->fb_imgType;
-		mdp4_overlay_panel_mode(pipe->mixer_num, MDP4_PANEL_ATV);
+		mdp4_overlay_panel_mode(MDP4_PANEL_ATV, pipe->mixer_num);
 		mdp4_overlay_format2pipe(pipe);
 
 		atv_pipe = pipe; /* keep it */
@@ -110,7 +114,10 @@ int mdp4_atv_on(struct platform_device *pdev)
 
 	mdp4_overlay_dmae_xy(pipe);	/* dma_e */
 	mdp4_overlay_dmae_cfg(mfd, 1);
-	mdp4_overlay_rgb_setup(pipe);
+	if (pipe->pipe_type == OVERLAY_TYPE_VIDEO)
+		mdp4_overlay_vg_setup(pipe);	/* video/graphic pipe */
+	else
+		mdp4_overlay_rgb_setup(pipe);	/* rgb pipe */
 
 	mdp4_overlayproc_cfg(pipe);
 
@@ -184,9 +191,14 @@ void mdp4_atv_overlay(struct msm_fb_data_type *mfd)
 	} else {
 		pipe->srcp0_addr = (uint32)(buf + buf_offset);
 	}
+	mdp_update_pm(mfd, vsync_ctrl_db[0].vsync_time);
+
 	mdp4_overlay_mdp_perf_req(pipe, mfd);
 	mdp4_overlay_mdp_perf_upd(mfd, 1);
-	mdp4_overlay_rgb_setup(pipe);
+	if (pipe->pipe_type == OVERLAY_TYPE_VIDEO)
+		mdp4_overlay_vg_setup(pipe);	/* video/graphic pipe */
+	else
+		mdp4_overlay_rgb_setup(pipe);	/* rgb pipe */
 
 	mdp4_overlay_reg_flush(pipe, 0);
 	mdp4_mixer_stage_up(pipe, 0);

@@ -513,12 +513,12 @@ static int __devinit hall_sensor_probe(struct platform_device *pdev)
 		entry->read_proc = rf_switch_read_proc;
 		entry->write_proc = rf_switch_write_proc;
 	}
-	
+#ifdef CONFIG_HAS_EARLYSUSPEND	
 	early_suspend.level = 1;
 	early_suspend.suspend = hs_early_suspend;
 	early_suspend.resume = hs_late_resume;
 	register_early_suspend(&early_suspend);
-	
+#endif	
 	register_microp_notifier(&hs_mp_notifier);
 	
 	printk("[hallsensor] hall_sensor_probe  pin<%d>=%d, pre=%d, cur=%d\r\n",hs_data->gpio,gpio_get_value(hs_data->gpio),g_p01_pre_status,g_p01_status);

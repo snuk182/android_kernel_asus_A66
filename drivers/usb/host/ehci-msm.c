@@ -1,6 +1,6 @@
 /* ehci-msm.c - HSUSB Host Controller Driver Implementation
  *
- * Copyright (c) 2008-2012, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2008-2012, 2014 The Linux Foundation. All rights reserved.
  *
  * Partly derived from ehci-fsl.c and ehci-hcd.c
  * Copyright (c) 2000-2004 by David Brownell
@@ -28,11 +28,10 @@
 #include <linux/pm_runtime.h>
 
 #include <linux/usb/otg.h>
+#include <linux/usb/msm_hsusb.h>
 #include <linux/usb/msm_hsusb_hw.h>
 
 #define MSM_USB_BASE (hcd->regs)
-
-static struct usb_phy *phy;
 
 static int ehci_msm_reset(struct usb_hcd *hcd)
 {
@@ -105,7 +104,10 @@ static struct hc_driver msm_hc_driver = {
 
 static int ehci_msm_probe(struct platform_device *pdev)
 {
+	const struct msm_usb_host_platform_data *pdata;
 	struct usb_hcd *hcd;
+	struct ehci_hcd *ehci;
+	struct usb_phy *phy;
 	struct resource *res;
 	int ret;
 
@@ -117,6 +119,13 @@ static int ehci_msm_probe(struct platform_device *pdev)
 		return  -ENOMEM;
 	}
 
+	pdata = pdev->dev.platform_data;
+	if (pdata) {
+		if (pdata->allow_host_vdd_min_wo_rework) {
+			hcd_to_bus(hcd)->allow_pm_suspend = true;
+			hcd_to_bus(hcd)->skip_resume = true;
+		}
+	}
 	hcd->irq = platform_get_irq(pdev, 0);
 	if (hcd->irq < 0) {
 		dev_err(&pdev->dev, "Unable to get IRQ resource\n");
@@ -140,12 +149,13 @@ static int ehci_msm_probe(struct platform_device *pdev)
 		goto put_hcd;
 	}
 
+	ehci = hcd_to_ehci(hcd);
 	/*
 	 * OTG driver takes care of PHY initialization, clock management,
 	 * powering up VBUS, mapping of registers address space and power
 	 * management.
 	 */
-	phy = usb_get_transceiver();
+	phy = msm_usb_get_transceiver(pdev->id);
 	if (!phy) {
 		dev_err(&pdev->dev, "unable to find transceiver\n");
 		ret = -ENODEV;
@@ -177,14 +187,15 @@ put_hcd:
 static int __devexit ehci_msm_remove(struct platform_device *pdev)
 {
 	struct usb_hcd *hcd = platform_get_drvdata(pdev);
+	struct ehci_hcd *ehci = hcd_to_ehci(hcd);
 
 	device_init_wakeup(&pdev->dev, 0);
 	pm_runtime_disable(&pdev->dev);
 	pm_runtime_set_suspended(&pdev->dev);
 
-	hcd_to_ehci(hcd)->transceiver = NULL;
-	otg_set_host(phy->otg, NULL);
-	usb_put_transceiver(phy);
+	otg_set_host(ehci->transceiver->otg, NULL);
+	usb_put_transceiver(ehci->transceiver);
+	ehci->transceiver = NULL;
 
 	usb_put_hcd(hcd);
 
@@ -200,18 +211,24 @@ static int ehci_msm_runtime_idle(struct device *dev)
 
 static int ehci_msm_runtime_suspend(struct device *dev)
 {
+	struct usb_hcd *hcd = dev_get_drvdata(dev);
+	struct ehci_hcd *ehci = hcd_to_ehci(hcd);
+
 	dev_dbg(dev, "ehci runtime suspend\n");
 	/*
 	 * Notify OTG about suspend.  It takes care of
 	 * putting the hardware in LPM.
 	 */
-	return usb_phy_set_suspend(phy, 1);
+	return usb_phy_set_suspend(ehci->transceiver, 1);
 }
 
 static int ehci_msm_runtime_resume(struct device *dev)
 {
+	struct usb_hcd *hcd = dev_get_drvdata(dev);
+	struct ehci_hcd *ehci = hcd_to_ehci(hcd);
+
 	dev_dbg(dev, "ehci runtime resume\n");
-	return usb_phy_set_suspend(phy, 0);
+	return usb_phy_set_suspend(ehci->transceiver, 0);
 }
 #endif
 
@@ -219,6 +236,7 @@ static int ehci_msm_runtime_resume(struct device *dev)
 static int ehci_msm_pm_suspend(struct device *dev)
 {
 	struct usb_hcd *hcd = dev_get_drvdata(dev);
+	struct ehci_hcd *ehci = hcd_to_ehci(hcd);
 	bool wakeup = device_may_wakeup(dev);
 
 	dev_dbg(dev, "ehci-msm PM suspend\n");
@@ -239,21 +257,27 @@ static int ehci_msm_pm_suspend(struct device *dev)
 				wakeup);
 	}
 
-	return usb_phy_set_suspend(phy, 1);
+	return usb_phy_set_suspend(ehci->transceiver, 1);
 }
 
 static int ehci_msm_pm_resume(struct device *dev)
 {
 	struct usb_hcd *hcd = dev_get_drvdata(dev);
+	const struct msm_usb_host_platform_data *pdata;
 
 	dev_dbg(dev, "ehci-msm PM resume\n");
 
-	if (!hcd->rh_registered)
+	pdata = dev->platform_data;
+	if (pdata) {
+		if (pdata->allow_host_vdd_min_wo_rework)
+			return 0;
+	/* Resume root-hub to handle USB event if any else initiate LPM again */
+	} else {
+		usb_hcd_resume_root_hub(hcd);
 		return 0;
+	}
 
-	ehci_prepare_ports_for_controller_resume(hcd_to_ehci(hcd));
-
-	return usb_phy_set_suspend(phy, 0);
+	return 0;
 }
 #endif
 

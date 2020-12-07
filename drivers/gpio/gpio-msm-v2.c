@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -153,6 +153,11 @@ void __msm_gpio_set_intr_cfg_enable(unsigned gpio, unsigned val)
 	} else {
 		clr_gpio_bits(INTR_ENABLE, GPIO_INTR_CFG(gpio));
 	}
+}
+
+unsigned  __msm_gpio_get_intr_cfg_enable(unsigned gpio)
+{
+	return __msm_gpio_get_intr_config(gpio) & INTR_ENABLE;
 }
 
 void __msm_gpio_set_intr_cfg_type(unsigned gpio, unsigned type)

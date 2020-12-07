@@ -12,4 +12,15 @@ config SWITCH_GPIO
 	help
 	  Say Y here to enable GPIO based switch support.
 
+config SWITCH_FSA8008
+	bool "FSA8008 Headset detection driver"
+	help
+	 Say Y here to enable FSA8008 driver
+
+config SWITCH_REVERSE
+	tristate "Reverse Switch support"
+	depends on GENERIC_GPIO
+	help
+	  Say Y here to enable Reverse switch support.
+
 endif # SWITCH

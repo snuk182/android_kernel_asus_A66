@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2016 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -15,6 +15,8 @@
 
 #define LPASS_BE_PRI_I2S_RX "PRIMARY_I2S_RX"
 #define LPASS_BE_PRI_I2S_TX "PRIMARY_I2S_TX"
+#define LPASS_BE_PRI_I2S_GROUP_TX_0 "PRIMARY_I2S_GROUP_TX_0"
+#define LPASS_BE_PRI_I2S_GROUP_TX_1 "PRIMARY_I2S_GROUP_TX_1"
 #define LPASS_BE_SLIMBUS_0_RX "SLIMBUS_0_RX"
 #define LPASS_BE_SLIMBUS_0_TX "SLIMBUS_0_TX"
 #define LPASS_BE_HDMI "HDMI"
@@ -32,18 +34,26 @@
 #define LPASS_BE_INCALL_RECORD_RX "INCALL_RECORD_TX"
 #define LPASS_BE_INCALL_RECORD_TX "INCALL_RECORD_RX"
 #define LPASS_BE_SEC_I2S_RX "SECONDARY_I2S_RX"
+#define LPASS_BE_PSEUDO_RX "PSEUDO_RX"
+#define LPASS_BE_RX_PSEUDO_CAPTURE "RX_PSEUDO_CAPTURE"
 
-#define LPASS_BE_MI2S_RX "MI2S_RX"
-#define LPASS_BE_MI2S_TX "MI2S_TX"
-#define LPASS_BE_STUB_RX "STUB_RX"
-#define LPASS_BE_STUB_TX "STUB_TX"
-#define LPASS_BE_SLIMBUS_1_RX "SLIMBUS_1_RX"
-#define LPASS_BE_SLIMBUS_1_TX "SLIMBUS_1_TX"
-#define LPASS_BE_STUB_1_TX "STUB_1_TX"
-#define LPASS_BE_SLIMBUS_3_RX "SLIMBUS_3_RX"
-#define LPASS_BE_SLIMBUS_3_TX "SLIMBUS_3_TX"
-#define LPASS_BE_SLIMBUS_4_RX "SLIMBUS_4_RX"
-#define LPASS_BE_SLIMBUS_4_TX "SLIMBUS_4_TX"
+#define LPASS_BE_MI2S_RX "(Backend) MI2S_RX"
+#define LPASS_BE_MI2S_TX "(Backend) MI2S_TX"
+#define LPASS_BE_MI2S_GROUP_RX_0 "(Backend) MI2S_GROUP_RX_0"
+#define LPASS_BE_MI2S_GROUP_TX_0 "(Backend) MI2S_GROUP_TX_0"
+#define LPASS_BE_MI2S_GROUP_RX_1 "(Backend) MI2S_GROUP_RX_1"
+#define LPASS_BE_MI2S_GROUP_TX_1 "(Backend) MI2S_GROUP_TX_1"
+#define LPASS_BE_MI2S_GROUP_RX_2 "(Backend) MI2S_GROUP_RX_2"
+#define LPASS_BE_MI2S_GROUP_TX_2 "(Backend) MI2S_GROUP_TX_2"
+#define LPASS_BE_STUB_RX "(Backend) STUB_RX"
+#define LPASS_BE_STUB_TX "(Backend) STUB_TX"
+#define LPASS_BE_SLIMBUS_1_RX "(Backend) SLIMBUS_1_RX"
+#define LPASS_BE_SLIMBUS_1_TX "(Backend) SLIMBUS_1_TX"
+#define LPASS_BE_STUB_1_TX "(Backend) STUB_1_TX"
+#define LPASS_BE_SLIMBUS_3_RX "(Backend) SLIMBUS_3_RX"
+#define LPASS_BE_SLIMBUS_3_TX "(Backend) SLIMBUS_3_TX"
+#define LPASS_BE_SLIMBUS_4_RX "(Backend) SLIMBUS_4_RX"
+#define LPASS_BE_SLIMBUS_4_TX "(Backend) SLIMBUS_4_TX"
 
 /* For multimedia front-ends, asm session is allocated dynamically.
  * Hence, asm session/multimedia front-end mapping has to be maintained.
@@ -60,18 +70,22 @@ enum {
 	MSM_FRONTEND_DAI_MULTIMEDIA6,
 	MSM_FRONTEND_DAI_MULTIMEDIA7,
 	MSM_FRONTEND_DAI_MULTIMEDIA8,
+	MSM_FRONTEND_DAI_MULTIMEDIA9,
+	MSM_FRONTEND_DAI_DTMF_DETECTION,
 	MSM_FRONTEND_DAI_CS_VOICE,
 	MSM_FRONTEND_DAI_VOIP,
 	MSM_FRONTEND_DAI_AFE_RX,
 	MSM_FRONTEND_DAI_AFE_TX,
 	MSM_FRONTEND_DAI_VOICE_STUB,
 	MSM_FRONTEND_DAI_VOLTE,
-	MSM_FRONTEND_DAI_SGLTE,
+	MSM_FRONTEND_DAI_VOICE2,
+	MSM_FRONTEND_DAI_VOLTE_STUB,
+	MSM_FRONTEND_DAI_VOICE2_STUB,
 	MSM_FRONTEND_DAI_MAX,
 };
 
-#define MSM_FRONTEND_DAI_MM_SIZE (MSM_FRONTEND_DAI_MULTIMEDIA8 + 1)
-#define MSM_FRONTEND_DAI_MM_MAX_ID MSM_FRONTEND_DAI_MULTIMEDIA8
+#define MSM_FRONTEND_DAI_MM_SIZE (MSM_FRONTEND_DAI_DTMF_DETECTION + 1)
+#define MSM_FRONTEND_DAI_MM_MAX_ID MSM_FRONTEND_DAI_DTMF_DETECTION
 
 enum {
 	MSM_BACKEND_DAI_PRI_I2S_RX = 0,
@@ -104,17 +118,41 @@ enum {
 	MSM_BACKEND_DAI_EXTPROC_EC_TX,
 	MSM_BACKEND_DAI_SEC_AUXPCM_RX,
 	MSM_BACKEND_DAI_SEC_AUXPCM_TX,
+	MSM_BACKEND_DAI_MI2S_GROUP_RX_0,
+	MSM_BACKEND_DAI_MI2S_GROUP_TX_0,
+	MSM_BACKEND_DAI_MI2S_GROUP_RX_1,
+	MSM_BACKEND_DAI_MI2S_GROUP_TX_1,
+	MSM_BACKEND_DAI_MI2S_GROUP_RX_2,
+	MSM_BACKEND_DAI_MI2S_GROUP_TX_2,
+	MSM_BACKEND_DAI_PRI_I2S_GROUP_TX_0,
+	MSM_BACKEND_DAI_PRI_I2S_GROUP_TX_1,
+	MSM_BACKEND_DAI_PSEUDO_RX,
+	MSM_BACKEND_DAI_RX_PSEUDO_CAPTURE,
 	MSM_BACKEND_DAI_MAX,
 };
 
+enum msm_pcm_routing_event {
+	MSM_PCM_RT_EVT_BUF_RECFG,
+	MSM_PCM_RT_EVT_DEVSWITCH,
+	MSM_PCM_RT_EVT_MAX,
+};
 /* dai_id: front-end ID,
  * dspst_id:  DSP audio stream ID
  * stream_type: playback or capture
  */
-void msm_pcm_routing_reg_phy_stream(int fedai_id, int dspst_id,
-	int stream_type);
+void msm_pcm_routing_reg_phy_stream(int fedai_id, bool perf_mode,
+				int dspst_id, int stream_type);
 void msm_pcm_routing_reg_psthr_stream(int fedai_id, int dspst_id,
 		int stream_type, int enable);
+
+struct msm_pcm_routing_evt {
+	void (*event_func)(enum msm_pcm_routing_event, void *);
+	void *priv_data;
+};
+
+void msm_pcm_routing_reg_phy_stream_v2(int fedai_id, bool perf_mode,
+				       int dspst_id, int stream_type,
+				       struct msm_pcm_routing_evt event_info);
 
 void msm_pcm_routing_dereg_phy_stream(int fedai_id, int stream_type);
 

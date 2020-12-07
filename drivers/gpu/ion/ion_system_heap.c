@@ -2,7 +2,7 @@
  * drivers/gpu/ion/ion_system_heap.c
  *
  * Copyright (C) 2011 Google, Inc.
- * Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2011-2013, 2015, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -27,6 +27,8 @@
 #include "ion_priv.h"
 #include <mach/memory.h>
 #include <asm/cacheflush.h>
+#include <linux/msm_ion.h>
+#include <linux/dma-mapping.h>
 
 static atomic_t system_heap_allocated;
 static atomic_t system_contig_heap_allocated;
@@ -109,6 +111,9 @@ void *ion_system_heap_map_kernel(struct ion_heap *heap,
 					sizeof(struct page *) * table->nents,
 					GFP_KERNEL);
 
+		if (!pages)
+			return ERR_PTR(-ENOMEM);
+
 		for_each_sg(table->sgl, sg, table->nents, i)
 			pages[i] = sg_page(sg);
 		vaddr = vmap(pages, table->nents, VM_MAP, PAGE_KERNEL);
@@ -183,15 +188,30 @@ int ion_system_heap_cache_ops(struct ion_heap *heap, struct ion_buffer *buffer,
 
 	switch (cmd) {
 	case ION_IOC_CLEAN_CACHES:
-		dmac_clean_range(vaddr, vaddr + length);
+		if (!vaddr)
+			dma_sync_sg_for_device(NULL, buffer->sg_table->sgl,
+				buffer->sg_table->nents, DMA_TO_DEVICE);
+		else
+			dmac_clean_range(vaddr, vaddr + length);
 		outer_cache_op = outer_clean_range;
 		break;
 	case ION_IOC_INV_CACHES:
-		dmac_inv_range(vaddr, vaddr + length);
+		if (!vaddr)
+			dma_sync_sg_for_cpu(NULL, buffer->sg_table->sgl,
+				buffer->sg_table->nents, DMA_FROM_DEVICE);
+		else
+			dmac_inv_range(vaddr, vaddr + length);
 		outer_cache_op = outer_inv_range;
 		break;
 	case ION_IOC_CLEAN_INV_CACHES:
-		dmac_flush_range(vaddr, vaddr + length);
+		if (!vaddr) {
+			dma_sync_sg_for_device(NULL, buffer->sg_table->sgl,
+				buffer->sg_table->nents, DMA_TO_DEVICE);
+			dma_sync_sg_for_cpu(NULL, buffer->sg_table->sgl,
+				buffer->sg_table->nents, DMA_FROM_DEVICE);
+		} else {
+			dmac_flush_range(vaddr, vaddr + length);
+		}
 		outer_cache_op = outer_flush_range;
 		break;
 	default:
@@ -221,7 +241,7 @@ int ion_system_heap_cache_ops(struct ion_heap *heap, struct ion_buffer *buffer,
 }
 
 static int ion_system_print_debug(struct ion_heap *heap, struct seq_file *s,
-				  const struct rb_root *unused)
+				  const struct list_head *unused)
 {
 	seq_printf(s, "total bytes currently allocated: %lx\n",
 			(unsigned long) atomic_read(&system_heap_allocated));
@@ -253,6 +273,14 @@ int ion_system_heap_map_iommu(struct ion_buffer *buffer,
 
 	data->mapped_size = iova_length;
 	extra = iova_length - buffer->size;
+
+	/* Use the biggest alignment to allow bigger IOMMU mappings.
+	 * Use the first entry since the first entry will always be the
+	 * biggest entry. To take advantage of bigger mapping sizes both the
+	 * VA and PA addresses have to be aligned to the biggest size.
+	 */
+	if (table->sgl->length > align)
+		align = table->sgl->length;
 
 	ret = msm_allocate_iova_address(domain_num, partition_num,
 						data->mapped_size, align,
@@ -432,7 +460,7 @@ int ion_system_contig_heap_cache_ops(struct ion_heap *heap,
 
 static int ion_system_contig_print_debug(struct ion_heap *heap,
 					 struct seq_file *s,
-					 const struct rb_root *unused)
+					 const struct list_head *unused)
 {
 	seq_printf(s, "total bytes currently allocated: %lx\n",
 		(unsigned long) atomic_read(&system_contig_heap_allocated));
@@ -482,7 +510,7 @@ int ion_system_contig_heap_map_iommu(struct ion_buffer *buffer,
 	}
 	page = virt_to_page(buffer->vaddr);
 
-	sglist = vmalloc(sizeof(*sglist));
+	sglist = kmalloc(sizeof(*sglist), GFP_KERNEL);
 	if (!sglist)
 		goto out1;
 
@@ -504,13 +532,13 @@ int ion_system_contig_heap_map_iommu(struct ion_buffer *buffer,
 		if (ret)
 			goto out2;
 	}
-	vfree(sglist);
+	kfree(sglist);
 	return ret;
 out2:
 	iommu_unmap_range(domain, data->iova_addr, buffer->size);
 
 out1:
-	vfree(sglist);
+	kfree(sglist);
 	msm_free_iova_address(data->iova_addr, domain_num, partition_num,
 						data->mapped_size);
 out:

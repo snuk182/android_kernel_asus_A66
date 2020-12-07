@@ -32,6 +32,7 @@
 #include <sound/pcm.h>
 
 struct snd_compr_ops;
+struct snd_pcm_substream;
 
 /**
  * struct snd_compr_runtime: runtime stream description
@@ -56,11 +57,11 @@ struct snd_compr_runtime {
 	u64 buffer_size;
 	u32 fragment_size;
 	u32 fragments;
-	u64 hw_pointer;
-	u64 app_pointer;
 	u64 total_bytes_available;
 	u64 total_bytes_transferred;
 	wait_queue_head_t sleep;
+	struct snd_pcm_substream *fe_substream;
+	void *private_data;
 };
 
 /**
@@ -70,6 +71,8 @@ struct snd_compr_runtime {
  * @runtime: pointer to runtime structure
  * @device: device pointer
  * @direction: stream direction, playback/recording
+ * @metadata_set: metadata set flag, true when set
+ * @next_track: has userspace signall next track transistion, true when set
  * @private_data: pointer to DSP private data
  */
 struct snd_compr_stream {
@@ -78,6 +81,8 @@ struct snd_compr_stream {
 	struct snd_compr_runtime *runtime;
 	struct snd_compr *device;
 	enum snd_compr_direction direction;
+	bool metadata_set;
+	bool next_track;
 	void *private_data;
 };
 
@@ -91,6 +96,8 @@ struct snd_compr_stream {
  * This can be called in during stream creation only to set codec params
  * and the stream properties
  * @get_params: retrieve the codec parameters, mandatory
+ * @set_next_track_param: send codec specific data of subsequent track
+ * in gapless
  * @trigger: Trigger operations like start, pause, resume, drain, stop.
  * This callback is mandatory
  * @pointer: Retrieve current h/w pointer information. Mandatory
@@ -109,10 +116,16 @@ struct snd_compr_ops {
 			struct snd_compr_params *params);
 	int (*get_params)(struct snd_compr_stream *stream,
 			struct snd_codec *params);
+	int (*set_metadata)(struct snd_compr_stream *stream,
+			struct snd_compr_metadata *metadata);
+	int (*get_metadata)(struct snd_compr_stream *stream,
+			struct snd_compr_metadata *metadata);
+	int (*set_next_track_param)(struct snd_compr_stream *stream,
+				    union snd_codec_options *codec_options);
 	int (*trigger)(struct snd_compr_stream *stream, int cmd);
 	int (*pointer)(struct snd_compr_stream *stream,
 			struct snd_compr_tstamp *tstamp);
-	int (*copy)(struct snd_compr_stream *stream, const char __user *buf,
+	int (*copy)(struct snd_compr_stream *stream, char __user *buf,
 		       size_t count);
 	int (*mmap)(struct snd_compr_stream *stream,
 			struct vm_area_struct *vma);
@@ -150,6 +163,7 @@ int snd_compress_register(struct snd_compr *device);
 int snd_compress_deregister(struct snd_compr *device);
 int snd_compress_new(struct snd_card *card, int device,
 			int type, struct snd_compr *compr);
+void snd_compress_free(struct snd_card *card, struct snd_compr *compr);
 
 /* dsp driver callback apis
  * For playback: driver should call snd_compress_fragment_elapsed() to let the

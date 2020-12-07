@@ -2612,10 +2612,10 @@ static void process_T9_message(u8 *message, struct mxt_data *mxt, int last_touch
 
 						g_bIsCheckLockPoint = true;
 
-						printk("[touch_pad] g_bIsCmdCalibrationOk:press: g_bIsCheckLockPoint =%d\n", g_bIsCheckLockPoint);
+						//printk("[touch_pad] g_bIsCmdCalibrationOk:press: g_bIsCheckLockPoint =%d\n", g_bIsCheckLockPoint);
 					}
 
-					printk("[touch_pad] g_bIsCmdCalibrationOk:press: touch_number=%d; start_x=%d; start_y=%d\n", touch_number, first_finger[touch_number].start_x, first_finger[touch_number].start_y);
+					//printk("[touch_pad] g_bIsCmdCalibrationOk:press: touch_number=%d; start_x=%d; start_y=%d\n", touch_number, first_finger[touch_number].start_x, first_finger[touch_number].start_y);
 				}
 			}
 		}
@@ -2639,7 +2639,7 @@ static void process_T9_message(u8 *message, struct mxt_data *mxt, int last_touch
 						bCheckFingerMove = false;
 //						bDisableCheckLockPoint = false;
 
-						printk("[touch_pad] g_bIsCmdCalibrationOk:release:i=%d; status=%d: NOT CheckFingerMove\n", i, first_finger[i].status);
+						//printk("[touch_pad] g_bIsCmdCalibrationOk:release:i=%d; status=%d: NOT CheckFingerMove\n", i, first_finger[i].status);
 							
 						break;
 					}
@@ -2648,7 +2648,7 @@ static void process_T9_message(u8 *message, struct mxt_data *mxt, int last_touch
 						bCheckFingerMove = true;
 //						bDisableCheckLockPoint = true;
 
-						printk("[touch_pad] g_bIsCmdCalibrationOk:release:i=%d; status=%d: CheckFingerMove!!!\n", i, first_finger[i].status);
+						//printk("[touch_pad] g_bIsCmdCalibrationOk:release:i=%d; status=%d: CheckFingerMove!!!\n", i, first_finger[i].status);
 					}
 				}
 

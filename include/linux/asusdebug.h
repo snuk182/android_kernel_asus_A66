@@ -188,7 +188,7 @@ extern unsigned int PRINTK_BUFFER;
 ////                  Eventlog mask mechanism
 /////////////////////////////////////////////////////////////////////////////////////////////
 #define ASUS_EVTLOG_PATH "/sdcard/asus_log/ASUSEvtlog"
-#define ASUS_EVTLOG_STR_MAXLEN (192)
+#define ASUS_EVTLOG_STR_MAXLEN (256)
 #define ASUS_EVTLOG_MAX_ITEM (20)
 
 void save_all_thread_info(void);

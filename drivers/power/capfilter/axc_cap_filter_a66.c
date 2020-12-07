@@ -13,7 +13,7 @@
 #define BAT_LIFE_BEFORE_FULL_ONE_UNIT 83
 
 #define SECOND_OF_HOUR	3600
-
+int ignore = 0;
 /* g_bat_life_after_dot - remain battery life after dot, used for more accuracy */
 static int g_bat_life_after_dot = 0;
 
@@ -276,7 +276,19 @@ int AXC_Cap_Filter_A66_FilterCapacity(struct AXI_Cap_Filter *apCapFilter, int no
 	} else {	// no cable
 		bat_life = eval_bat_life_when_discharging(nowCap, lastCap, maxMah, interval, this->capMah);
 	}
-
+	//++++workaround when charging ,capacity decrease
+	if(bat_life < lastCap && isCharing==1 && ignore==0)
+	{
+		printk("++++workaround usb plug in ,capacity decrease. true filter capacity = %d",bat_life);
+		bat_life=lastCap;
+		ignore++;
+		printk("++++workaround usb plug in ,capacity decrease. now filter capacity = %d",bat_life);
+	}
+	if(bat_life >lastCap && ignore !=0)
+	{
+		ignore = 0;
+	}
+	//----workaround when charging ,capacity decrease
 	bat_life = update_bat_info_for_speical_case(bat_life, hasCable, isCharing, isBatFull, isBatLow);
 
 	pr_debug("[BAT][Fil]%s(), filter cap:%d \n", __func__, bat_life);

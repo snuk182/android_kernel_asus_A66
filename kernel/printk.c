@@ -134,7 +134,7 @@ static struct console *exclusive_console;
  */
 struct console_cmdline
 {
-	char	name[8];			/* Name of the driver	    */
+	char	name[16];			/* Name of the driver	    */
 	int	index;				/* Minor dev. to use	    */
 	char	*options;			/* Options for the driver   */
 #ifdef CONFIG_A11Y_BRAILLE_CONSOLE
@@ -738,8 +738,19 @@ static void call_console_drivers(unsigned start, unsigned end)
 	start_print = start;
 	while (cur_index != end) {
 		if (msg_level < 0 && ((end - cur_index) > 2)) {
+			/*
+			 * prepare buf_prefix, as a contiguous array,
+			 * to be processed by log_prefix function
+			 */
+			char buf_prefix[SYSLOG_PRI_MAX_LENGTH+1];
+			unsigned i;
+			for (i = 0; i < ((end - cur_index)) && (i < SYSLOG_PRI_MAX_LENGTH); i++) {
+				buf_prefix[i] = LOG_BUF(cur_index + i);
+			}
+			buf_prefix[i] = '\0'; /* force '\0' as last string character */
+
 			/* strip log prefix */
-			cur_index += log_prefix(&LOG_BUF(cur_index), &msg_level, NULL);
+			cur_index += log_prefix((const char *)&buf_prefix, &msg_level, NULL);
 			start_print = cur_index;
 		}
 		while (cur_index != end) {
@@ -853,6 +864,9 @@ asmlinkage int printk(const char *fmt, ...)
 	va_list args;
 	int r;
 	unsigned char *p;
+#ifdef CONFIG_MSM_RTB
+	void *caller = NULL;
+#endif	
 	
 // +++ ASUS_BSP : add for user build
 #ifdef ASUS_SHIP_BUILD
@@ -863,7 +877,7 @@ asmlinkage int printk(const char *fmt, ...)
 	
 
 #ifdef CONFIG_MSM_RTB
-	void *caller = __builtin_return_address(0);
+	caller = __builtin_return_address(0);
 
 	uncached_logk_pc(LOGK_LOGBUF, caller, (void *)log_end);
 #endif
@@ -961,9 +975,9 @@ static int console_trylock_for_printk(unsigned int cpu)
 		}
 	}
 	printk_cpu = UINT_MAX;
+	raw_spin_unlock(&logbuf_lock);
 	if (wake)
 		up(&console_sem);
-	raw_spin_unlock(&logbuf_lock);
 	return retval;
 }
 static const char recursion_bug_msg [] =
@@ -1077,6 +1091,9 @@ asmlinkage int vprintk(const char *fmt, va_list args)
 		p[2]='>';
 	}
 // ASUS_BSP ---
+#ifdef CONFIG_LGE_CRASH_HANDLER
+	store_crash_log(p);
+#endif
 
 	/* Read log level and handle special printk prefix */
 	plen = log_prefix(p, &current_log_level, &special);
@@ -1394,7 +1411,7 @@ MODULE_PARM_DESC(console_suspend, "suspend console during suspend"
  */
 void suspend_console(void)
 {
-        ASUSEvtlog("System Suspend");
+        ASUSEvtlog("[UTS] System Suspend");
 	suspend_in_progress = 1;
 	if (!console_suspend_enabled)
 		return;
@@ -1410,7 +1427,7 @@ void resume_console(void)
         int i;  //Ledger
 
         suspend_in_progress = 0;
-        ASUSEvtlog("System Resume");
+        ASUSEvtlog("[UTS] System Resume");
 
 #if 0
 //++Ledger
@@ -1481,14 +1498,13 @@ static int __cpuinit console_cpu_notify(struct notifier_block *self,
 	unsigned long action, void *hcpu)
 {
 	switch (action) {
-	
 	case CPU_DEAD:
 	case CPU_DOWN_FAILED:
 	case CPU_UP_CANCELED:
 		console_lock();
 		console_unlock();
 		break;
-    case CPU_ONLINE:
+	case CPU_ONLINE:
 	case CPU_DYING:
 		/* invoked with preemption disabled, so defer */
 		if (!console_trylock())
@@ -1817,6 +1833,7 @@ void register_console(struct console *newcon)
 	 */
 	for (i = 0; i < MAX_CMDLINECONSOLES && console_cmdline[i].name[0];
 			i++) {
+		BUILD_BUG_ON(sizeof(console_cmdline[i].name) != sizeof(newcon->name));
 		if (strcmp(console_cmdline[i].name, newcon->name) != 0)
 			continue;
 		if (newcon->index >= 0 &&
@@ -1972,7 +1989,7 @@ late_initcall(printk_late_init);
 
 #if defined CONFIG_PRINTK
 
-int printk_sched(const char *fmt, ...)
+int printk_deferred(const char *fmt, ...)
 {
 	unsigned long flags;
 	va_list args;

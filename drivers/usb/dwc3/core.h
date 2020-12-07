@@ -180,6 +180,9 @@
 #define DWC3_GCTL_DISSCRAMBLE	(1 << 3)
 #define DWC3_GCTL_DSBLCLKGTNG	(1 << 0)
 
+/* Global User Control Register */
+#define DWC3_GUCTL_REFCLKPER (0x3FF << 22)
+
 /* Global USB2 PHY Configuration Register */
 #define DWC3_GUSB2PHYCFG_PHYSOFTRST (1 << 31)
 #define DWC3_GUSB2PHYCFG_SUSPHY	(1 << 6)
@@ -188,6 +191,7 @@
 #define DWC3_GUSB3PIPECTL_PHYSOFTRST (1 << 31)
 #define DWC3_GUSB3PIPECTL_SUSPHY (1 << 17)
 #define DWC3_GUSB3PIPECTL_DELAY_P1P2P3 (7 << 19)
+#define DWC3_GUSB3PIPECTL_DIS_RXDET_U3_RXDET (1 << 22)
 
 /* Global TX Fifo Size Register */
 #define DWC3_GTXFIFOSIZ_TXFDEF(n) ((n) & 0xffff)
@@ -697,8 +701,8 @@ struct dwc3 {
 
 struct dwc3_event_type {
 	u32	is_devspec:1;
-	u32	type:6;
-	u32	reserved8_31:25;
+	u32	type:7;
+	u32	reserved8_31:24;
 } __packed;
 
 #define DWC3_DEPEVT_XFERCOMPLETE	0x01
@@ -775,15 +779,15 @@ struct dwc3_event_depevt {
  *	12	- VndrDevTstRcved
  * @reserved15_12: Reserved, not used
  * @event_info: Information about this event
- * @reserved31_24: Reserved, not used
+ * @reserved31_25: Reserved, not used
  */
 struct dwc3_event_devt {
 	u32	one_bit:1;
 	u32	device_event:7;
 	u32	type:4;
 	u32	reserved15_12:4;
-	u32	event_info:8;
-	u32	reserved31_24:8;
+	u32	event_info:9;
+	u32	reserved31_25:7;
 } __packed;
 
 /**

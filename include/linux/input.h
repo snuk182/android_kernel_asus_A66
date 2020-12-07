@@ -3,6 +3,7 @@
 
 /*
  * Copyright (c) 1999-2002 Vojtech Pavlik
+ * Copyright (c) 2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License version 2 as published by
@@ -198,6 +199,8 @@ struct input_keymap_entry {
 #define SYN_CONFIG		1
 #define SYN_MT_REPORT		2
 #define SYN_DROPPED		3
+#define SYN_TIME_SEC		4
+#define SYN_TIME_NSEC		5
 
 /*
  * Keys and buttons
@@ -290,6 +293,7 @@ struct input_keymap_entry {
 #define KEY_KP6			77
 #define KEY_KPPLUS		78
 #define KEY_KP1			79
+#define KEY_REVERSE		KEY_KP1
 #define KEY_KP2			80
 #define KEY_KP3			81
 #define KEY_KP0			82

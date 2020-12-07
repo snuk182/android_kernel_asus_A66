@@ -1,4 +1,5 @@
-/* Copyright (c) 2009-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2009-2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -44,6 +45,16 @@
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,msm9625")
 #define machine_is_msm9625()		\
 	of_machine_is_compatible("qcom,msm9625")
+#define early_machine_is_mpq8092()	\
+	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,mpq8092")
+#define machine_is_mpq8092_sim()           \
+	of_machine_is_compatible("qcom,mpq8092-sim")
+#define early_machine_is_msm8226()	\
+	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,msm8226")
+#define machine_is_msm8226()		\
+	of_machine_is_compatible("qcom,msm8226")
+#define machine_is_msm8226_sim()		\
+	of_machine_is_compatible("qcom,msm8226-sim")
 #else
 #define early_machine_is_msm8974()	0
 #define machine_is_msm8974()		0
@@ -51,9 +62,21 @@
 #define machine_is_msm8974_rumi()	0
 #define early_machine_is_msm9625()	0
 #define machine_is_msm9625()		0
+#define early_machine_is_mpq8092()	0
+#define machine_is_mpq8092_sim()	0
+#define early_machine_is_msm8226()	0
+#define machine_is_msm8226()		0
+#define machine_is_msm8226_sim()	0
+
 #endif
+#define APQ8064_MPLATFROM_VERSION 3
+#define machine_is_apq8064_mplatform() ((machine_is_apq8064_adp_2())\
+		&& (SOCINFO_VERSION_MAJOR(socinfo_get_platform_version()) \
+			== APQ8064_MPLATFROM_VERSION))
 
 #define PLATFORM_SUBTYPE_SGLTE	6
+#define PLATFORM_SUBTYPE_DSDA2	8
+#define PLATFORM_SUBTYPE_SGLTE2	9
 
 enum msm_cpu {
 	MSM_CPU_UNKNOWN = 0,
@@ -73,14 +96,20 @@ enum msm_cpu {
 	MSM_CPU_7X25AA,
 	MSM_CPU_7X25AB,
 	MSM_CPU_8064,
+	MSM_CPU_8064AB,
+	MSM_CPU_8064AA,
+	MSM_CPU_8064AU,
 	MSM_CPU_8930,
 	MSM_CPU_8930AA,
+	MSM_CPU_8930AB,
 	MSM_CPU_7X27AA,
 	MSM_CPU_9615,
 	MSM_CPU_8974,
 	MSM_CPU_8627,
 	MSM_CPU_8625,
-	MSM_CPU_9625
+	MSM_CPU_9625,
+	MSM_CPU_8092,
+	MSM_CPU_8226
 };
 
 enum pmic_model {
@@ -113,7 +142,10 @@ uint32_t socinfo_get_pmic_die_revision(void);
 int __init socinfo_init(void) __must_check;
 const int read_msm_cpu_type(void);
 const int get_core_count(void);
+const int cpu_is_krait(void);
 const int cpu_is_krait_v1(void);
+const int cpu_is_krait_v2(void);
+const int cpu_is_krait_v3(void);
 
 static inline int cpu_is_msm7x01(void)
 {
@@ -283,6 +315,33 @@ static inline int cpu_is_apq8064(void)
 #endif
 }
 
+static inline int cpu_is_apq8064ab(void)
+{
+#ifdef CONFIG_ARCH_APQ8064
+	return read_msm_cpu_type() == MSM_CPU_8064AB;
+#else
+	return 0;
+#endif
+}
+
+static inline int cpu_is_apq8064aa(void)
+{
+#ifdef CONFIG_ARCH_APQ8064
+	return read_msm_cpu_type() == MSM_CPU_8064AA;
+#else
+	return 0;
+#endif
+}
+
+static inline int cpu_is_apq8064au(void)
+{
+#ifdef CONFIG_ARCH_APQ8064
+	return read_msm_cpu_type() == MSM_CPU_8064AU;
+#else
+	return 0;
+#endif
+}
+
 static inline int cpu_is_msm8930(void)
 {
 #ifdef CONFIG_ARCH_MSM8930
@@ -296,6 +355,15 @@ static inline int cpu_is_msm8930aa(void)
 {
 #ifdef CONFIG_ARCH_MSM8930
 	return read_msm_cpu_type() == MSM_CPU_8930AA;
+#else
+	return 0;
+#endif
+}
+
+static inline int cpu_is_msm8930ab(void)
+{
+#ifdef CONFIG_ARCH_MSM8930
+	return read_msm_cpu_type() == MSM_CPU_8930AB;
 #else
 	return 0;
 #endif
@@ -357,6 +425,48 @@ static inline int cpu_is_msm8974(void)
 #else
 	return 0;
 #endif
+}
+
+static inline int cpu_is_mpq8092(void)
+{
+#ifdef CONFIG_ARCH_MPQ8092
+	enum msm_cpu cpu = socinfo_get_msm_cpu();
+
+	BUG_ON(cpu == MSM_CPU_UNKNOWN);
+	return cpu == MSM_CPU_8092;
+#else
+	return 0;
+#endif
+
+}
+
+static inline int cpu_is_msm8226(void)
+{
+#ifdef CONFIG_ARCH_MSM8226
+	enum msm_cpu cpu = socinfo_get_msm_cpu();
+
+	BUG_ON(cpu == MSM_CPU_UNKNOWN);
+	return cpu == MSM_CPU_8226;
+#else
+	return 0;
+#endif
+}
+
+static inline int soc_class_is_msm8960(void)
+{
+	return cpu_is_msm8960() || cpu_is_msm8960ab();
+}
+
+static inline int soc_class_is_apq8064(void)
+{
+	return cpu_is_apq8064() || cpu_is_apq8064ab() || cpu_is_apq8064aa()
+					|| cpu_is_apq8064au();
+}
+
+static inline int soc_class_is_msm8930(void)
+{
+	return cpu_is_msm8930() || cpu_is_msm8930aa() || cpu_is_msm8930ab() ||
+	       cpu_is_msm8627();
 }
 
 #endif

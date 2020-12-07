@@ -43,7 +43,7 @@ obj-$(CONFIG_VIDEO_SAA7185) += saa7185.o
 obj-$(CONFIG_VIDEO_SAA7191) += saa7191.o
 obj-$(CONFIG_VIDEO_ADV7170) += adv7170.o
 obj-$(CONFIG_VIDEO_ADV7175) += adv7175.o
-obj-$(CONFIG_VIDEO_ADV7180) += adv7180.o
+obj-$(CONFIG_VIDEO_ADV7481) += adv7481.o
 obj-$(CONFIG_VIDEO_ADV7183) += adv7183.o
 obj-$(CONFIG_VIDEO_ADV7343) += adv7343.o
 obj-$(CONFIG_VIDEO_VPX3220) += vpx3220.o
@@ -214,7 +214,8 @@ obj-y	+= davinci/
 
 obj-$(CONFIG_MSM_CAMERA) += msm/
 obj-$(CONFIG_ARCH_OMAP)	+= omap/
-obj-$(CONFIG_MSM_VIDC) += msm_vidc/
+obj-$(CONFIG_MSM_VIDC_V4L2) += msm_vidc/
+obj-$(CONFIG_MSM_WFD) += msm_wfd/
 
 ccflags-y += -I$(srctree)/drivers/media/dvb/dvb-core
 ccflags-y += -I$(srctree)/drivers/media/dvb/frontends

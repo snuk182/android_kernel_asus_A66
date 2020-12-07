@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1002,7 +1002,8 @@ int __init msm_rpm_init(struct msm_rpm_platform_data *data)
 	}
 
 	rc = request_irq(data->irq_wakeup,
-			msm_pm_rpm_wakeup_interrupt, IRQF_TRIGGER_RISING,
+			msm_pm_rpm_wakeup_interrupt,
+			IRQF_TRIGGER_RISING | IRQF_NO_SUSPEND,
 			"pm_drv", msm_pm_rpm_wakeup_interrupt);
 	if (rc) {
 		pr_err("%s: failed to request irq %u: %d\n",

@@ -272,12 +272,24 @@ comment "Video decoders"
 
 config VIDEO_ADV7180
 	tristate "Analog Devices ADV7180 decoder"
-	depends on VIDEO_V4L2 && I2C
+	depends on VIDEO_V4L2 && I2C && MSM_BA_V4L2
 	---help---
 	  Support for the Analog Devices ADV7180 video decoder.
 
 	  To compile this driver as a module, choose M here: the
 	  module will be called adv7180.
+
+
+config VIDEO_ADV7481
+	tristate "Analog Devices ADV7481 decoder"
+	depends on VIDEO_V4L2 && I2C && MSM_BA_V4L2
+
+	---help---
+	  Support for the Analog Devices ADV7481 video decoder. This
+	  device allows conversion of video data from HDMI and Analog
+	  interfaces to CSI.
+	  To compile this driver as a module, choose M here: the
+	  module will be called adv7481.
 
 config VIDEO_ADV7183
 	tristate "Analog Devices ADV7183 decoder"
@@ -646,6 +658,15 @@ config MSM_VCAP
 	---help---
 		Enables VCAP driver. This device allows for video capture and
 		video processing using the v4l2 api
+
+config VIDEO_ADP
+	tristate "AV Chips for ADP Board'"
+	depends on VIDEO_V4L2 && I2C
+	select VIDEO_ADV7180 if VIDEO_HELPER_CHIPS_AUTO
+	select VIDEO_ADV7481 if VIDEO_HELPER_CHIPS_AUTO
+	---help---
+		Enables the AV Bridge chips video4linux drivers for the
+		'ADP Platform'.
 
 #
 # USB Multimedia device configuration
@@ -1262,3 +1283,4 @@ config VIDEO_MX2_EMMAPRP
 endif # V4L_MEM2MEM_DRIVERS
 
 source "drivers/media/video/msm_vidc/Kconfig"
+source "drivers/media/video/msm_wfd/Kconfig"

@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2012, 2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -495,10 +495,10 @@ static struct dsi_cmd_desc novatek_manufacture_id_cmd = {
 struct dcs_cmd_req cmdreq;
 static u32 manu_id;
 
-static void mipi_novatek_manufature_cb(u32 data)
+static void mipi_novatek_manufacture_cb(u32 data)
 {
 	manu_id = data & 0xff; // 0xff for samsung, 0xffffff for novatek
-	pr_info("%s: manufature_id=%x\n", __func__, manu_id);
+	pr_info("%s: manufacture_id=%x\n", __func__, manu_id);
 }
 
 static uint32 mipi_novatek_manufacture_id(struct msm_fb_data_type *mfd)
@@ -507,8 +507,11 @@ static uint32 mipi_novatek_manufacture_id(struct msm_fb_data_type *mfd)
 	cmdreq.cmds_cnt = 1;
 	cmdreq.flags = CMD_REQ_RX | CMD_REQ_COMMIT;
 	cmdreq.rlen = 3;
-	cmdreq.cb = mipi_novatek_manufature_cb;
+	cmdreq.cb = mipi_novatek_manufacture_cb; /* call back */
 	mipi_dsi_cmdlist_put(&cmdreq);
+	/*
+	 * blocked here, untill call back called
+	 */
 
 	return manu_id;
 }
@@ -523,7 +526,7 @@ static uint32 mipi_samsung_panel_id(struct msm_fb_data_type *mfd)
 	cmdreq.cmds_cnt = 1;
 	cmdreq.flags = CMD_REQ_RX | CMD_REQ_COMMIT;
 	cmdreq.rlen = 1;
-	cmdreq.cb = mipi_novatek_manufature_cb;
+	cmdreq.cb = mipi_novatek_manufacture_cb;
 	mipi_dsi_cmdlist_put(&cmdreq);
 
 	return manu_id;
@@ -664,6 +667,7 @@ static int mipi_novatek_lcd_on(struct platform_device *pdev)
 static int mipi_novatek_lcd_off(struct platform_device *pdev)
 {
 	struct msm_fb_data_type *mfd;
+	struct dcs_cmd_req cmdreq;
 
 	mfd = platform_get_drvdata(pdev);
 
@@ -678,6 +682,7 @@ static int mipi_novatek_lcd_off(struct platform_device *pdev)
 	cmdreq.flags = CMD_REQ_COMMIT;
 	cmdreq.rlen = 0;
 	cmdreq.cb = NULL;
+
 	mipi_dsi_cmdlist_put(&cmdreq);
 	mipi_set_tx_power_mode(0);
 	
@@ -685,6 +690,11 @@ static int mipi_novatek_lcd_off(struct platform_device *pdev)
 	
 	printk("[Display] panel off\n");
 
+	return 0;
+}
+
+static int mipi_novatek_lcd_late_init(struct platform_device *pdev)
+{
 	return 0;
 }
 
@@ -764,7 +774,7 @@ static void mipi_novatek_set_backlight(struct msm_fb_data_type *mfd)
 		printk("[backlight] input=%d, value=%d, index=%d\n", mfd->bl_level, value, index);
 	}
 	return;	// +++ ASUS_BSP : miniporting
-	if ((mipi_novatek_pdata->enable_wled_bl_ctrl)
+	if ((mipi_novatek_pdata && mipi_novatek_pdata->enable_wled_bl_ctrl)
 	    && (wled_trigger_initialized)) {
 		led_trigger_event(bkl_led_trigger, mfd->bl_level);
 		return;
@@ -774,7 +784,7 @@ static void mipi_novatek_set_backlight(struct msm_fb_data_type *mfd)
 
 	cmdreq.cmds = &backlight_cmd;
 	cmdreq.cmds_cnt = 1;
-	cmdreq.flags = CMD_REQ_COMMIT;
+	cmdreq.flags = CMD_REQ_COMMIT;//snuk182
 	cmdreq.rlen = 0;
 	cmdreq.cb = NULL;
 
@@ -879,6 +889,7 @@ static struct platform_driver this_driver = {
 static struct msm_fb_panel_data novatek_panel_data = {
 	.on		= mipi_novatek_lcd_on,
 	.off		= mipi_novatek_lcd_off,
+	.late_init	= mipi_novatek_lcd_late_init,
 	.set_backlight = mipi_novatek_set_backlight,
 };
 
@@ -886,7 +897,7 @@ static ssize_t mipi_dsi_3d_barrier_read(struct device *dev,
 				struct device_attribute *attr,
 				char *buf)
 {
-	return snprintf((char *)buf, sizeof(buf), "%u\n", barrier_mode);
+	return snprintf((char *)buf, sizeof(*buf), "%u\n", barrier_mode);
 }
 
 static ssize_t mipi_dsi_3d_barrier_write(struct device *dev,

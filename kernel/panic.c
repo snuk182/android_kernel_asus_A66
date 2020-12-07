@@ -23,6 +23,7 @@
 #include <linux/init.h>
 #include <linux/nmi.h>
 #include <linux/dmi.h>
+#include <linux/coresight.h>
 
 #define PANIC_TIMER_STEP 100
 #define PANIC_BLINK_SPD 18
@@ -133,6 +134,15 @@ void panic(const char *fmt, ...)
     }
 //jack for modem ramdump capture -----
 #endif    
+	coresight_abort();
+	/*
+	 * Disable local interrupts. This will prevent panic_smp_self_stop
+	 * from deadlocking the first cpu that invokes the panic, since
+	 * there is nothing to prevent an interrupt handler (that runs
+	 * after the panic_lock is acquired) from invoking panic again.
+	 */
+	local_irq_disable();
+
 	/*
 	 * Disable local interrupts. This will prevent panic_smp_self_stop
 	 * from deadlocking the first cpu that invokes the panic, since
@@ -159,7 +169,14 @@ void panic(const char *fmt, ...)
 	va_start(args, fmt);  //ASUS: by jack
 	vsnprintf(buf, sizeof(buf), fmt, args);
 	va_end(args);
+#ifdef CONFIG_LGE_CRASH_HANDLER
+	set_kernel_crash_magic_number();
+	set_crash_store_enable();
+#endif
 	printk(KERN_EMERG "Kernel panic - not syncing: %s\n",buf);
+#ifdef CONFIG_LGE_CRASH_HANDLER
+	set_crash_store_disable();
+#endif
 #ifdef CONFIG_DEBUG_BUGVERBOSE
 	/*
 	 * Avoid nested stack-dumping if a panic occurs during oops processing
@@ -175,14 +192,14 @@ void panic(const char *fmt, ...)
 	 */
 	crash_kexec(NULL);
 
-	kmsg_dump(KMSG_DUMP_PANIC);
-
 	/*
 	 * Note smp_send_stop is the usual smp shutdown function, which
 	 * unfortunately means it may not be hardened to work in a panic
 	 * situation.
 	 */
 	smp_send_stop();
+
+	kmsg_dump(KMSG_DUMP_PANIC);
 
 	atomic_notifier_call_chain(&panic_notifier_list, 0, buf);
 

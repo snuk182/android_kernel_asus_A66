@@ -2,7 +2,7 @@
  * drivers/gpu/ion/ion_priv.h
  *
  * Copyright (C) 2011 Google, Inc.
- * Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -144,7 +144,7 @@ struct ion_heap_ops {
 				unsigned long flags);
 	void (*unmap_iommu)(struct ion_iommu_map *data);
 	int (*print_debug)(struct ion_heap *heap, struct seq_file *s,
-			   const struct rb_root *mem_map);
+			   const struct list_head *mem_map);
 	int (*secure_heap)(struct ion_heap *heap, int version, void *data);
 	int (*unsecure_heap)(struct ion_heap *heap, int version, void *data);
 };
@@ -159,6 +159,7 @@ struct ion_heap_ops {
  *			allocating.  These are specified by platform data and
  *			MUST be unique
  * @name:		used for debugging
+ * @priv:		private heap data
  *
  * Represents a pool of memory from which buffers can be made.  In some
  * systems the only heap is regular system memory allocated via vmalloc.
@@ -172,11 +173,12 @@ struct ion_heap {
 	struct ion_heap_ops *ops;
 	int id;
 	const char *name;
+	void *priv;
 };
 
 /**
  * struct mem_map_data - represents information about the memory map for a heap
- * @node:		rb node used to store in the tree of mem_map_data
+ * @node:		list node used to store in the list of mem_map_data
  * @addr:		start address of memory region.
  * @addr:		end address of memory region.
  * @size:		size of memory region
@@ -184,7 +186,7 @@ struct ion_heap {
  *
  */
 struct mem_map_data {
-	struct rb_node node;
+	struct list_head node;
 	unsigned long addr;
 	unsigned long addr_end;
 	unsigned long size;
@@ -254,6 +256,10 @@ ion_phys_addr_t ion_carveout_allocate(struct ion_heap *heap, unsigned long size,
 void ion_carveout_free(struct ion_heap *heap, ion_phys_addr_t addr,
 		       unsigned long size);
 
+#ifdef CONFIG_CMA
+struct ion_heap *ion_cma_heap_create(struct ion_platform_heap *);
+void ion_cma_heap_destroy(struct ion_heap *);
+#endif
 
 struct ion_heap *msm_get_contiguous_heap(void);
 /**

@@ -1,7 +1,7 @@
 /*
  *  Copyright (C) 2002 ARM Ltd.
  *  All Rights Reserved
- *  Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+ *  Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -29,6 +29,9 @@ struct msm_hotplug_device {
 	unsigned int warm_boot;
 };
 
+
+static cpumask_t cpu_dying_mask;
+
 static DEFINE_PER_CPU_SHARED_ALIGNED(struct msm_hotplug_device,
 			msm_hotplug_devices);
 
@@ -43,7 +46,7 @@ static inline void cpu_leave_lowpower(void)
 {
 }
 
-static inline void platform_do_lowpower(unsigned int cpu)
+static inline void platform_do_lowpower(unsigned int cpu, int *spurious)
 {
 	/* Just enter wfi for now. TODO: Properly shut off the cpu. */
 	for (;;) {
@@ -53,9 +56,6 @@ static inline void platform_do_lowpower(unsigned int cpu)
 			/*
 			 * OK, proper wakeup, we're done
 			 */
-			pen_release = -1;
-			dmac_flush_range((void *)&pen_release,
-				(void *)(&pen_release + sizeof(pen_release)));
 			break;
 		}
 
@@ -67,15 +67,18 @@ static inline void platform_do_lowpower(unsigned int cpu)
 		 * possible, since we are currently running incoherently, and
 		 * therefore cannot safely call printk() or anything else
 		 */
-		dmac_inv_range((void *)&pen_release,
-			       (void *)(&pen_release + sizeof(pen_release)));
-		pr_debug("CPU%u: spurious wakeup call\n", cpu);
+		(*spurious)++;
 	}
 }
 
 int platform_cpu_kill(unsigned int cpu)
 {
-	return 1;
+	int ret = 0;
+
+	if (cpumask_test_and_clear_cpu(cpu, &cpu_dying_mask))
+		ret = msm_pm_wait_cpu_shutdown(cpu);
+
+	return ret ? 0 : 1;
 }
 
 /*
@@ -85,6 +88,8 @@ int platform_cpu_kill(unsigned int cpu)
  */
 void platform_cpu_die(unsigned int cpu)
 {
+	int spurious = 0;
+
 	if (unlikely(cpu != smp_processor_id())) {
 		pr_crit("%s: running on %u, should be %u\n",
 			__func__, smp_processor_id(), cpu);
@@ -95,10 +100,13 @@ void platform_cpu_die(unsigned int cpu)
 	 * we're ready for shutdown now, so do it
 	 */
 	cpu_enter_lowpower();
-	platform_do_lowpower(cpu);
+	platform_do_lowpower(cpu, &spurious);
 
 	pr_debug("CPU%u: %s: normal wakeup\n", cpu, __func__);
 	cpu_leave_lowpower();
+
+	if (spurious)
+		pr_warn("CPU%u: %u spurious wakeup calls\n", cpu, spurious);
 }
 
 int platform_cpu_disable(unsigned int cpu)
@@ -137,6 +145,7 @@ static int hotplug_rtb_callback(struct notifier_block *nfb,
 		uncached_logk(LOGK_HOTPLUG, (void *)(cpudata | this_cpumask));
 		break;
 	case CPU_DYING:
+		cpumask_set_cpu((unsigned long)hcpu, &cpu_dying_mask);
 		uncached_logk(LOGK_HOTPLUG, (void *)(cpudata & ~this_cpumask));
 		break;
 	default:

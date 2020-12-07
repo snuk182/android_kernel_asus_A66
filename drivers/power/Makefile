@@ -58,6 +58,7 @@ obj-$(CONFIG_PM8921_BMS)	+= pm8921-bms.o
 obj-$(CONFIG_PM8921_CHARGER)	+= pm8921-charger.o
 obj-$(CONFIG_LTC4088_CHARGER)	+= ltc4088-charger.o
 obj-$(CONFIG_CHARGER_SMB347)	+= smb347-charger.o
+obj-$(CONFIG_BATTERY_BCL)	+= battery_current_limit.o
 # ASUS_BSP +++ Josh_Liao "add asus battery driver"
 obj-$(CONFIG_BATTERY_ASUS)      += charger/
 obj-$(CONFIG_BATTERY_ASUS)		+= asus_bat.o

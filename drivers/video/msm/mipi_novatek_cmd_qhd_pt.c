@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2011, 2015 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -55,14 +55,19 @@ static struct mipi_dsi_phy_ctrl dsi_cmd_mode_phy_db = {
 static int __init mipi_cmd_novatek_blue_qhd_pt_init(void)
 {
 	int ret;
+	struct platform_disp_info info = {
+		.id = DISPLAY_PRIMARY,
+		.dest = DISPLAY_1
+	};
 
-	if (msm_fb_detect_client("mipi_cmd_novatek_qhd"))
+	if (msm_fb_detect_client("mipi_cmd_novatek_qhd", &info))
 		return 0;
 
 	pinfo.xres = 540;
 	pinfo.yres = 960;
 	pinfo.type = MIPI_CMD_PANEL;
-	pinfo.pdest = DISPLAY_1;
+	pinfo.pdest = info.dest;
+	pinfo.disp_id = info.id;
 	pinfo.wait_cycle = 0;
 	pinfo.bpp = 24;
 	pinfo.lcdc.h_back_porch = 50;
@@ -81,7 +86,7 @@ static int __init mipi_cmd_novatek_blue_qhd_pt_init(void)
 	//pinfo.is_3d_panel = FB_TYPE_3D_PANEL;// +++ ASUS_BSP : miniporting
 	pinfo.lcd.vsync_enable = TRUE;
 	pinfo.lcd.hw_vsync_mode = TRUE;
-	pinfo.lcd.refx100 = 6000; /* adjust refx100 to prevent tearing */
+	pinfo.lcd.refx100 = 6200; /* adjust refx100 to prevent tearing */
 	pinfo.lcd.v_back_porch = 11;
 	pinfo.lcd.v_front_porch = 10;
 	pinfo.lcd.v_pulse_width = 5;

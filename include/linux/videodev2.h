@@ -428,7 +428,28 @@ struct v4l2_pix_format {
 #define V4L2_PIX_FMT_CIT_YYVYUY v4l2_fourcc('C', 'I', 'T', 'V') /* one line of Y then 1 line of VYUY */
 #define V4L2_PIX_FMT_KONICA420  v4l2_fourcc('K', 'O', 'N', 'I') /* YUV420 planar in blocks of 256 pixels */
 #define V4L2_PIX_FMT_JPGL	v4l2_fourcc('J', 'P', 'G', 'L') /* JPEG-Lite */
-#define V4L2_PIX_FMT_SE401      v4l2_fourcc('S', '4', '0', '1') /* se401 janggu compressed rgb */
+/* se401 janggu compressed rgb */
+#define V4L2_PIX_FMT_SE401      v4l2_fourcc('S', '4', '0', '1')
+/* Composite stats */
+#define V4L2_PIX_FMT_STATS_COMB v4l2_fourcc('S', 'T', 'C', 'M')
+/* AEC stats */
+#define V4L2_PIX_FMT_STATS_AE   v4l2_fourcc('S', 'T', 'A', 'E')
+/* AF stats */
+#define V4L2_PIX_FMT_STATS_AF   v4l2_fourcc('S', 'T', 'A', 'F')
+/* AWB stats */
+#define V4L2_PIX_FMT_STATS_AWB  v4l2_fourcc('S', 'T', 'W', 'B')
+/* IHIST stats */
+#define V4L2_PIX_FMT_STATS_IHST v4l2_fourcc('I', 'H', 'S', 'T')
+/* Column count stats */
+#define V4L2_PIX_FMT_STATS_CS   v4l2_fourcc('S', 'T', 'C', 'S')
+/* Row count stats */
+#define V4L2_PIX_FMT_STATS_RS   v4l2_fourcc('S', 'T', 'R', 'S')
+/* Bayer Grid stats */
+#define V4L2_PIX_FMT_STATS_BG   v4l2_fourcc('S', 'T', 'B', 'G')
+/* Bayer focus stats */
+#define V4L2_PIX_FMT_STATS_BF   v4l2_fourcc('S', 'T', 'B', 'F')
+/* Bayer hist stats */
+#define V4L2_PIX_FMT_STATS_BHST v4l2_fourcc('B', 'H', 'S', 'T')
 
 /*
  *	F O R M A T   E N U M E R A T I O N
@@ -1751,6 +1772,45 @@ enum v4l2_mpeg_vidc_video_intra_refresh_mode {
 #define V4L2_CID_MPEG_VIDC_VIDEO_AIR_REF (V4L2_CID_MPEG_MSM_VIDC_BASE+18)
 #define V4L2_CID_MPEG_VIDC_VIDEO_CIR_MBS (V4L2_CID_MPEG_MSM_VIDC_BASE+19)
 
+#define V4L2_CID_MPEG_VIDC_VIDEO_H263_PROFILE (V4L2_CID_MPEG_MSM_VIDC_BASE+20)
+enum v4l2_mpeg_vidc_video_h263_profile {
+	V4L2_MPEG_VIDC_VIDEO_H263_PROFILE_BASELINE = 0,
+	V4L2_MPEG_VIDC_VIDEO_H263_PROFILE_H320CODING	= 1,
+	V4L2_MPEG_VIDC_VIDEO_H263_PROFILE_BACKWARDCOMPATIBLE = 2,
+	V4L2_MPEG_VIDC_VIDEO_H263_PROFILE_ISWV2 = 3,
+	V4L2_MPEG_VIDC_VIDEO_H263_PROFILE_ISWV3 = 4,
+	V4L2_MPEG_VIDC_VIDEO_H263_PROFILE_HIGHCOMPRESSION = 5,
+	V4L2_MPEG_VIDC_VIDEO_H263_PROFILE_INTERNET = 6,
+	V4L2_MPEG_VIDC_VIDEO_H263_PROFILE_INTERLACE = 7,
+	V4L2_MPEG_VIDC_VIDEO_H263_PROFILE_HIGHLATENCY = 8,
+};
+
+#define V4L2_CID_MPEG_VIDC_VIDEO_H263_LEVEL (V4L2_CID_MPEG_MSM_VIDC_BASE+21)
+enum v4l2_mpeg_vidc_video_h263_level {
+	V4L2_MPEG_VIDC_VIDEO_H263_LEVEL_1_0 = 0,
+	V4L2_MPEG_VIDC_VIDEO_H263_LEVEL_2_0 = 1,
+	V4L2_MPEG_VIDC_VIDEO_H263_LEVEL_3_0 = 2,
+	V4L2_MPEG_VIDC_VIDEO_H263_LEVEL_4_0 = 3,
+	V4L2_MPEG_VIDC_VIDEO_H263_LEVEL_4_5 = 4,
+	V4L2_MPEG_VIDC_VIDEO_H263_LEVEL_5_0 = 5,
+	V4L2_MPEG_VIDC_VIDEO_H263_LEVEL_6_0 = 6,
+	V4L2_MPEG_VIDC_VIDEO_H263_LEVEL_7_0 = 7,
+};
+
+#define V4L2_CID_MPEG_VIDC_VIDEO_H264_AU_DELIMITER \
+		(V4L2_CID_MPEG_MSM_VIDC_BASE + 22)
+enum v4l2_mpeg_vidc_video_h264_au_delimiter {
+	V4L2_MPEG_VIDC_VIDEO_H264_AU_DELIMITER_DISABLED = 0,
+	V4L2_MPEG_VIDC_VIDEO_H264_AU_DELIMITER_ENABLED = 1
+};
+
+#define V4L2_CID_MPEG_VIDC_VIDEO_H264_VUI_TIMING_INFO \
+		(V4L2_CID_MPEG_MSM_VIDC_BASE + 23)
+enum v4l2_mpeg_vidc_video_h264_vui_timing_info {
+	V4L2_MPEG_VIDC_VIDEO_H264_VUI_TIMING_INFO_DISABLED = 0,
+	V4L2_MPEG_VIDC_VIDEO_H264_VUI_TIMING_INFO_ENABLED = 1
+};
+
 /*  Camera class control IDs */
 #define V4L2_CID_CAMERA_CLASS_BASE 	(V4L2_CTRL_CLASS_CAMERA | 0x900)
 #define V4L2_CID_CAMERA_CLASS 		(V4L2_CTRL_CLASS_CAMERA | 1)
@@ -1785,6 +1845,11 @@ enum  v4l2_exposure_auto_type {
 
 #define V4L2_CID_IRIS_ABSOLUTE			(V4L2_CID_CAMERA_CLASS_BASE+17)
 #define V4L2_CID_IRIS_RELATIVE			(V4L2_CID_CAMERA_CLASS_BASE+18)
+
+/* User-class control IDs specific to the msm_ba driver */
+#define MSM_BA_PRIV_BASE_START			(V4L2_CID_USER_BASE | 0x7000)
+#define MSM_BA_PRIV_SD_NODE_ADDR		(MSM_BA_PRIV_BASE_START + 1)
+#define MSM_BA_PRIV_FPS			(MSM_BA_PRIV_BASE_START + 2)
 
 /* FM Modulator class control IDs */
 #define V4L2_CID_FM_TX_CLASS_BASE		(V4L2_CTRL_CLASS_FM_TX | 0x900)
@@ -2042,11 +2107,14 @@ struct v4l2_encoder_cmd {
 	};
 };
 
+#define V4L2_QCOM_BUF_FLAG_CODECCONFIG	0x4000
+
 /* Decoder commands */
 #define V4L2_DEC_CMD_START       (0)
 #define V4L2_DEC_CMD_STOP        (1)
 #define V4L2_DEC_CMD_PAUSE       (2)
 #define V4L2_DEC_CMD_RESUME      (3)
+#define V4L2_DEC_QCOM_CMD_FLUSH  (4)
 
 /* Flags for V4L2_DEC_CMD_START */
 #define V4L2_DEC_CMD_START_MUTE_AUDIO	(1 << 0)
@@ -2057,6 +2125,10 @@ struct v4l2_encoder_cmd {
 /* Flags for V4L2_DEC_CMD_STOP */
 #define V4L2_DEC_CMD_STOP_TO_BLACK	(1 << 0)
 #define V4L2_DEC_CMD_STOP_IMMEDIATELY	(1 << 1)
+
+/* Flags for V4L2_DEC_QCOM_CMD_FLUSH */
+#define V4L2_DEC_QCOM_CMD_FLUSH_OUTPUT  (1 << 0)
+#define V4L2_DEC_QCOM_CMD_FLUSH_CAPTURE (1 << 1)
 
 /* Play format requirements (returned by the driver): */
 
@@ -2303,6 +2375,30 @@ struct v4l2_streamparm {
 		(V4L2_EVENT_MSM_VIDC_START + 3)
 #define V4L2_EVENT_MSM_VIDC_CLOSE_DONE	(V4L2_EVENT_MSM_VIDC_START + 4)
 
+#define V4L2_EVENT_MSM_BA_PRIVATE_EVENT_BASE	\
+		(V4L2_EVENT_PRIVATE_START + 5 * 1000)
+#define V4L2_EVENT_MSM_BA_START	V4L2_EVENT_MSM_BA_PRIVATE_EVENT_BASE
+#define V4L2_EVENT_MSM_BA_DEVICE_AVAILABLE	(V4L2_EVENT_MSM_BA_START + 1)
+#define V4L2_EVENT_MSM_BA_DEVICE_UNAVAILABLE	\
+		(V4L2_EVENT_MSM_BA_START + 2)
+#define V4L2_EVENT_MSM_BA_PORT_SETTINGS_CHANGED	\
+		(V4L2_EVENT_MSM_BA_START + 3)
+#define V4L2_EVENT_MSM_BA_SIGNAL_IN_LOCK	\
+		(V4L2_EVENT_MSM_BA_START + 4)
+#define V4L2_EVENT_MSM_BA_SIGNAL_LOST_LOCK	\
+		(V4L2_EVENT_MSM_BA_START + 5)
+#define V4L2_EVENT_MSM_BA_SOURCE_CHANGE	\
+		(V4L2_EVENT_MSM_BA_START + 6)
+#define V4L2_EVENT_MSM_BA_HDMI_HPD	\
+		(V4L2_EVENT_MSM_BA_START + 7)
+#define V4L2_EVENT_MSM_BA_HDMI_CEC_MESSAGE	\
+		(V4L2_EVENT_MSM_BA_START + 8)
+#define V4L2_EVENT_MSM_BA_CP	\
+		(V4L2_EVENT_MSM_BA_START + 9)
+#define V4L2_EVENT_MSM_BA_CABLE_DETECT	\
+		(V4L2_EVENT_MSM_BA_START + 10)
+#define V4L2_EVENT_MSM_BA_ERROR	\
+		(V4L2_EVENT_MSM_BA_START + 11)
 
 /* Payload for V4L2_EVENT_VSYNC */
 struct v4l2_event_vsync {
@@ -2519,4 +2615,10 @@ struct v4l2_create_buffers {
 
 #define BASE_VIDIOC_PRIVATE	192		/* 192-255 are private */
 
+/* HDMI rx provide ioctls */
+#define VIDIOC_HDMI_RX_CEC_S_LOGICAL _IOW('V', BASE_VIDIOC_PRIVATE + 0, int)
+#define VIDIOC_HDMI_RX_CEC_CLEAR_LOGICAL _IO('V', BASE_VIDIOC_PRIVATE + 1)
+#define VIDIOC_HDMI_RX_CEC_G_PHYSICAL _IOR('V', BASE_VIDIOC_PRIVATE + 2, int)
+#define VIDIOC_HDMI_RX_CEC_G_CONNECTED _IOR('V', BASE_VIDIOC_PRIVATE + 3, int)
+#define VIDIOC_HDMI_RX_CEC_S_ENABLE _IOR('V', BASE_VIDIOC_PRIVATE + 4, int)
 #endif /* __LINUX_VIDEODEV2_H */

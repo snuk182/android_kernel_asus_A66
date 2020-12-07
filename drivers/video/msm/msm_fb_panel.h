@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2008-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -15,6 +15,7 @@
 #define MSM_FB_PANEL_H
 
 #include "msm_fb_def.h"
+#include "mach/board.h"
 
 struct msm_fb_data_type;
 
@@ -40,6 +41,14 @@ typedef struct panel_id_s {
 #define WRITEBACK_PANEL		10	/* Wifi display */
 #define LVDS_PANEL		11	/* LVDS */
 
+/* Display panel type */
+enum DISPLAY_ID {
+	DISPLAY_PRIMARY = 0,
+	DISPLAY_SECONDARY,
+	DISPLAY_TERTIARY,
+	DISPLAY_WRITEBACK,
+	DISPLAY_MAX,
+};
 /* panel class */
 typedef enum {
 	DISPLAY_LCD = 0,	/* lcd = ebi2/mddi */
@@ -53,18 +62,26 @@ typedef enum {
 	DISPLAY_1 = 0,		/* attached as first device */
 	DISPLAY_2,		/* attached on second device */
 	DISPLAY_3,              /* attached on third writeback device */
+	DISPLAY_4,		/* attached on third dsi/lvds device */
 	MAX_PHYS_TARGET_NUM,
 } DISP_TARGET_PHYS;
 
 /* panel info type */
 struct lcd_panel_info {
 	__u32 vsync_enable;
+	__u32 primary_vsync_init;
+	__u32 primary_rdptr_irq;
+	__u32 primary_start_pos;
+	__u32 vsync_threshold_continue;
+	__u32 vsync_threshold_start;
+	__u32 total_lines;
 	__u32 refx100;
 	__u32 v_back_porch;
 	__u32 v_front_porch;
 	__u32 v_pulse_width;
 	__u32 hw_vsync_mode;
 	__u32 vsync_notifier_period;
+	__u32 blt_ctrl;
 	__u32 rev;
 };
 
@@ -83,6 +100,7 @@ struct lcdc_panel_info {
 	/* Pad height */
 	uint32 yres_pad;
 	boolean is_sync_active_high;
+	boolean is_den_active_high;   /* data enable polarity */
 };
 
 struct mddi_panel_info {
@@ -168,13 +186,17 @@ struct msm_panel_info {
 	__u32 frame_count;
 	__u32 is_3d_panel;
 	__u32 frame_rate;
-
+	__u32 frame_interval;
 
 	struct mddi_panel_info mddi;
 	struct lcd_panel_info lcd;
 	struct lcdc_panel_info lcdc;
 	struct mipi_panel_info mipi;
 	struct lvds_panel_info lvds;
+	__u32 xres_aligned;
+	__u32 yres_aligned;
+
+	enum DISPLAY_ID disp_id;
 };
 
 #define MSM_FB_SINGLE_MODE_PANEL(pinfo)		\
@@ -184,18 +206,27 @@ struct msm_panel_info {
 		(pinfo)->mode2_bpp = 0;		\
 	} while (0)
 
+typedef int (*panel_error_cb)(struct platform_device *pdev);
+
 struct msm_fb_panel_data {
 	struct msm_panel_info panel_info;
 	void (*set_rect) (int x, int y, int xres, int yres);
 	void (*set_vsync_notifier) (msm_fb_vsync_handler_type, void *arg);
 	void (*set_backlight) (struct msm_fb_data_type *);
+	int (*get_backlight_on_status) (void);
 
 	/* function entry chain */
 	int (*on) (struct platform_device *pdev);
 	int (*off) (struct platform_device *pdev);
+	int (*late_init) (struct platform_device *pdev);
+	int (*early_off) (struct platform_device *pdev);
 	int (*power_ctrl) (boolean enable);
 	struct platform_device *next;
 	int (*clk_func) (int enable);
+	int (*fps_level_change) (struct platform_device *pdev,
+					u32 fps_level);
+	int (*dba_reset) (struct platform_device *pdev);
+	int (*set_error_cb) (struct platform_device *pdev, panel_error_cb cb);
 };
 
 /*===========================================================================
@@ -205,10 +236,18 @@ struct platform_device *msm_fb_device_alloc(struct msm_fb_panel_data *pdata,
 						u32 type, u32 id);
 int panel_next_on(struct platform_device *pdev);
 int panel_next_off(struct platform_device *pdev);
+int panel_next_fps_level_change(struct platform_device *pdev,
+					u32 fps_level);
+int panel_next_late_init(struct platform_device *pdev);
+int panel_next_early_off(struct platform_device *pdev);
+int panel_next_dba_reset(struct platform_device *pdev);
+int panel_next_set_error_cb(struct platform_device *pdev, panel_error_cb cb);
 
 int lcdc_device_register(struct msm_panel_info *pinfo);
 
 int mddi_toshiba_device_register(struct msm_panel_info *pinfo,
 					u32 channel, u32 panel);
+int mipi_dsi_i2c_video_wvga_device_register(struct platform_disp_info *info);
+int mipi_dsi_i2c_video_xga_device_register(struct platform_disp_info *info);
 
 #endif /* MSM_FB_PANEL_H */

@@ -1916,8 +1916,6 @@ int kprobe_register(struct ftrace_event_call *event,
 	case TRACE_REG_PERF_DEL:
 		return 0;
 #endif
-	default:
-		return 0;
 	}
 	return 0;
 }

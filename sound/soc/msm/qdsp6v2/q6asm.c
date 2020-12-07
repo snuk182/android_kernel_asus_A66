@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  * Author: Brian Swetland <swetland@google.com>
  *
  * This software is licensed under the terms of the GNU General Public
@@ -55,6 +55,7 @@
 #define READDONE_IDX_FLAGS 8
 #define READDONE_IDX_NUMFRAMES 9
 #define READDONE_IDX_SEQ_ID 10
+#define FRAME_NUM             (8)
 
 /* TODO, combine them together */
 static DEFINE_MUTEX(session_lock);
@@ -608,6 +609,8 @@ int q6asm_audio_client_buf_alloc(unsigned int dir,
 			pr_debug("%s: buffer already allocated\n", __func__);
 			return 0;
 		}
+		if (bufcnt > FRAME_NUM)
+			goto fail;
 		mutex_lock(&ac->cmd_lock);
 		buf = kzalloc(((sizeof(struct audio_buffer))*bufcnt),
 				GFP_KERNEL);
@@ -632,7 +635,7 @@ int q6asm_audio_client_buf_alloc(unsigned int dir,
 					}
 					buf[cnt].handle = ion_alloc
 						(buf[cnt].client, bufsz, SZ_4K,
-						(0x1 << ION_AUDIO_HEAP_ID));
+						(0x1 << ION_AUDIO_HEAP_ID), 0);
 					if (IS_ERR_OR_NULL((void *)
 						buf[cnt].handle)) {
 						pr_err("%s: ION memory allocation for AUDIO failed\n",
@@ -652,8 +655,7 @@ int q6asm_audio_client_buf_alloc(unsigned int dir,
 					}
 
 					buf[cnt].data = ion_map_kernel
-					(buf[cnt].client, buf[cnt].handle,
-							 0);
+					(buf[cnt].client, buf[cnt].handle);
 					if (IS_ERR_OR_NULL((void *)
 						buf[cnt].data)) {
 						pr_err("%s: ION memory mapping for AUDIO failed\n",
@@ -729,7 +731,7 @@ int q6asm_audio_client_buf_alloc_contiguous(unsigned int dir,
 		goto fail;
 	}
 	buf[0].handle = ion_alloc(buf[0].client, bufsz * bufcnt, SZ_4K,
-				  (0x1 << ION_AUDIO_HEAP_ID));
+				  (0x1 << ION_AUDIO_HEAP_ID), 0);
 	if (IS_ERR_OR_NULL((void *) buf[0].handle)) {
 		pr_err("%s: ION memory allocation for AUDIO failed\n",
 			__func__);
@@ -744,7 +746,7 @@ int q6asm_audio_client_buf_alloc_contiguous(unsigned int dir,
 		goto fail;
 	}
 
-	buf[0].data = ion_map_kernel(buf[0].client, buf[0].handle, 0);
+	buf[0].data = ion_map_kernel(buf[0].client, buf[0].handle);
 	if (IS_ERR_OR_NULL((void *) buf[0].data)) {
 		pr_err("%s: ION memory mapping for AUDIO failed\n", __func__);
 		goto fail;
@@ -1060,8 +1062,8 @@ static int32_t q6asm_callback(struct apr_client_data *data, void *priv)
 		pr_debug("%s: ASM_SESSION_CMDRSP_GET_SESSIONTIME_V3, payload[0] = %d, payload[1] = %d, payload[2] = %d\n",
 				 __func__,
 				 payload[0], payload[1], payload[2]);
-		ac->time_stamp = (uint64_t)(((uint64_t)payload[1] << 32) |
-				payload[2]);
+		ac->time_stamp = (uint64_t)(((uint64_t)payload[2] << 32) |
+				payload[1]);
 		if (atomic_read(&ac->cmd_state)) {
 			atomic_set(&ac->cmd_state, 0);
 			wake_up(&ac->cmd_wait);
@@ -1888,6 +1890,13 @@ fail_cmd:
 	return -EINVAL;
 }
 
+/* Support for selecting stereo mixing coefficients for B family not done */
+int q6asm_cfg_aac_sel_mix_coef(struct audio_client *ac, uint32_t mix_coeff)
+{
+	/* To Be Done */
+	return 0;
+}
+
 int q6asm_enc_cfg_blk_qcelp(struct audio_client *ac, uint32_t frames_per_buf,
 		uint16_t min_rate, uint16_t max_rate,
 		uint16_t reduced_rate_level, uint16_t rate_modulation_cmd)
@@ -2265,7 +2274,7 @@ int q6asm_memory_map(struct audio_client *ac, uint32_t buf_add, int dir,
 	q6asm_add_mmaphdr(ac, &mmap_regions->hdr, cmd_size,
 			TRUE, ((ac->session << 8) | dir));
 	mmap_regions->hdr.opcode = ASM_CMD_SHARED_MEM_MAP_REGIONS;
-	mmap_regions->mem_pool_id = ADSP_MEMORY_MAP_EBI_POOL;
+	mmap_regions->mem_pool_id = ADSP_MEMORY_MAP_SHMEM8_4K_POOL;
 	mmap_regions->num_regions = bufcnt & 0x00ff;
 	mmap_regions->property_flag = 0x00;
 	payload = ((u8 *) mmap_region_cmd +
@@ -2408,7 +2417,7 @@ static int q6asm_memory_map_regions(struct audio_client *ac, int dir,
 		mmap_regions, ((ac->session << 8) | dir));
 
 	mmap_regions->hdr.opcode = ASM_CMD_SHARED_MEM_MAP_REGIONS;
-	mmap_regions->mem_pool_id = ADSP_MEMORY_MAP_EBI_POOL;
+	mmap_regions->mem_pool_id = ADSP_MEMORY_MAP_SHMEM8_4K_POOL;
 	mmap_regions->num_regions = 1; /*bufcnt & 0x00ff; */
 	mmap_regions->property_flag = 0x00;
 	pr_debug("map_regions->nregions = %d\n", mmap_regions->num_regions);
@@ -2833,6 +2842,11 @@ int q6asm_read(struct audio_client *ac)
 		mutex_lock(&port->lock);
 
 		dsp_buf = port->dsp_buf;
+		if (port->buf == NULL) {
+			pr_err("%s buf is NULL\n", __func__);
+			mutex_unlock(&port->lock);
+			return -EINVAL;
+		}
 		ab = &port->buf[dsp_buf];
 
 		pr_debug("%s:session[%d]dsp-buf[%d][%p]cpu_buf[%d][%p]\n",
@@ -3192,13 +3206,13 @@ fail_cmd:
 	return -EINVAL;
 }
 
-uint64_t q6asm_get_session_time(struct audio_client *ac)
+int q6asm_get_session_time(struct audio_client *ac, uint64_t *tstamp)
 {
 	struct apr_hdr hdr;
 	int rc;
 
-	if (!ac || ac->apr == NULL) {
-		pr_err("APR handle NULL\n");
+	if (!ac || ac->apr == NULL || tstamp == NULL) {
+		pr_err("APR handle NULL or tstamp NULL\n");
 		return -EINVAL;
 	}
 	q6asm_add_hdr(ac, &hdr, sizeof(hdr), TRUE);
@@ -3220,7 +3234,9 @@ uint64_t q6asm_get_session_time(struct audio_client *ac)
 			__func__);
 		goto fail_cmd;
 	}
-	return ac->time_stamp;
+
+	*tstamp = ac->time_stamp;
+	return 0;
 
 fail_cmd:
 	return -EINVAL;

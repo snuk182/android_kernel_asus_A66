@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2008-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -37,14 +37,16 @@
 #include <linux/fb.h>
 #include <linux/list.h>
 #include <linux/types.h>
-
+#include <linux/switch.h>
 #include <linux/msm_mdp.h>
+
 #ifdef CONFIG_HAS_EARLYSUSPEND
 #include <linux/earlysuspend.h>
 #endif
 
 #include "msm_fb_panel.h"
 #include "mdp.h"
+#include "mdp4.h"
 
 #define MSM_FB_DEFAULT_PAGE_SIZE 2
 #define MFD_KEY  0x11161126
@@ -54,6 +56,7 @@ struct disp_info_type_suspend {
 	boolean op_enable;
 	boolean sw_refreshing_enable;
 	boolean panel_power_on;
+	boolean op_suspend;
 };
 
 struct msmfb_writeback_data_list {
@@ -82,6 +85,7 @@ struct msm_fb_data_type {
 
 	struct device *dev;
 	boolean op_enable;
+	struct delayed_work backlight_worker;
 	uint32 fb_imgType;
 	boolean sw_currently_refreshing;
 	boolean sw_refreshing_enable;
@@ -126,6 +130,7 @@ struct msm_fb_data_type {
 	__u32 channel_irq;
 
 	struct mdp_dma_data *dma;
+	struct device_attribute dev_attr;
 	void (*dma_fnc) (struct msm_fb_data_type *mfd);
 	int (*cursor_update) (struct fb_info *info,
 			      struct fb_cursor *cursor);
@@ -136,6 +141,10 @@ struct msm_fb_data_type {
 	int (*start_histogram) (struct mdp_histogram_start_req *req);
 	int (*stop_histogram) (struct fb_info *info, uint32_t block);
 	void (*vsync_ctrl) (int enable);
+	void (*vsync_init) (int cndx);
+	void (*update_panel_info)(struct msm_fb_data_type *mfd);
+	bool (*is_panel_ready)(void);
+	void *vsync_show;
 	void *cursor_buf;
 	void *cursor_buf_phys;
 
@@ -175,6 +184,7 @@ struct msm_fb_data_type {
 	struct list_head writeback_busy_queue;
 	struct list_head writeback_free_queue;
 	struct list_head writeback_register_queue;
+	struct switch_dev writeback_sdev;
 	wait_queue_head_t wait_q;
 	struct ion_client *iclient;
 	unsigned long display_iova;
@@ -186,8 +196,39 @@ struct msm_fb_data_type {
 	u32 mdp_rev;
 	u32 writeback_state;
 	bool writeback_active_cnt;
+	bool writeback_initialized;
 	int cont_splash_done;
+	void *cpu_pm_hdl;
+	u32 acq_fen_cnt;
+	struct sync_fence *acq_fen[MDP_MAX_FENCE_FD];
+	int cur_rel_fen_fd;
+	struct sync_pt *cur_rel_sync_pt;
+	struct sync_fence *cur_rel_fence;
+	struct sync_fence *last_rel_fence;
+	struct sw_sync_timeline *timeline;
+	int timeline_value;
+	u32 last_acq_fen_cnt;
+	struct sync_fence *last_acq_fen[MDP_MAX_FENCE_FD];
+	struct mutex sync_mutex;
+	struct completion commit_comp;
+	u32 is_committing;
+	struct work_struct commit_work;
+	void *msm_fb_backup;
+	boolean panel_driver_on;
+	int vsync_sysfs_created;
+	unsigned long splash_screen_phys[OVERLAY_PIPE_MAX];
+	u32 splash_screen_size[OVERLAY_PIPE_MAX];
+	int cont_splash_enabled;
+	uint32 sec_mapped;
+	uint32 sec_active;
+	uint32 max_map_size;
+	boolean bf_supported;
+	uint32 base_layer;
     boolean asus_panel_disable;//Mickey+++
+};
+struct msm_fb_backup_type {
+	struct fb_info info;
+	struct mdp_display_commit disp_commit;
 };
 
 struct dentry *msm_fb_get_debugfs_root(void);
@@ -205,15 +246,18 @@ int msm_fb_writeback_dequeue_buffer(struct fb_info *info,
 		struct msmfb_data *data);
 int msm_fb_writeback_stop(struct fb_info *info);
 int msm_fb_writeback_terminate(struct fb_info *info);
-int msm_fb_detect_client(const char *name);
+int msm_fb_detect_client(const char *name, struct platform_disp_info *info);
 int calc_fb_offset(struct msm_fb_data_type *mfd, struct fb_info *fbi, int bpp);
-
+void msm_fb_wait_for_fence(struct msm_fb_data_type *mfd);
+int msm_fb_signal_timeline(struct msm_fb_data_type *mfd);
+void msm_fb_release_timeline(struct msm_fb_data_type *mfd);
 #ifdef CONFIG_FB_BACKLIGHT
 void msm_fb_config_backlight(struct msm_fb_data_type *mfd);
 #endif
+int msm_fb_overlay_ioctl(struct fb_info *info, unsigned int cmd,
+			unsigned long arg, int user);
 
-void fill_black_screen(void);
-void unfill_black_screen(void);
+void fill_black_screen(bool on, uint8 pipe_num, uint8 mixer_num);
 int msm_fb_check_frame_rate(struct msm_fb_data_type *mfd,
 				struct fb_info *info);
 

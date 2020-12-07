@@ -36,12 +36,22 @@ static inline void invalidate_kernel_vmap_range(void *vaddr, int size)
 /* declarations for linux/mm/highmem.c */
 unsigned int nr_free_highpages(void);
 extern unsigned long totalhigh_pages;
+#ifdef CONFIG_HIGHMEM_DEFER
+void free_highpages(void);
+#endif
 
 void kmap_flush_unused(void);
+
+struct page *kmap_to_page(void *addr);
 
 #else /* CONFIG_HIGHMEM */
 
 static inline unsigned int nr_free_highpages(void) { return 0; }
+
+static inline struct page *kmap_to_page(void *addr)
+{
+	return virt_to_page(addr);
+}
 
 #define totalhigh_pages 0UL
 
@@ -211,8 +221,23 @@ static inline struct page *
 alloc_zeroed_user_highpage_movable(struct vm_area_struct *vma,
 					unsigned long vaddr)
 {
+#ifndef CONFIG_CMA
 	return __alloc_zeroed_user_highpage(__GFP_MOVABLE, vma, vaddr);
+#else
+	return __alloc_zeroed_user_highpage(__GFP_MOVABLE|__GFP_CMA, vma,
+						vaddr);
+#endif
 }
+
+#ifdef CONFIG_CMA
+static inline struct page *
+alloc_zeroed_user_highpage_movable_cma(struct vm_area_struct *vma,
+						unsigned long vaddr)
+{
+	return __alloc_zeroed_user_highpage(__GFP_MOVABLE|__GFP_CMA, vma,
+						vaddr);
+}
+#endif
 
 static inline void clear_highpage(struct page *page)
 {

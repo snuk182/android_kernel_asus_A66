@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -49,26 +49,17 @@ extern u8 debug_level_option;
 extern u8 print_limit_option;
 
 #define MAX_MSG_LEN 80
-#define SPS_DEBUGFS(msg, args...) do {					\
-		char buf[MAX_MSG_LEN];		\
-		snprintf(buf, MAX_MSG_LEN, msg"\n", ##args);	\
-		sps_debugfs_record(buf);	\
-	} while (0)
 #define SPS_ERR(msg, args...) do {					\
 		if (unlikely(print_limit_option > 2))	\
 			pr_err_ratelimited(msg, ##args);	\
 		else	\
 			pr_err(msg, ##args);	\
-		if (unlikely(debugfs_record_enabled))	\
-			SPS_DEBUGFS(msg, ##args);	\
 	} while (0)
 #define SPS_INFO(msg, args...) do {					\
 		if (unlikely(print_limit_option > 1))	\
 			pr_info_ratelimited(msg, ##args);	\
 		else	\
 			pr_info(msg, ##args);	\
-		if (unlikely(debugfs_record_enabled))	\
-			SPS_DEBUGFS(msg, ##args);	\
 	} while (0)
 #define SPS_DBG(msg, args...) do {					\
 		if ((unlikely(logging_option > 1))	\
@@ -79,8 +70,6 @@ extern u8 print_limit_option;
 				pr_info(msg, ##args);	\
 		} else	\
 			pr_debug(msg, ##args);	\
-		if (unlikely(debugfs_record_enabled))	\
-			SPS_DEBUGFS(msg, ##args);	\
 	} while (0)
 #define SPS_DBG1(msg, args...) do {					\
 		if ((unlikely(logging_option > 1))	\
@@ -91,8 +80,6 @@ extern u8 print_limit_option;
 				pr_info(msg, ##args);	\
 		} else	\
 			pr_debug(msg, ##args);	\
-		if (unlikely(debugfs_record_enabled))	\
-			SPS_DEBUGFS(msg, ##args);	\
 	} while (0)
 #define SPS_DBG2(msg, args...) do {					\
 		if ((unlikely(logging_option > 1))	\
@@ -103,8 +90,6 @@ extern u8 print_limit_option;
 				pr_info(msg, ##args);	\
 		} else	\
 			pr_debug(msg, ##args);	\
-		if (unlikely(debugfs_record_enabled))	\
-			SPS_DEBUGFS(msg, ##args);	\
 	} while (0)
 #define SPS_DBG3(msg, args...) do {					\
 		if ((unlikely(logging_option > 1))	\
@@ -115,8 +100,6 @@ extern u8 print_limit_option;
 				pr_info(msg, ##args);	\
 		} else	\
 			pr_debug(msg, ##args);	\
-		if (unlikely(debugfs_record_enabled))	\
-			SPS_DEBUGFS(msg, ##args);	\
 	} while (0)
 #else
 #define	SPS_DBG3(x...)		pr_debug(x)
@@ -183,6 +166,7 @@ struct sps_mem_stats {
 #ifdef CONFIG_DEBUG_FS
 /* record debug info for debugfs */
 void sps_debugfs_record(const char *);
+#endif
 
 /* output the content of BAM-level registers */
 void print_bam_reg(void *);
@@ -197,8 +181,10 @@ void print_bam_selected_reg(void *);
 void print_bam_pipe_selected_reg(void *, u32);
 
 /* output descriptor FIFO of a pipe */
-void print_bam_pipe_desc_fifo(void *, u32);
-#endif
+void print_bam_pipe_desc_fifo(void *, u32, u32);
+
+/* output BAM_TEST_BUS_REG */
+void print_bam_test_bus_reg(void *, u32);
 
 /**
  * Translate physical to virtual address

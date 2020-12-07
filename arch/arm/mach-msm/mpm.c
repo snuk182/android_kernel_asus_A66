@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2013, 2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -229,10 +229,12 @@ static int msm_mpm_enable_irq_exclusive(
 		uint32_t index = MSM_MPM_IRQ_INDEX(mpm_irq);
 		uint32_t mask = MSM_MPM_IRQ_MASK(mpm_irq);
 
-		if (enable)
-			mpm_irq_masks[index] |= mask;
-		else
-			mpm_irq_masks[index] &= ~mask;
+		if (index < MSM_MPM_REG_WIDTH) {
+			if (enable)
+				mpm_irq_masks[index] |= mask;
+			else
+				mpm_irq_masks[index] &= ~mask;
+		}
 	} else {
 		unsigned long *apps_irq_bitmap = wakeset ?
 			msm_mpm_wake_apps_irqs : msm_mpm_enabled_apps_irqs;
@@ -421,7 +423,7 @@ bool msm_mpm_gpio_irqs_detectable(bool from_idle)
 			MSM_MPM_NR_APPS_IRQS);
 }
 
-void msm_mpm_enter_sleep(bool from_idle)
+void msm_mpm_enter_sleep(uint32_t sclk_count, bool from_idle)
 {
 	msm_mpm_set(!from_idle);
 }

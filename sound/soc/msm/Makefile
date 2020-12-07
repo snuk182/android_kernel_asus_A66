@@ -41,6 +41,9 @@ obj-$(CONFIG_SND_MVS_SOC) += snd-soc-msm-mvs.o
 snd-soc-lpass-objs := lpass-i2s.o lpass-dma.o
 obj-$(CONFIG_SND_SOC_MSM8660_LPAIF) += snd-soc-lpass.o
 
+snd-soc-lpass-objs := lpass-i2s.o lpass-dma.o
+obj-$(CONFIG_SND_SOC_LPASS) += snd-soc-lpass.o
+
 snd-soc-lpass-pcm-objs := lpass-pcm.o
 obj-$(CONFIG_SND_SOC_LPASS_PCM) += snd-soc-lpass-pcm.o
 
@@ -55,19 +58,25 @@ obj-$(CONFIG_SND_SOC_MSM8X60) += snd-soc-lpass-dma.o
 # for MSM 8960 sound card driver
 
 obj-$(CONFIG_SND_SOC_MSM_QDSP6_INTF) += qdsp6/
-
-snd-soc-qdsp6-objs := msm-dai-q6.o msm-pcm-q6.o msm-multi-ch-pcm-q6.o msm-pcm-routing.o msm-dai-fe.o msm-compr-q6.o msm-dai-stub.o
-obj-$(CONFIG_SND_SOC_MSM_QDSP6_HDMI_AUDIO) += msm-dai-q6-hdmi.o
+snd-soc-qdsp6-objs := msm-dai-q6.o msm-pcm-q6.o msm-multi-ch-pcm-q6.o \
+				       msm-lowlatency-pcm-q6.o msm-pcm-loopback.o \
+				       msm-pcm-routing.o msm-dai-fe.o msm-compr-q6.o  \
+				       msm-compress-q6.o msm-dai-stub.o \
+				       msm-dai-q6-hdmi.o
+#obj-$(CONFIG_SND_SOC_MSM_QDSP6_HDMI_AUDIO) += msm-dai-q6-hdmi.o
 obj-$(CONFIG_SND_SOC_VOICE) += msm-pcm-voice.o msm-pcm-voip.o
 snd-soc-qdsp6-objs += msm-pcm-lpa.o msm-pcm-afe.o
 obj-$(CONFIG_SND_SOC_QDSP6) += snd-soc-qdsp6.o
 
-snd-soc-msm8960-objs := msm8960.o apq8064.o mpq8064.o
-obj-$(CONFIG_SND_SOC_MSM8960) += snd-soc-msm8960.o
-
 # Generic MSM drivers
 snd-soc-hostless-pcm-objs := msm-pcm-hostless.o
 obj-$(CONFIG_SND_SOC_MSM_HOSTLESS_PCM) += snd-soc-hostless-pcm.o
+
+snd-soc-lpass-play-objs := lpass-play.o
+obj-$(CONFIG_SND_SOC_LPASS_PLAY) += snd-soc-lpass-play.o
+
+snd-soc-msm8960-objs := apq8064-auto.o
+obj-$(CONFIG_SND_SOC_MSM8960) += snd-soc-msm8960.o
 
 snd-soc-msm8660-apq-objs := msm8660-apq-wm8903.o
 obj-$(CONFIG_SND_SOC_MSM8660_APQ) += snd-soc-msm8660-apq.o
@@ -84,3 +93,5 @@ obj-$(CONFIG_SND_SOC_MSM8974) += snd-soc-msm8974.o
 snd-soc-qdsp6v2-objs := msm-dai-fe.o msm-dai-stub.o
 obj-$(CONFIG_SND_SOC_QDSP6V2) += snd-soc-qdsp6v2.o
 
+# for APQ 8064 sound card driver
+obj-y += msm-audio-spislave.o
