@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -21,6 +21,14 @@
  */
 struct pm8xxx_spk_platform_data {
 	bool spk_add_enable;
+	int cd_ng_threshold;
+	int cd_nf_preamp_bias;
+	int cd_ng_hold;
+	int cd_ng_max_atten;
+	int noise_mute;
+	int cd_ng_decay_rate;
+	int cd_ng_attack_rate;
+	int cd_delay;
 };
 
 /*

@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -20,6 +20,11 @@
 #include <linux/delay.h>
 #include <linux/module.h>
 #include <linux/debugfs.h>
+#include <mach/mdm2.h>
+#include <linux/fs.h>
+#include <linux/syscalls.h>
+#include <linux/uaccess.h>
+#include <linux/tty.h>
 #include <linux/reboot.h>
 
 #include <mach/irqs.h>
@@ -29,16 +34,20 @@
 #include <mach/subsystem_notif.h>
 #include <mach/socinfo.h>
 #include <mach/msm_smsm.h>
+#include "sysmon.h"
 
 #include "smd_private.h"
 #include "modem_notifier.h"
 #include "ramdump.h"
+#include <linux/fdtable.h>
+#include "../../../fs/internal.h"
+#include <linux/namei.h>
 
 static int crash_shutdown;
 
+static struct subsys_device *modem_8960_dev;
+
 #define MAX_SSR_REASON_LEN 81U
-#define Q6_FW_WDOG_ENABLE		0x08882024
-#define Q6_SW_WDOG_ENABLE		0x08982024
 
 static void log_modem_sfr(void)
 {
@@ -67,33 +76,103 @@ static void log_modem_sfr(void)
 static void restart_modem(void)
 {
 	log_modem_sfr();
-	subsystem_restart("modem");
+	subsystem_restart_dev(modem_8960_dev);
 }
 
-static void modem_wdog_check(struct work_struct *work)
+#define MODEM_WAIT_BEFORE_OFF  3000
+
+static inline int build_open_flags(int flags, umode_t mode,
+				   struct open_flags *op)
 {
-	void __iomem *q6_sw_wdog_addr;
-	u32 regval;
+	int lookup_flags = 0;
+	int acc_mode;
 
-	q6_sw_wdog_addr = ioremap_nocache(Q6_SW_WDOG_ENABLE, 4);
-	if (!q6_sw_wdog_addr)
-		panic("Unable to check modem watchdog status.\n");
-
-	regval = readl_relaxed(q6_sw_wdog_addr);
-	if (!regval) {
-	#if 0	
-		pr_err("modem-8960: Modem watchdog wasn't activated!. Restarting the modem now.\n");
-		restart_modem();
-	#else
-		pr_err("modem-8960: Modem watchdog wasn't activated!. Reboot now !!! \n");
-		kernel_restart(NULL);
-	#endif
+	if (!(flags & O_CREAT))
+		mode = 0;
+	op->mode = mode;
+	flags &= ~FMODE_NONOTIFY;
+	if (flags & __O_SYNC)
+		flags |= O_DSYNC;
+	if (flags & O_PATH) {
+		flags &= O_DIRECTORY | O_NOFOLLOW | O_PATH;
+		acc_mode = 0;
+	} else {
+		acc_mode = MAY_OPEN | ACC_MODE(flags);
 	}
-
-	iounmap(q6_sw_wdog_addr);
+	op->open_flag = flags;
+	if (flags & O_TRUNC)
+		acc_mode |= MAY_WRITE;
+	if (flags & O_APPEND)
+		acc_mode |= MAY_APPEND;
+	op->acc_mode = acc_mode;
+	op->intent = flags & O_PATH ? 0 : LOOKUP_OPEN;
+	if (flags & O_CREAT) {
+		op->intent |= LOOKUP_CREATE;
+		if (flags & O_EXCL)
+			op->intent |= LOOKUP_EXCL;
+	}
+	if (flags & O_DIRECTORY)
+		lookup_flags |= LOOKUP_DIRECTORY;
+	if (!(flags & O_NOFOLLOW))
+		lookup_flags |= LOOKUP_FOLLOW;
+	return lookup_flags;
 }
 
-static DECLARE_DELAYED_WORK(modem_wdog_check_work, modem_wdog_check);
+static void modem_off(void)
+{
+	struct file *serial_fd;
+	mm_segment_t oldfs;
+	unsigned char cmd[] = "AT^SMSO\r";
+	int i = 0, n;
+	struct open_flags op;
+	int lookup = build_open_flags(O_RDWR | O_NOCTTY, 0, &op);
+	serial_fd = do_filp_open(AT_FDCWD, "/dev/ttyUSB0", &op, lookup);
+	if (IS_ERR(serial_fd)) {
+		pr_err("%s: Unable To Open File ttyUSB0, err %d\n", __func__,
+		       (int)PTR_ERR(serial_fd));
+		return;
+	}
+	oldfs = get_fs();
+	set_fs(KERNEL_DS);
+	serial_fd->f_pos = 0;
+	{
+		/*  Set speed */
+		struct termios settings;
+
+		serial_fd->f_op->unlocked_ioctl(serial_fd, TCGETS,
+						(unsigned long)&settings);
+		settings.c_iflag = 0;
+		settings.c_oflag = 0;
+		settings.c_lflag = 0;
+		settings.c_cflag = CLOCAL | CS8 | CREAD;
+		settings.c_cflag &= ~(PARENB | PARODD);
+		settings.c_cflag &= ~CRTSCTS;
+		settings.c_iflag = IGNBRK;
+		settings.c_cflag &= ~CSTOPB;
+		settings.c_cflag &= ~CSIZE;
+		settings.c_cc[VMIN] = 0;
+		settings.c_cc[VTIME] = 2;
+		settings.c_cflag |= B115200;
+		/* raw */
+		settings.c_iflag &=
+		    ~(IGNBRK | BRKINT | PARMRK | ISTRIP | INLCR | IGNCR | ICRNL
+		      | IXON);
+		settings.c_oflag &= ~OPOST;
+		settings.c_lflag &= ~(ECHO | ECHONL | ICANON | ISIG | IEXTEN);
+		settings.c_cflag &= ~(CSIZE | PARENB);
+		settings.c_cflag |= CS8;
+		serial_fd->f_op->unlocked_ioctl(serial_fd, TCSETS,
+						(unsigned long)&settings);
+	}
+	do {
+		n = serial_fd->f_op->write(serial_fd, &cmd[i], 1,
+					   &serial_fd->f_pos);
+		i += n;
+	} while (cmd[i - 1] != '\r' && n > 0);
+	set_fs(oldfs);
+	filp_close(serial_fd, NULL);
+	msleep(MODEM_WAIT_BEFORE_OFF);
+}
 
 static void smsm_state_cb(void *data, uint32_t old_state, uint32_t new_state)
 {
@@ -107,16 +186,13 @@ static void smsm_state_cb(void *data, uint32_t old_state, uint32_t new_state)
 	}
 }
 
-static int modem_shutdown(const struct subsys_data *subsys)
+#define Q6_FW_WDOG_ENABLE		0x08882024
+#define Q6_SW_WDOG_ENABLE		0x08982024
+
+static int modem_shutdown(const struct subsys_desc *subsys)
 {
 	void __iomem *q6_fw_wdog_addr;
 	void __iomem *q6_sw_wdog_addr;
-
-	/*
-	 * Cancel any pending wdog_check work items, since we're shutting
-	 * down anyway.
-	 */
-	cancel_delayed_work(&modem_wdog_check_work);
 
 	/*
 	 * Disable the modem watchdog since it keeps running even after the
@@ -148,18 +224,16 @@ static int modem_shutdown(const struct subsys_data *subsys)
 
 #define MODEM_WDOG_CHECK_TIMEOUT_MS 10000
 
-static int modem_powerup(const struct subsys_data *subsys)
+static int modem_powerup(const struct subsys_desc *subsys)
 {
 	pil_force_boot("modem_fw");
 	pil_force_boot("modem");
 	enable_irq(Q6FW_WDOG_EXPIRED_IRQ);
 	enable_irq(Q6SW_WDOG_EXPIRED_IRQ);
-	schedule_delayed_work(&modem_wdog_check_work,
-				msecs_to_jiffies(MODEM_WDOG_CHECK_TIMEOUT_MS));
 	return 0;
 }
 
-void modem_crash_shutdown(const struct subsys_data *subsys)
+void modem_crash_shutdown(const struct subsys_desc *subsys)
 {
 	crash_shutdown = 1;
 	smsm_reset_modem(SMSM_RESET);
@@ -192,8 +266,7 @@ extern int asus_rtc_read_time(struct rtc_time *tm);
 #define ASUSQ6SW_BYTES 48
 // ASUS_BSP--- Wenli "Modify for modem restart"
 #endif
-static int modem_ramdump(int enable,
-				const struct subsys_data *crashed_subsys)
+static int modem_ramdump(int enable, const struct subsys_desc *crashed_subsys)
 {
 	int ret = 0;
 // ASUS_BSP+++ Wenli "Modify for modem restart"
@@ -400,7 +473,7 @@ static irqreturn_t modem_wdog_bite_irq(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
-static struct subsys_data modem_8960 = {
+static struct subsys_desc modem_8960 = {
 	.name = "modem",
 	.shutdown = modem_shutdown,
 	.powerup = modem_powerup,
@@ -410,13 +483,16 @@ static struct subsys_data modem_8960 = {
 
 static int modem_subsystem_restart_init(void)
 {
-	return ssr_register_subsystem(&modem_8960);
+	modem_8960_dev = subsys_register(&modem_8960);
+	if (IS_ERR(modem_8960_dev))
+		return PTR_ERR(modem_8960_dev);
+	return 0;
 }
 
 static int modem_debug_set(void *data, u64 val)
 {
 	if (val == 1)
-		subsystem_restart("modem");
+		subsystem_restart_dev(modem_8960_dev);
 
 	return 0;
 }
@@ -443,17 +519,73 @@ static int modem_debugfs_init(void)
 	return 0;
 }
 
+int system_reboot_notifier(struct notifier_block *this,
+			   unsigned long code, void *x)
+{
+	pil_force_shutdown("gss");
+	modem_off();
+	return NOTIFY_DONE;
+}
+
+int system_shutdown_notifier(struct notifier_block *this,
+		unsigned long code, void *x)
+{
+	sysmon_send_event(SYSMON_SS_MODEM,
+			"ext_modem1",
+			SUBSYS_BEFORE_SHUTDOWN);
+	return NOTIFY_DONE;
+}
+
+static struct notifier_block reboot_notifier = {
+	.notifier_call = system_reboot_notifier,
+	.next = NULL,
+	.priority = INT_MAX,
+};
+
+static struct notifier_block shutdown_notifier = {
+	.notifier_call = system_shutdown_notifier,
+	.next = NULL,
+	.priority = INT_MAX,
+};
+
+int qsc_powerup_notifier_fn(struct notifier_block *this,
+		unsigned long code, void *x)
+{
+	int rcode = 0;
+	do {
+		rcode = sysmon_send_event(SYSMON_SS_MODEM,
+				"ext_modem1",
+				SUBSYS_AFTER_POWERUP);
+		if (rcode) {
+			pr_err("%s: sysmon_send_event returned error %d\n",
+					__func__, rcode);
+			msleep(500);
+		}
+	} while (rcode);
+	return NOTIFY_DONE;
+}
+
+static struct notifier_block qsc_powerup_notifier = {
+	.notifier_call = qsc_powerup_notifier_fn,
+	.next = NULL,
+	.priority = INT_MAX,
+};
+
 static int __init modem_8960_init(void)
 {
-	int ret;
+	int ret = 0;
 
-	if (!cpu_is_msm8960() && !cpu_is_msm8930() && !cpu_is_msm8930aa() &&
-	    !cpu_is_msm9615() && !cpu_is_msm8627())
-		return -ENODEV;
+	if (soc_class_is_apq8064()) {
+		if (machine_is_apq8064_adp_2() || machine_is_apq8064_adp2_es2()
+		    || machine_is_apq8064_adp2_es2p5())
+			register_reboot_notifier(&reboot_notifier);
+		goto out;
+	}
 
 	ret = smsm_state_cb_register(SMSM_MODEM_STATE, SMSM_RESET,
 		smsm_state_cb, 0);
-
+	register_reboot_notifier(&shutdown_notifier);
+	mdm_driver_register_notifier("external_modem", &qsc_powerup_notifier);
 	if (ret < 0)
 		pr_err("%s: Unable to register SMSM callback! (%d)\n",
 				__func__, ret);
@@ -518,5 +650,16 @@ static int __init modem_8960_init(void)
 out:
 	return ret;
 }
+
+//snuk182: unattended change!
+/*
+	#if 0	
+		pr_err("modem-8960: Modem watchdog wasn't activated!. Restarting the modem now.\n");
+		restart_modem();
+	#else
+		pr_err("modem-8960: Modem watchdog wasn't activated!. Reboot now !!! \n");
+		kernel_restart(NULL);
+	#endif
+*/
 
 module_init(modem_8960_init);

@@ -430,15 +430,14 @@ parse_record:
 			}
 			i += chl;
 		}
+		if (!last_u)
+			continue;
 
-		if (last_u) {
-			/* Compare shortname */
-			bufuname[last_u] = 0x0000;
-			len = fat_uni_to_x8(sb, bufuname, bufname, sizeof(bufname));
-			if (fat_name_match(sbi, name, name_len, bufname, len))
-				goto found;
-		}
-
+		/* Compare shortname */
+		bufuname[last_u] = 0x0000;
+		len = fat_uni_to_x8(sb, bufuname, bufname, sizeof(bufname));
+		if (fat_name_match(sbi, name, name_len, bufname, len))
+			goto found;
 
 		if (nr_slots) {
 			void *longname = unicode + FAT_MAX_UNI_CHARS;

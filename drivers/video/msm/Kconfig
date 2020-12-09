@@ -1,5 +1,7 @@
 
+source "drivers/video/msm/ba/Kconfig"
 source "drivers/video/msm/vidc/Kconfig"
+source "drivers/video/msm/msm_dba/Kconfig"
 
 config FB_MSM
 	tristate "MSM Framebuffer support"
@@ -37,6 +39,11 @@ config FB_MSM_TRIPLE_BUFFER
 
 config FB_MSM_MDP_HW
 	bool
+	default n
+
+config MDP_DEBUG_FS
+	depends on DEBUG_FS
+	bool "MDP Debug FS"
 	default n
 
 choice
@@ -179,6 +186,11 @@ config FB_MSM_MIPI_DSI_TOSHIBA
 	select FB_MSM_MIPI_DSI
 	default n
 
+config FB_MSM_MIPI_DSI_LGIT
+	bool
+	select FB_MSM_MIPI_DSI
+	default n
+
 config FB_MSM_MIPI_DSI_RENESAS
 	bool
 	select FB_MSM_MIPI_DSI
@@ -211,6 +223,10 @@ config FB_MSM_MIPI_DSI_NT35516
 	bool
 	select FB_MSM_MIPI_DSI
 
+config FB_MSM_MIPI_DSI_NT35590
+	bool
+	select FB_MSM_MIPI_DSI
+
 config FB_MSM_MIPI_DSI_TC358764_DSI2LVDS
 	bool
 	select FB_MSM_MIPI_DSI
@@ -220,6 +236,12 @@ config FB_MSM_MIPI_DSI_TC358764_DSI2LVDS
 	  using a single LVDS link
 	  and up to WUXGA 1920x1200 18-bit
 	  using a dual LVDS link.
+
+config FB_MSM_MIPI_DSI_I2C
+	bool
+	select FB_MSM_MIPI_DSI
+	---help---
+	  Support for MIPI DSI bridge chip using I2C.
 
 config FB_MSM_LCDC_ST15_WXGA
     bool
@@ -302,15 +324,19 @@ config FB_MSM_LCDC_WXGA
 	select FB_MSM_LCDC_PANEL
 	default n
 
+config FB_MSM_MIPI_LGIT_VIDEO_WXGA_PT
+	bool
+	select FB_MSM_MIPI_DSI_LGIT
+	default n
+
 config FB_MSM_LVDS_CHIMEI_WXGA
 	bool
 	select FB_MSM_LVDS
 	default n
 
-config FB_MSM_LVDS_FRC_FHD
+config FB_MSM_LVDS_FPDL3_WXGA
 	bool
 	select FB_MSM_LVDS
-	default n
 
 config FB_MSM_MIPI_TOSHIBA_VIDEO_WVGA_PT
 	bool
@@ -377,6 +403,15 @@ config FB_MSM_MIPI_NT35516_CMD_QHD_PT
         select FB_MSM_MIPI_DSI_NT35516
         default n
 
+config FB_MSM_MIPI_NT35590_CMD_720P_PT
+        bool
+        select FB_MSM_MIPI_DSI_NT35590
+        default n
+
+config FB_MSM_MIPI_NT35590_VIDEO_720P_PT
+        bool
+        select FB_MSM_MIPI_DSI_NT35590
+        default n
 
 config FB_MSM_MIPI_CHIMEI_WXGA
 	bool "LVDS Chimei WXGA Panel using Toshiba MIPI DSI-to-LVDS bridge."
@@ -514,6 +549,15 @@ config FB_MSM_LVDS_CHIMEI_WXGA_PANEL
         ---help---
           Support for LVDS Chimei WXGA(1366x768) panel
 
+config FB_MSM_LVDS_FPDL3_WXGA_PANEL
+	bool "LVDS FPDL3 WXGA Panel"
+	select FB_MSM_LVDS_FPDL3_WXGA
+	---help---
+	  Support for LVDS FPDL3(DS90UH927Q)
+	  WXGA(1366x768) panel.
+	  Panel driver will use the MSM DBA interface
+	  to program the bridge chip
+
 config FB_MSM_LVDS_FRC_FHD_PANEL
 	bool "LVDS FRC FHD Panel"
 	select FB_MSM_LVDS_FRC_FHD
@@ -554,6 +598,8 @@ config FB_MSM_MIPI_PANEL_DETECT
 	select FB_MSM_MIPI_ORISE_CMD_720P_PT
 	select FB_MSM_MIPI_NT35516_VIDEO_QHD_PT
 	select FB_MSM_MIPI_NT35516_CMD_QHD_PT
+	select FB_MSM_MIPI_NT35590_CMD_720P_PT
+	select FB_MSM_MIPI_NT35590_VIDEO_720P_PT
 	select FB_MSM_MIPI_SIMULATOR_VIDEO
 	select FB_MSM_MIPI_CHIMEI_WXGA
 	select FB_MSM_MIPI_CHIMEI_WUXGA
@@ -594,6 +640,8 @@ config FB_MSM_LCDC_MIPI_PANEL_AUTO_DETECT
 	select FB_MSM_MIPI_NT35510_CMD_WVGA_PT
 	select FB_MSM_MIPI_NT35516_VIDEO_QHD_PT
 	select FM_MSM_MIPI_NT35516_CMD_QHD_PT
+	select FM_MSM_MIPI_NT35590_CMD_720P_PT
+	select FM_MSM_MIPI_NT35590_VIDEO_720P_PT
 	select FB_MSM_MIPI_SIMULATOR_VIDEO
 	---help---
 	  Support for LCDC + MIPI panel auto detect
@@ -602,6 +650,7 @@ config FB_MSM_LVDS_MIPI_PANEL_DETECT
 	bool "LVDS + MIPI Panel Auto Detect"
 	select FB_MSM_LVDS_CHIMEI_WXGA
 	select FB_MSM_LVDS_FRC_FHD
+	select FB_MSM_MIPI_NT35590_VIDEO_720P_PT
 	select FB_MSM_MIPI_TOSHIBA_VIDEO_WVGA_PT
 	select FB_MSM_MIPI_TOSHIBA_VIDEO_WSVGA_PT
 	select FB_MSM_MIPI_TOSHIBA_VIDEO_WUXGA
@@ -612,11 +661,13 @@ config FB_MSM_LVDS_MIPI_PANEL_DETECT
 	select FB_MSM_MIPI_NOVATEK_CMD_QHD_PT
 	select FB_MSM_MIPI_NT35510_VIDEO_WVGA_PT
 	select FB_MSM_MIPI_NT35510_CMD_WVGA_PT
+	select FB_MSM_MIPI_NT35590_CMD_720P_PT
 	select FB_MSM_MIPI_ORISE_VIDEO_720P_PT
 	select FB_MSM_MIPI_ORISE_CMD_720P_PT
 	select FB_MSM_MIPI_SIMULATOR_VIDEO
 	select FB_MSM_MIPI_CHIMEI_WXGA
 	select FB_MSM_MIPI_CHIMEI_WUXGA
+	select FB_MSM_MIPI_DSI_I2C
 	---help---
 	  Support for LVDS + MIPI panel auto detect
 
@@ -649,6 +700,10 @@ config FB_MSM_MDDI_SHARP_QVGA_128x128
 	select FB_MSM_MDDI
 	---help---
 	  Support for MDDI Sharp QVGA (240x320) and 128x128 dual panel
+
+config FB_MSM_MIPI_LGIT_VIDEO_WXGA_PT_PANEL
+	bool "MIPI LG Display WXGA PT Panel"
+	select FB_MSM_MIPI_LGIT_VIDEO_WXGA_PT
 
 config FB_MSM_MIPI_TOSHIBA_VIDEO_WVGA_PT_PANEL
 	bool "MIPI Toshiba WVGA PT Panel"
@@ -714,6 +769,24 @@ config FB_MSM_MIPI_NT35516_CMD_QHD_PT_PANEL
         bool "MIPI NT35516 Command qHD PT Panel"
         select FB_MSM_MIPI_NT35516_CMD_QHD_PT
 
+config FB_MSM_MIPI_NT35590_CMD_720P_PT_PANEL
+        bool "MIPI NT35590 Command 720p PT Panel"
+        select FB_MSM_MIPI_NT35590_CMD_720P_PT
+	---help---
+	Support for Truly NT35590 panel. This
+	panel supports MIPI DSI interface in
+	Command mode. The panel resolution is
+	720p (720x1280).
+
+config FB_MSM_MIPI_NT35590_VIDEO_720P_PT_PANEL
+        bool "MIPI NT35590 Video 720p PT Panel"
+        select FB_MSM_MIPI_NT35590_VIDEO_720P_PT
+	---help---
+	Support for Truly NT35590 panel. This
+	panel supports MIPI DSI interface in
+	Video mode. The panel resolution is
+	720p (720x1280).
+
 config FB_MSM_MIPI_SIMULATOR_VIDEO_PANEL
 	bool "MIPI Simulator Video Panel"
 	select FB_MSM_MIPI_SIMULATOR_VIDEO
@@ -735,6 +808,14 @@ config FB_MSM_PANEL_NONE
 	---help---
 	  This will disable LCD panel
 endchoice
+
+config LGIT_VIDEO_WXGA_CABC
+	bool "Content Adaptive Backlight Control on LGIT WXGA Panel"
+	default y
+	depends on FB_MSM_MIPI_LGIT_VIDEO_WXGA_PT_PANEL
+	help
+	  Enable CABC(Content Apaptive Backlight Control) on LGIT Panel
+	  to reduce power consumption
 
 choice
 	prompt "Secondary LCD Panel"
@@ -835,6 +916,44 @@ config FB_MSM_HDMI_MSM_PANEL_CEC_SUPPORT
 	---help---
 	  Support for HDMI CEC Feature
 	  Choose to enable CEC
+
+config HDMI_DDC_ENABLED
+	bool "DDC_ENABLED"
+	default n
+	---help---
+	HDMI slim driver flag
+	Support for enable/ disable DDC
+	When DDC disabled, will use default timing
+	DDC required for EDID and HDCP transactions
+
+config HDMI_EDID_ENABLED
+	depends on HDMI_DDC_ENABLED
+	bool "EDID_ENABLED"
+	default n
+	---help---
+	HDMI slim driver flag
+	Support for enable/ disable EDID
+	When EDID disabled, will use default timing
+	DDC required for EDID transactions
+
+config HDMI_MHL_ENABLED
+	depends on HDMI_EDID_ENABLED
+	bool "MHL_ENABLED"
+	default n
+	---help---
+	HDMI slim driver flag
+	Support for enable/ disable MHL
+	When enabled, needs EDID and DDC
+	When disabled no functionality
+
+config HDMI_HPD_ENABLED
+	bool "HPD_ENABLED"
+	default n
+	---help---
+	HDMI slim driver flag
+	Support for enable/ disable DDC
+	When DDC disabled, will use default timing
+	DDC required for EDID and HDCP transactions
 
 config FB_MSM_HDMI_MHL_9244
 	depends on FB_MSM_HDMI_MSM_PANEL
@@ -955,6 +1074,18 @@ config FB_MSM_EBI2_PANEL_DETECT
 	default n
 	---help---
 	  Support for EBI2 panel auto detect
+
+config FB_MSM_MDP_ARB
+	bool "MDP arbitrator"
+	---help---
+	Support for MDP arbitrator driver.
+	This driver is used to manage overlay resources and events.
+
+config FB_MSM_DMA_S_PANEL
+	bool "Config DMA_S panel"
+	select FB_MSM_MIPI_DSI_I2C
+	---help---
+	  Support for DMA S panel.
 
 if FB_MSM_MDSS
 	source "drivers/video/msm/mdss/Kconfig"

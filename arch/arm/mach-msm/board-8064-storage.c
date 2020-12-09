@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, 2014 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -21,6 +21,7 @@
 #include <mach/msm_bus_board.h>
 #include <mach/board.h>
 #include <mach/gpiomux.h>
+#include <mach/socinfo.h>
 #include "devices.h"
 #include "board-8064.h"
 #include "board-storage-common-a.h"
@@ -142,9 +143,9 @@ static struct msm_mmc_pad_pull sdc3_pad_pull_on_cfg[] = {
 };
 
 static struct msm_mmc_pad_pull sdc3_pad_pull_off_cfg[] = {
-	{TLMM_PULL_SDC3_CLK, GPIO_CFG_NO_PULL},
-	{TLMM_PULL_SDC3_CMD, GPIO_CFG_PULL_UP},
-	{TLMM_PULL_SDC3_DATA, GPIO_CFG_PULL_UP}
+	{TLMM_PULL_SDC3_CLK, GPIO_CFG_PULL_DOWN},
+	{TLMM_PULL_SDC3_CMD, GPIO_CFG_PULL_DOWN},
+	{TLMM_PULL_SDC3_DATA, GPIO_CFG_PULL_DOWN}
 };
 
 static struct msm_mmc_pad_pull_data mmc_pad_pull_data[MAX_SDCC_CONTROLLER] = {
@@ -200,6 +201,7 @@ static struct msm_mmc_gpio sdc4_gpio[] = {
 	{65, "sdc4_dat_1"},
 	{64, "sdc4_dat_2"},
 	{63, "sdc4_dat_3"},
+	{21, "sdc4_wlan_en"},
 };
 
 static struct msm_mmc_gpio_data mmc_gpio_data[MAX_SDCC_CONTROLLER] = {
@@ -238,6 +240,10 @@ static unsigned int sdc1_sup_clk_rates[] = {
 	400000, 24000000, 48000000, 96000000
 };
 
+static unsigned int sdc1_sup_clk_rates_all[] = {
+	400000, 24000000, 48000000, 96000000, 192000000
+};
+
 static struct mmc_platform_data sdc1_data = {
 	.ocr_mask       = MMC_VDD_27_28 | MMC_VDD_28_29,
 #ifdef CONFIG_MMC_MSM_SDC1_8_BIT_SUPPORT
@@ -252,6 +258,7 @@ static struct mmc_platform_data sdc1_data = {
 	.vreg_data	= &mmc_slot_vreg_data[SDCC1],
 	.uhs_caps	= MMC_CAP_1_8V_DDR | MMC_CAP_UHS_DDR50,
 	.uhs_caps2	= MMC_CAP2_HS200_1_8V_SDR,
+	.packed_write	= MMC_CAP2_PACKED_WR | MMC_CAP2_PACKED_WR_CONTROL,
 	.mpm_sdiowakeup_int = MSM_MPM_PIN_SDC1_DAT1,
 	.msm_bus_voting_data = &sps_to_ddr_bus_voting_data,
 };
@@ -316,7 +323,7 @@ static unsigned int sdc4_sup_clk_rates[] = {
 };
 
 static struct mmc_platform_data sdc4_data = {
-	.ocr_mask       = MMC_VDD_27_28 | MMC_VDD_28_29,
+	.ocr_mask       = MMC_VDD_27_28 | MMC_VDD_28_29 | MMC_VDD_165_195,
 	.mmc_bus_width  = MMC_CAP_4_BIT_DATA,
 	.sup_clk_table	= sdc4_sup_clk_rates,
 	.sup_clk_cnt	= ARRAY_SIZE(sdc4_sup_clk_rates),
@@ -331,23 +338,17 @@ static struct mmc_platform_data *apq8064_sdc4_pdata;
 
 void __init apq8064_init_mmc(void)
 {
-	if ((machine_is_apq8064_rumi3()) || machine_is_apq8064_sim()) {
-		if (apq8064_sdc1_pdata) {
-			if (machine_is_apq8064_sim())
-				apq8064_sdc1_pdata->disable_bam = true;
-			apq8064_sdc1_pdata->disable_runtime_pm = true;
-			apq8064_sdc1_pdata->disable_cmd23 = true;
+	if (apq8064_sdc1_pdata) {
+		/* 8064 v2 supports upto 200MHz clock on SDC1 slot */
+		if (SOCINFO_VERSION_MAJOR(socinfo_get_version()) >= 2) {
+			apq8064_sdc1_pdata->sup_clk_table =
+					sdc1_sup_clk_rates_all;
+			apq8064_sdc1_pdata->sup_clk_cnt	=
+					ARRAY_SIZE(sdc1_sup_clk_rates_all);
 		}
-		if (apq8064_sdc3_pdata) {
-			if (machine_is_apq8064_sim())
-				apq8064_sdc3_pdata->disable_bam = true;
-			apq8064_sdc3_pdata->disable_runtime_pm = true;
-			apq8064_sdc3_pdata->disable_cmd23 = true;
-		}
-	}
-
-	if (apq8064_sdc1_pdata)
 		apq8064_add_sdcc(1, apq8064_sdc1_pdata);
+		apq8064_add_uio();
+	}
 
 	if (apq8064_sdc2_pdata)
 		apq8064_add_sdcc(2, apq8064_sdc2_pdata);
@@ -383,7 +384,9 @@ void __init apq8064_init_mmc(void)
 				apq8064_sdc3_pdata->status_irq = 0;
 			}
 		}
-		if (machine_is_apq8064_cdp()) {
+		if (machine_is_apq8064_cdp() || machine_is_apq8064_adp_2() ||
+			machine_is_apq8064_adp2_es2() ||
+			machine_is_apq8064_adp2_es2p5()) {
 			int i;
 
 			for (i = 0;
@@ -396,6 +399,8 @@ void __init apq8064_init_mmc(void)
 		apq8064_add_sdcc(3, apq8064_sdc3_pdata);
 	}
 
-	if (apq8064_sdc4_pdata)
+	if (apq8064_sdc4_pdata && (machine_is_apq8064_adp_2() ||
+		machine_is_apq8064_adp2_es2() ||
+		machine_is_apq8064_adp2_es2p5()))
 		apq8064_add_sdcc(4, apq8064_sdc4_pdata);
 }

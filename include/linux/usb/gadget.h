@@ -475,7 +475,8 @@ struct usb_gadget_ops {
 
 	/* Those two are deprecated */
 	int	(*start)(struct usb_gadget_driver *,
-			int (*bind)(struct usb_gadget *));
+			int (*bind)(struct usb_gadget *,
+				struct usb_gadget_driver *driver));
 	int	(*stop)(struct usb_gadget_driver *);
 };
 
@@ -545,6 +546,7 @@ struct usb_gadget {
 	const char			*name;
 	struct device			dev;
 	u8				usb_core_id;
+	u8				pdev_id;
 };
 
 static inline void set_gadget_data(struct usb_gadget *gadget, void *data)
@@ -857,6 +859,7 @@ struct usb_gadget_driver {
 	struct device_driver	driver;
 
 	u8			usb_core_id;
+	u8			pdev_id;
 };
 
 
@@ -883,7 +886,7 @@ struct usb_gadget_driver {
  * be in init sections.
  */
 int usb_gadget_probe_driver(struct usb_gadget_driver *driver,
-		int (*bind)(struct usb_gadget *));
+		int (*bind)(struct usb_gadget *, struct usb_gadget_driver *));
 
 /**
  * usb_gadget_unregister_driver - unregister a gadget driver

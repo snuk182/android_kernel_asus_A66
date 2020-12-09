@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2012-2013,2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -18,6 +18,10 @@
 #include <linux/errno.h>
 #include <linux/proc_fs.h>
 #include <linux/cpu.h>
+#include <mach/usb_trace.h>
+#include <mach/scm-io.h>
+
+DEFINE_TRACE(usb_daytona_invalid_access);
 
 #define MODULE_NAME "msm_ebi_erp"
 
@@ -52,6 +56,7 @@
 
 struct msm_ebi_erp_data {
 	void __iomem *base;
+	void __iomem *phy;
 	struct device *dev;
 };
 
@@ -111,8 +116,13 @@ static irqreturn_t msm_ebi_irq(int irq, void *dev_id)
 					 err_cntl & ERR_CODE_MPU_ERROR ?
 						"mpu error" : "");
 	err_cntl |= CNTL_CLEAR_ERR;
-	writel_relaxed(err_cntl, base + SLV_ERR_CNTL);
+	secure_writel(err_cntl, drvdata->phy + SLV_ERR_CNTL);
 	mb();	/* Ensure interrupt is cleared before returning */
+
+	if ((err_apacket0 & AMID_MASK) == 0x00000102)
+		trace_usb_daytona_invalid_access(err_addr, err_apacket0,
+							 err_apacket1);
+
 	return IRQ_HANDLED;
 }
 
@@ -134,6 +144,8 @@ static int __devinit msm_ebi_erp_probe(struct platform_device *pdev)
 	if (!r)
 		return -EINVAL;
 
+	drvdata->phy = (void __iomem *) r->start;
+
 	drvdata->base = devm_ioremap(&pdev->dev, r->start, resource_size(r));
 	if (!drvdata->base)
 		return -ENOMEM;
@@ -150,7 +162,7 @@ static int __devinit msm_ebi_erp_probe(struct platform_device *pdev)
 	/* Enable the interrupt */
 	err_cntl = readl_relaxed(drvdata->base + SLV_ERR_CNTL);
 	err_cntl |= CNTL_IRQ_EN;
-	writel_relaxed(err_cntl, drvdata->base + SLV_ERR_CNTL);
+	secure_writel(err_cntl, (void __iomem *)(r->start + SLV_ERR_CNTL));
 	mb();	/* Ensure interrupt is enabled before returning */
 	return 0;
 }
@@ -163,7 +175,7 @@ static int msm_ebi_erp_remove(struct platform_device *pdev)
 	/* Disable the interrupt */
 	err_cntl = readl_relaxed(drvdata->base + SLV_ERR_CNTL);
 	err_cntl &= ~CNTL_IRQ_EN;
-	writel_relaxed(err_cntl, drvdata->base + SLV_ERR_CNTL);
+	secure_writel(err_cntl, drvdata->phy + SLV_ERR_CNTL);
 	mb();	/* Ensure interrupt is disabled before returning */
 	return 0;
 }

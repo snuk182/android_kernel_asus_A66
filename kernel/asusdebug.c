@@ -1237,9 +1237,11 @@ static void asusdebug_early_resume(struct early_suspend *h)
 EXPORT_SYMBOL(entering_suspend);
 
 struct early_suspend asusdebug_early_suspend_handler = {
+#ifdef CONFIG_HAS_EARLYSUSPEND
     .level = EARLY_SUSPEND_LEVEL_BLANK_SCREEN,
     .suspend = asusdebug_early_suspend,
     .resume = asusdebug_early_resume,
+#endif
 };
 
 static int __init proc_asusdebug_init(void)

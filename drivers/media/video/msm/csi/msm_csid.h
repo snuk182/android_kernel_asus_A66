@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, 2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -16,6 +16,14 @@
 #include <linux/clk.h>
 #include <linux/io.h>
 #include <media/v4l2-subdev.h>
+#include <media/msm_camera.h>
+
+#define MAX_CSID 3
+
+enum msm_csid_state_t {
+	CSID_POWER_UP,
+	CSID_POWER_DOWN,
+};
 
 struct csid_device {
 	struct platform_device *pdev;
@@ -28,23 +36,18 @@ struct csid_device {
 	struct mutex mutex;
 	struct completion reset_complete;
 	uint32_t hw_version;
+	enum msm_csid_state_t csid_state;
 
-	struct clk *csid_clk[5];
-};
-
-struct csid_cfg_params {
-	struct v4l2_subdev *subdev;
-	void *parms;
+	struct clk *csid0_clk[6];
+	struct clk *csid_clk[6];
+	uint8_t refcnt;
+	bool reserved_adp;
 };
 
 #define VIDIOC_MSM_CSID_CFG \
-	_IOWR('V', BASE_VIDIOC_PRIVATE + 4, struct csid_cfg_params)
-
-#define VIDIOC_MSM_CSID_INIT \
-	_IOWR('V', BASE_VIDIOC_PRIVATE + 5, struct v4l2_subdev*)
+	_IOWR('V', BASE_VIDIOC_PRIVATE + 4, struct csic_cfg_data*)
 
 #define VIDIOC_MSM_CSID_RELEASE \
-	_IOWR('V', BASE_VIDIOC_PRIVATE + 6, struct v4l2_subdev*)
-
+	_IOWR('V', BASE_VIDIOC_PRIVATE + 5, struct v4l2_subdev*)
 #endif
 

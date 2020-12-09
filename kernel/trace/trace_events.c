@@ -177,8 +177,6 @@ int ftrace_event_reg(struct ftrace_event_call *call,
 	case TRACE_REG_PERF_DEL:
 		return 0;
 #endif
-	default:
-		return 0;
 	}
 	return 0;
 }
@@ -1355,6 +1353,16 @@ static void trace_module_add_events(struct module *mod)
 {
 	struct ftrace_module_file_ops *file_ops = NULL;
 	struct ftrace_event_call **call, **start, **end;
+
+	if (!mod->num_trace_events)
+		return;
+
+	/* Don't add infrastructure for mods without tracepoints */
+	if (trace_module_has_bad_taint(mod)) {
+		pr_err("%s: module has bad taint, not creating trace events\n",
+		       mod->name);
+		return;
+	}
 
 	start = mod->trace_events;
 	end = mod->trace_events + mod->num_trace_events;

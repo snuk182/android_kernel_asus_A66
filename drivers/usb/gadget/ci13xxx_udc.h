@@ -57,7 +57,7 @@ struct ci13xxx_td {
 #define TD_CURR_OFFSET        (0x0FFFUL <<  0)
 #define TD_FRAME_NUM          (0x07FFUL <<  0)
 #define TD_RESERVED_MASK      (0x0FFFUL <<  0)
-} __attribute__ ((packed));
+} __attribute__ ((packed, aligned(4)));
 
 /* DMA layout of queue heads */
 struct ci13xxx_qh {
@@ -75,7 +75,14 @@ struct ci13xxx_qh {
 	/* 9 */
 	u32 RESERVED;
 	struct usb_ctrlrequest   setup;
-} __attribute__ ((packed));
+} __attribute__ ((packed, aligned(4)));
+
+/* cache of larger request's original attributes */
+struct ci13xxx_multi_req {
+	unsigned             len;
+	unsigned             actual;
+	void                *buf;
+};
 
 /* Extension of usb_request */
 struct ci13xxx_req {
@@ -86,6 +93,7 @@ struct ci13xxx_req {
 	dma_addr_t           dma;
 	struct ci13xxx_td   *zptr;
 	dma_addr_t           zdma;
+	struct ci13xxx_multi_req multi;
 };
 
 /* Extension of usb_ep */
@@ -104,10 +112,60 @@ struct ci13xxx_ep {
 	int                                    wedge;
 
 	/* global resources */
+	struct ci13xxx                        *udc;
 	spinlock_t                            *lock;
 	struct device                         *device;
 	struct dma_pool                       *td_pool;
+	struct ci13xxx_td                     *last_zptr;
+	dma_addr_t                            last_zdma;
 	unsigned long dTD_update_fail_count;
+	unsigned long			      prime_fail_count;
+	int				      prime_timer_count;
+	struct timer_list		      prime_timer;
+
+	bool                                  multi_req;
+};
+
+/* Interrupt statistics */
+#define ISR_MASK   0x1F
+struct statistics {
+	u32 test;
+	u32 ui;
+	u32 uei;
+	u32 pci;
+	u32 uri;
+	u32 sli;
+	u32 none;
+	struct {
+		u32 cnt;
+		u32 buf[ISR_MASK+1];
+		u32 idx;
+	} hndl;
+};
+
+struct ci13xxx_ebi_err_entry {
+	u32 *usb_req_buf;
+	u32 usb_req_length;
+	u32 ep_info;
+	struct ci13xxx_ebi_err_entry *next;
+};
+
+struct ci13xxx_ebi_err_data {
+	u32 ebi_err_addr;
+	u32 apkt0;
+	u32 apkt1;
+	struct ci13xxx_ebi_err_entry *ebi_err_entry;
+};
+
+/******************************************************************************
+ * HW block
+ *****************************************************************************/
+/* register bank descriptor */
+struct hw_bank_reg {
+	unsigned      lpm;    /* is LPM? */
+	void __iomem *abs;    /* bus map offset */
+	void __iomem *cap;    /* bus map offset + CAP offset + CAP data */
+	size_t        size;   /* bank size */
 };
 
 struct ci13xxx;
@@ -132,18 +190,19 @@ struct ci13xxx_udc_driver {
 
 /* CI13XXX UDC descriptor & global resources */
 struct ci13xxx {
-	spinlock_t		  *lock;      /* ctrl register bank access */
+	spinlock_t		   lock;      /* ctrl register bank access */
 	void __iomem              *regs;      /* registers address space */
 
 	struct dma_pool           *qh_pool;   /* DMA pool for queue heads */
 	struct dma_pool           *td_pool;   /* DMA pool for transfer descs */
 	struct usb_request        *status;    /* ep0 status request */
+	void                      *status_buf;/* GET_STATUS buffer */
 
 	struct usb_gadget          gadget;     /* USB slave device */
 	struct ci13xxx_ep          ci13xxx_ep[ENDPT_MAX]; /* extended endpts */
 	u32                        ep0_dir;    /* ep0 direction */
 #define ep0out ci13xxx_ep[0]
-#define ep0in  ci13xxx_ep[hw_ep_max / 2]
+#define ep0in  ci13xxx_ep[udc->hw_ep_max / 2]
 	u8                         remote_wakeup; /* Is remote wakeup feature
 							enabled by the host? */
 	u8                         suspended;  /* suspended by the host */
@@ -157,6 +216,14 @@ struct ci13xxx {
 	int                        softconnect; /* is pull-up enable allowed */
 	unsigned long dTD_update_fail_count;
 	struct usb_phy            *transceiver; /* Transceiver struct */
+	bool                      skip_flush; /* skip flushing remaining EP
+						upon flush timeout for the
+						first EP. */
+	unsigned                  hw_ep_max; /* max number of enpoints: valid
+						only after hw_device_reset() */
+	struct statistics	  isr_statistics;
+	struct hw_bank_reg	  hw_bank;
+	struct ci13xxx_ebi_err_data *ebi_err_data;
 };
 
 struct ci13xxx_platform_data {
@@ -232,10 +299,10 @@ struct ci13xxx_platform_data {
  *****************************************************************************/
 #define ci13xxx_printk(level, format, args...) \
 do { \
-	if (_udc == NULL) \
+	if (udc == NULL) \
 		printk(level "[%s] " format "\n", __func__, ## args); \
 	else \
-		dev_printk(level, _udc->gadget.dev.parent, \
+		dev_printk(level, udc->gadget.dev.parent, \
 			   "[%s] " format "\n", __func__, ## args); \
 } while (0)
 

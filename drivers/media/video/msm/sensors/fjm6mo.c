@@ -1945,6 +1945,7 @@ void fjm6mo_set_effect_mode(int16_t mode)
 	pr_info("%s +++ mode(%d)\n",__func__,mode);
 	switch(mode)
 	{
+#if 0	
 		case CAMERA_EFFECT_OFF:	// close effect
 			fjm6mo_write_register(ov2720_s_ctrl.sensor_i2c_client->client, 1, 0x02, 0x0B, 0x0);
 			break;
@@ -1961,13 +1962,14 @@ void fjm6mo_set_effect_mode(int16_t mode)
 		case CAMERA_EFFECT_NEGATIVE:
 			fjm6mo_write_register(ov2720_s_ctrl.sensor_i2c_client->client, 1, 0x02, 0x0B, 0x02);
 			break;
+#endif	
 		default:
 			pr_info("%s mode(%d) is not support \n",__func__,mode);
 			break;
             }
 	pr_info("%s ---\n",__func__);
 }
-//ASUS_BSP --- LiJen "[A60K][8M][NA][Others]implement Effect mode in 8M camera with ISP"	
+//ASUS_BSP --- LiJen "[A60K][8M][NA][Others]implement Effect mode in 8M camera with ISP"
 
 //ASUS_BSP +++ LiJen "[A60K][8M][NA][Others]implement WB mode in 8M camera with ISP"	
 void fjm6mo_set_wb_mode(config3a_wb_t mode)

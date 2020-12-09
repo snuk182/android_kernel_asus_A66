@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2008-2012, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2008-2012, The Linux Foundation. All rights reserved.
  * Author: Brian Swetland <swetland@google.com>
  *
  * This software is licensed under the terms of the GNU General Public
@@ -64,6 +64,8 @@
 #include "irqs-9615.h"
 #elif defined(CONFIG_ARCH_MSM9625)
 #include "irqs-9625.h"
+#elif defined(CONFIG_ARCH_MSM8226)
+#include "irqs-8226.h"
 #elif defined(CONFIG_ARCH_MSM7X30)
 #include "irqs-7x30.h"
 #elif defined(CONFIG_ARCH_QSD8X50)

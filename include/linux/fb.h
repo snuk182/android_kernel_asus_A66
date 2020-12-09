@@ -279,7 +279,7 @@ struct fb_var_screeninfo {
 	__u32 vmode;			/* see FB_VMODE_*		*/
 	__u32 rotate;			/* angle we rotate counter clockwise */
 	__u32 colorspace;		/* colorspace for FOURCC-based modes */
-	__u32 reserved[5];		/* Reserved for future compatibility */
+	__u32 reserved[4];		/* Reserved for future compatibility */
 // ASUS_BSP +++ Tingyi "[DDS] Interface to set x offset of framebuffer"	
 	//__u32 buffer_offset;
 	//__u32 asus_ystride;
@@ -558,6 +558,10 @@ struct fb_cursor_user {
 #define FB_EVENT_FB_UNBIND              0x0E
 /*      CONSOLE-SPECIFIC: remap all consoles to new fb - for vga switcheroo */
 #define FB_EVENT_REMAP_ALL_CONSOLE      0x0F
+/*      A hardware display blank early change occured */
+#define FB_EARLY_EVENT_BLANK            0x10
+/*      A hardware display blank revert early change occured */
+#define FB_R_EARLY_EVENT_BLANK          0x11
 
 struct fb_event {
 	struct fb_info *info;

@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -38,6 +38,9 @@ struct afe_ctl {
 static struct afe_ctl this_afe;
 
 static struct acdb_cal_block afe_cal_addr[MAX_AUDPROC_TYPES];
+static int pcm_afe_instance[2];
+static int proxy_afe_instance[2];
+bool afe_close_done[2] = {true, true};
 
 #define TIMEOUT_MS 1000
 #define Q6AFE_MAX_VOLUME 0x3FFF
@@ -91,6 +94,7 @@ static int32_t afe_callback(struct apr_client_data *data, void *priv)
 			case AFE_SERVICE_CMD_MEMORY_MAP:
 			case AFE_SERVICE_CMD_MEMORY_UNMAP:
 			case AFE_SERVICE_CMD_UNREG_RTPORT:
+			case AFE_SERVICE_CMD_SET_PARAM_V1:
 				atomic_set(&this_afe.state, 0);
 				wake_up(&this_afe.wait);
 				break;
@@ -145,6 +149,8 @@ int afe_get_port_type(u16 port_id)
 	case SECONDARY_PCM_RX:
 	case SECONDARY_I2S_RX:
 	case MI2S_RX:
+	case MI2S_RX_1:
+	case MI2S_RX_2:
 	case HDMI_RX:
 	case SLIMBUS_0_RX:
 	case SLIMBUS_1_RX:
@@ -156,14 +162,18 @@ int afe_get_port_type(u16 port_id)
 	case VOICE_PLAYBACK_TX:
 	case RT_PROXY_PORT_001_RX:
 	case SLIMBUS_4_RX:
+	case PSEUDO_RX:
 		ret = MSM_AFE_PORT_TYPE_RX;
 		break;
 
 	case PRIMARY_I2S_TX:
+	case PRIMARY_I2S_TX_1:
 	case PCM_TX:
 	case SECONDARY_PCM_TX:
 	case SECONDARY_I2S_TX:
 	case MI2S_TX:
+	case MI2S_TX_1:
+	case MI2S_TX_2:
 	case DIGI_MIC_TX:
 	case VOICE_RECORD_TX:
 	case SLIMBUS_0_TX:
@@ -175,6 +185,7 @@ int afe_get_port_type(u16 port_id)
 	case INT_BT_SCO_TX:
 	case RT_PROXY_PORT_001_TX:
 	case SLIMBUS_4_TX:
+	case RX_PSEUDO_CAPTURE:
 		ret = MSM_AFE_PORT_TYPE_TX;
 		break;
 
@@ -193,6 +204,7 @@ int afe_validate_port(u16 port_id)
 	switch (port_id) {
 	case PRIMARY_I2S_RX:
 	case PRIMARY_I2S_TX:
+	case PRIMARY_I2S_TX_1:
 	case PCM_RX:
 	case PCM_TX:
 	case SECONDARY_PCM_RX:
@@ -201,6 +213,10 @@ int afe_validate_port(u16 port_id)
 	case SECONDARY_I2S_TX:
 	case MI2S_RX:
 	case MI2S_TX:
+	case MI2S_RX_1:
+	case MI2S_TX_1:
+	case MI2S_RX_2:
+	case MI2S_TX_2:
 	case HDMI_RX:
 	case RSVD_2:
 	case RSVD_3:
@@ -225,6 +241,8 @@ int afe_validate_port(u16 port_id)
 	case RT_PROXY_PORT_001_TX:
 	case SLIMBUS_4_RX:
 	case SLIMBUS_4_TX:
+	case PSEUDO_RX:
+	case RX_PSEUDO_CAPTURE:
 	{
 		ret = 0;
 		break;
@@ -263,6 +281,7 @@ int afe_get_port_index(u16 port_id)
 	switch (port_id) {
 	case PRIMARY_I2S_RX: return IDX_PRIMARY_I2S_RX;
 	case PRIMARY_I2S_TX: return IDX_PRIMARY_I2S_TX;
+	case PRIMARY_I2S_TX_1: return IDX_PRIMARY_I2S_TX_1;
 	case PCM_RX: return IDX_PCM_RX;
 	case PCM_TX: return IDX_PCM_TX;
 	case SECONDARY_PCM_RX: return IDX_SECONDARY_PCM_RX;
@@ -271,6 +290,10 @@ int afe_get_port_index(u16 port_id)
 	case SECONDARY_I2S_TX: return IDX_SECONDARY_I2S_TX;
 	case MI2S_RX: return IDX_MI2S_RX;
 	case MI2S_TX: return IDX_MI2S_TX;
+	case MI2S_RX_1: return IDX_MI2S_RX_1;
+	case MI2S_TX_1: return IDX_MI2S_TX_1;
+	case MI2S_RX_2: return IDX_MI2S_RX_2;
+	case MI2S_TX_2: return IDX_MI2S_TX_2;
 	case HDMI_RX: return IDX_HDMI_RX;
 	case RSVD_2: return IDX_RSVD_2;
 	case RSVD_3: return IDX_RSVD_3;
@@ -295,6 +318,8 @@ int afe_get_port_index(u16 port_id)
 	case RT_PROXY_PORT_001_TX: return IDX_RT_PROXY_PORT_001_TX;
 	case SLIMBUS_4_RX: return IDX_SLIMBUS_4_RX;
 	case SLIMBUS_4_TX: return IDX_SLIMBUS_4_TX;
+	case PSEUDO_RX: return IDX_PSEUDO_RX;
+	case RX_PSEUDO_CAPTURE: return IDX_RX_PSEUDO_CAPTURE;
 
 	default: return -EINVAL;
 	}
@@ -306,10 +331,15 @@ int afe_sizeof_cfg_cmd(u16 port_id)
 	switch (port_id) {
 	case PRIMARY_I2S_RX:
 	case PRIMARY_I2S_TX:
+	case PRIMARY_I2S_TX_1:
 	case SECONDARY_I2S_RX:
 	case SECONDARY_I2S_TX:
 	case MI2S_RX:
 	case MI2S_TX:
+	case MI2S_RX_1:
+	case MI2S_TX_1:
+	case MI2S_RX_2:
+	case MI2S_TX_2:
 		ret_size = SIZEOF_CFG_CMD(afe_port_mi2s_cfg);
 		break;
 	case HDMI_RX:
@@ -419,6 +449,83 @@ done:
 	return;
 }
 
+static int afe_send_hw_delay(u16 port_id, u32 rate)
+{
+	struct hw_delay_entry delay_entry;
+	struct afe_port_cmd_set_param config;
+	int index = 0;
+	int ret = -EINVAL;
+
+	pr_debug("%s\n", __func__);
+
+	delay_entry.sample_rate = rate;
+	if (afe_get_port_type(port_id) == MSM_AFE_PORT_TYPE_TX)
+		ret = get_hw_delay(TX_CAL, &delay_entry);
+	else if (afe_get_port_type(port_id) == MSM_AFE_PORT_TYPE_RX)
+		ret = get_hw_delay(RX_CAL, &delay_entry);
+
+	if (ret != 0) {
+		pr_debug("%s: Failed to get hw delay info\n", __func__);
+		goto done;
+	}
+	index = port_id;
+	if (index < 0) {
+		pr_debug("%s: AFE port index invalid!\n", __func__);
+		goto done;
+	}
+
+	config.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
+				APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
+	config.hdr.pkt_size = sizeof(config);
+	config.hdr.src_port = 0;
+	config.hdr.dest_port = 0;
+	config.hdr.token = index;
+	config.hdr.opcode = AFE_PORT_CMD_SET_PARAM;
+
+	config.port_id = port_id;
+	config.payload_size = sizeof(struct afe_param_payload_base)+
+				sizeof(struct afe_param_id_device_hw_delay_cfg);
+	config.payload_address = 0;
+
+	config.payload.base.module_id = AFE_MODULE_ID_PORT_INFO ;
+	config.payload.base.param_id = AFE_PARAM_ID_DEVICE_HW_DELAY;
+	config.payload.base.param_size = sizeof(struct afe_param_id_device_hw_delay_cfg);
+	config.payload.base.reserved = 0;
+
+	config.payload.param.hw_delay.delay_in_us = delay_entry.delay_usec;
+	config.payload.param.hw_delay.device_hw_delay_minor_version =
+				AFE_API_VERSION_DEVICE_HW_DELAY;
+
+	atomic_set(&this_afe.state, 1);
+	ret = apr_send_pkt(this_afe.apr, (uint32_t *) &config);
+	if (ret < 0) {
+		pr_err("%s: AFE enable for port %d failed\n", __func__,
+			port_id);
+		ret = -EINVAL;
+		goto done;
+	}
+
+	ret = wait_event_timeout(this_afe.wait,
+				(atomic_read(&this_afe.state) == 0),
+				msecs_to_jiffies(TIMEOUT_MS));
+
+	if (!ret) {
+		pr_err("%s: wait_event timeout IF CONFIG\n", __func__);
+		ret = -EINVAL;
+		goto done;
+	}
+	if (atomic_read(&this_afe.status) != 0) {
+		pr_err("%s: config cmd failed\n", __func__);
+		ret = -EINVAL;
+		goto done;
+	}
+
+done:
+	pr_debug("%s port_id %u rate %u delay_usec %d status %d\n",
+		__func__, port_id, rate, delay_entry.delay_usec, ret);
+	return ret;
+}
+
 void afe_send_cal(u16 port_id)
 {
 	pr_debug("%s\n", __func__);
@@ -427,6 +534,84 @@ void afe_send_cal(u16 port_id)
 		afe_send_cal_block(TX_CAL, port_id);
 	else if (afe_get_port_type(port_id) == MSM_AFE_PORT_TYPE_RX)
 		afe_send_cal_block(RX_CAL, port_id);
+}
+
+static int afe_slot_mapping_cfg(u16 port_id,
+		struct afe_param_id_slot_mapping_cfg *slot_mapping_cfg)
+{
+	struct afe_port_cmd_set_param config;
+	int cnt;
+	int index = 0;
+	int ret = -EINVAL;
+
+	index = port_id;
+	if (index < 0) {
+		pr_debug("%s: AFE port index invalid!\n", __func__);
+		goto done;
+	}
+
+	config.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
+		APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
+	config.hdr.pkt_size = sizeof(config);
+	config.hdr.src_port = 0;
+	config.hdr.dest_port = 0;
+	config.hdr.token = index;
+	config.hdr.opcode = AFE_PORT_CMD_SET_PARAM;
+
+	config.port_id = port_id;
+	config.payload_size = sizeof(struct afe_param_payload_base)+
+		sizeof(struct afe_param_id_slot_mapping_cfg);
+	config.payload_address = 0;
+
+	config.payload.base.module_id = AFE_MODULE_TDM;
+	config.payload.base.param_id = AFE_PARAM_ID_PORT_SLOT_MAPPING_CONFIG;
+	config.payload.base.param_size =
+		sizeof(struct afe_param_id_slot_mapping_cfg);
+	config.payload.base.reserved = 0;
+
+	config.payload.param.slot_mapping_cfg.minor_version =
+		AFE_API_VERSION_SLOT_MAPPING_CONFIG;
+	config.payload.param.slot_mapping_cfg.num_channel =
+		slot_mapping_cfg->num_channel;
+	config.payload.param.slot_mapping_cfg.bitwidth =
+		slot_mapping_cfg->bitwidth;
+	config.payload.param.slot_mapping_cfg.data_align_type =
+		AFE_SLOT_MAPPING_DATA_ALIGN_MSB;
+	for (cnt = 0; cnt < AFE_PORT_MAX_AUDIO_CHAN_CNT; cnt++) {
+		config.payload.param.slot_mapping_cfg.offset[cnt] =
+			slot_mapping_cfg->offset[cnt];
+	}
+
+	atomic_set(&this_afe.state, 1);
+	atomic_set(&this_afe.status, 0);
+	ret = apr_send_pkt(this_afe.apr, (uint32_t *) &config);
+	if (ret < 0) {
+		pr_err("%s: AFE slot mapping cfg for port %d failed\n",
+			__func__, port_id);
+		ret = -EINVAL;
+		goto done;
+	}
+
+	ret = wait_event_timeout(this_afe.wait,
+				(atomic_read(&this_afe.state) == 0),
+				msecs_to_jiffies(TIMEOUT_MS));
+
+	if (!ret) {
+		pr_err("%s: wait_event timeout SLOT MAPPING CONFIG\n",
+			__func__);
+		ret = -EINVAL;
+		goto done;
+	}
+	if (atomic_read(&this_afe.status) != 0) {
+		pr_err("%s: config cmd failed\n", __func__);
+		ret = -EINVAL;
+		goto done;
+	}
+
+done:
+	pr_debug("%s port_id %u slot mapping cfg status %d\n",
+		__func__, port_id, ret);
+	return ret;
 }
 
 /* This function sends multi-channel HDMI configuration command and AFE
@@ -447,11 +632,29 @@ int afe_port_start(u16 port_id, union afe_port_config *afe_config,
 	pr_debug("%s: %d %d\n", __func__, port_id, rate);
 
 	if ((port_id == RT_PROXY_DAI_001_RX) ||
-		(port_id == RT_PROXY_DAI_002_TX))
-		return 0;
-	if ((port_id == RT_PROXY_DAI_002_RX) ||
-		(port_id == RT_PROXY_DAI_001_TX))
+		(port_id == RT_PROXY_DAI_002_TX)) {
+		pr_debug("%s: before incrementing pcm_afe_instance %d"\
+				" port_id %d\n", __func__,
+				pcm_afe_instance[port_id & 0x1], port_id);
 		port_id = VIRTUAL_ID_TO_PORTID(port_id);
+		pcm_afe_instance[port_id & 0x1]++;
+		return 0;
+	}
+	if ((port_id == RT_PROXY_DAI_002_RX) ||
+		(port_id == RT_PROXY_DAI_001_TX)) {
+		pr_debug("%s: before incrementing proxy_afe_instance %d"\
+				" port_id %d\n", __func__,
+				proxy_afe_instance[port_id & 0x1], port_id);
+		if (!afe_close_done[port_id & 0x1]) {
+			/*close pcm dai corresponding to the proxy dai*/
+			afe_close(port_id - 0x10);
+			pcm_afe_instance[port_id & 0x1]++;
+			pr_debug("%s: reconfigure afe port again\n", __func__);
+		}
+		proxy_afe_instance[port_id & 0x1]++;
+		afe_close_done[port_id & 0x1] = false;
+		port_id = VIRTUAL_ID_TO_PORTID(port_id);
+	}
 
 	ret = afe_q6_interface_prepare();
 	if (IS_ERR_VALUE(ret))
@@ -549,6 +752,7 @@ int afe_port_start(u16 port_id, union afe_port_config *afe_config,
 
 	/* send AFE cal */
 	afe_send_cal(port_id);
+	afe_send_hw_delay(port_id, rate);
 
 	start.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
 				APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
@@ -590,6 +794,149 @@ int afe_port_start(u16 port_id, union afe_port_config *afe_config,
 fail_cmd:
 	return ret;
 }
+
+/* This function is used to support AFE group device by
+ * sending slot mapping data before AFE port start.
+ */
+int afe_group_dev_port_start(u16 port_id, union afe_port_config *afe_config,
+	u32 rate, struct afe_param_id_slot_mapping_cfg *slot_mapping_cfg)
+{
+	struct afe_port_start_command start;
+	struct afe_audioif_config_command config;
+	int ret;
+
+	if ((!afe_config) || (!slot_mapping_cfg)) {
+		pr_err("%s: Error, no configuration data\n", __func__);
+		ret = -EINVAL;
+		return ret;
+	}
+	pr_debug("%s: %d %d\n", __func__, port_id, rate);
+
+	ret = afe_q6_interface_prepare();
+	if (IS_ERR_VALUE(ret))
+		return ret;
+
+	config.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
+		APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
+	config.hdr.pkt_size = afe_sizeof_cfg_cmd(port_id);
+	config.hdr.src_port = 0;
+	config.hdr.dest_port = 0;
+	config.hdr.token = 0;
+	switch (port_id) {
+	case MI2S_RX_0:
+	case MI2S_TX_0:
+	case MI2S_RX_1:
+	case MI2S_TX_1:
+	case MI2S_RX_2:
+	case MI2S_TX_2:
+	case PRIMARY_I2S_TX_0:
+	case PRIMARY_I2S_TX_1:
+		/* AFE_PORT_CMD_I2S_CONFIG command is not supported
+		 * in the LPASS EL 1.0. So we have to distiguish
+		 * which AFE command, AFE_PORT_CMD_I2S_CONFIG or
+		 * AFE_PORT_AUDIO_IF_CONFIG	to use. If the format
+		 * is L-PCM, the AFE_PORT_AUDIO_IF_CONFIG is used
+		 * to make the backward compatible.
+		 */
+		pr_debug("%s: afe_config->mi2s.format = %d\n", __func__,
+			 afe_config->mi2s.format);
+		if (afe_config->mi2s.format == MSM_AFE_I2S_FORMAT_LPCM)
+			config.hdr.opcode = AFE_PORT_AUDIO_IF_CONFIG;
+		else
+			config.hdr.opcode = AFE_PORT_CMD_I2S_CONFIG;
+		break;
+	default:
+		pr_err("%s: Error, invalid group device port\n", __func__);
+		ret = -EINVAL;
+		goto fail_cmd;
+	}
+
+	config.port_id = port_id;
+	config.port = *afe_config;
+
+	atomic_set(&this_afe.state, 1);
+	atomic_set(&this_afe.status, 0);
+	ret = apr_send_pkt(this_afe.apr, (uint32_t *) &config);
+	if (ret < 0) {
+		pr_err("%s: AFE enable for port %d failed\n", __func__,
+				port_id);
+		ret = -EINVAL;
+		goto fail_cmd;
+	}
+
+	ret = wait_event_timeout(this_afe.wait,
+			(atomic_read(&this_afe.state) == 0),
+				msecs_to_jiffies(TIMEOUT_MS));
+
+	if (!ret) {
+		pr_err("%s: wait_event timeout IF CONFIG\n", __func__);
+		ret = -EINVAL;
+		goto fail_cmd;
+	}
+	if (atomic_read(&this_afe.status) != 0) {
+		pr_err("%s: config cmd failed\n", __func__);
+		ret = -EINVAL;
+		goto fail_cmd;
+	}
+
+	/* send AFE cal */
+	afe_send_cal(port_id);
+	afe_send_hw_delay(port_id, rate);
+
+	/* send AFE slot mapping */
+	ret = afe_slot_mapping_cfg(port_id, slot_mapping_cfg);
+	if (IS_ERR_VALUE(ret)) {
+		pr_err("%s: AFE slot mapping for port %d failed\n", __func__,
+				port_id);
+		ret = -EINVAL;
+		goto fail_cmd;
+	}
+
+	start.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
+				APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
+	start.hdr.pkt_size = sizeof(start);
+	start.hdr.src_port = 0;
+	start.hdr.dest_port = 0;
+	start.hdr.token = 0;
+	start.hdr.opcode = AFE_PORT_CMD_START;
+	start.port_id = port_id;
+	start.gain = 0x2000;
+	start.sample_rate = rate;
+
+	pr_info("%s: Start debug Info pi = %d, sr = %d\n", __func__,
+			config.port_id,
+			start.sample_rate);
+
+	atomic_set(&this_afe.state, 1);
+	ret = apr_send_pkt(this_afe.apr, (uint32_t *) &start);
+
+	if (IS_ERR_VALUE(ret)) {
+		pr_err("%s: AFE enable for port %d failed\n", __func__,
+				port_id);
+		ret = -EINVAL;
+		goto fail_cmd;
+	}
+
+	ret = wait_event_timeout(this_afe.wait,
+			(atomic_read(&this_afe.state) == 0),
+				msecs_to_jiffies(TIMEOUT_MS));
+	if (!ret) {
+		pr_err("%s: wait_event timeout PORT START\n", __func__);
+		ret = -EINVAL;
+		goto fail_cmd;
+	}
+
+	if (this_afe.task != current)
+		this_afe.task = current;
+
+	pr_debug("task_name = %s pid = %d\n",
+	this_afe.task->comm, this_afe.task->pid);
+	return 0;
+
+fail_cmd:
+	return ret;
+}
+
 
 /* This function should be used by 8660 exclusively */
 int afe_open(u16 port_id, union afe_port_config *afe_config, int rate)
@@ -827,7 +1174,7 @@ int afe_loopback_cfg(u16 enable, u16 dst_port, u16 src_port, u16 mode)
 	ret = wait_event_timeout(this_afe.wait,
 		(atomic_read(&this_afe.state) == 0),
 			msecs_to_jiffies(TIMEOUT_MS));
-	if (ret < 0) {
+	if (!ret) {
 		pr_err("%s: wait_event timeout\n", __func__);
 		ret = -EINVAL;
 		goto fail_cmd;
@@ -905,7 +1252,7 @@ int afe_loopback_gain(u16 port_id, u16 volume)
 	ret = wait_event_timeout(this_afe.wait,
 		(atomic_read(&this_afe.state) == 0),
 			msecs_to_jiffies(TIMEOUT_MS));
-	if (ret < 0) {
+	if (!ret) {
 		pr_err("%s: wait_event timeout\n", __func__);
 		ret = -EINVAL;
 		goto fail_cmd;
@@ -966,7 +1313,7 @@ int afe_apply_gain(u16 port_id, u16 gain)
 	ret = wait_event_timeout(this_afe.wait,
 		(atomic_read(&this_afe.state) == 0),
 			msecs_to_jiffies(TIMEOUT_MS));
-	if (ret < 0) {
+	if (!ret) {
 		pr_err("%s: wait_event timeout\n", __func__);
 		ret = -EINVAL;
 		goto fail_cmd;
@@ -1480,6 +1827,159 @@ int afe_rt_proxy_port_read(u32 buf_addr_p, int bytes)
 	return 0;
 }
 
+int afe_group_device_i2s_config(
+	struct afe_param_id_group_device_i2s_cfg_v1 *cfg)
+{
+	struct afe_service_cmd_set_param config;
+	int i;
+	int ret = 0;
+
+	if (!cfg) {
+		pr_err("%s: Error, no configuration data\n", __func__);
+		ret = -EINVAL;
+		return ret;
+	}
+
+	ret = afe_q6_interface_prepare();
+	if (ret != 0)
+		return ret;
+
+	pr_debug("%s: q6 interface ready\n", __func__);
+
+	config.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
+				APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
+	config.hdr.pkt_size = sizeof(config);
+	config.hdr.src_port = 0;
+	config.hdr.dest_port = 0;
+	config.hdr.token = 0;
+	config.hdr.opcode = AFE_SERVICE_CMD_SET_PARAM_V1;
+
+	config.payload_size	= sizeof(struct afe_param_payload_base) +
+		sizeof(struct afe_param_id_group_device_i2s_cfg_v1);
+	config.payload_address	= 0;
+
+	config.payload.base.module_id = AFE_MODULE_GROUP_DEVICE;
+	config.payload.base.param_id	= AFE_PARAM_ID_GROUP_DEVICE_I2S_CONFIG;
+	config.payload.base.param_size =
+		sizeof(struct afe_param_id_group_device_i2s_cfg_v1);
+	config.payload.base.reserved	= 0;
+
+	config.payload.param.group_device_i2s_cfg.minor_version =
+		AFE_API_VERSION_GROUP_DEVICE_I2S_CONFIG;
+	config.payload.param.group_device_i2s_cfg.group_id = cfg->group_id;
+	config.payload.param.group_device_i2s_cfg.channel_mode =
+		cfg->channel_mode;
+	config.payload.param.group_device_i2s_cfg.sample_rate =
+		cfg->sample_rate;
+	for (i = 0; i < AFE_GROUP_DEVICE_NUM_PORTS; i++)
+		config.payload.param.group_device_i2s_cfg.port_id[i] =
+			cfg->port_id[i];
+	config.payload.param.group_device_i2s_cfg.bit_width = cfg->bit_width;
+	config.payload.param.group_device_i2s_cfg.reserved = 0;
+
+	atomic_set(&this_afe.state, 1);
+	atomic_set(&this_afe.status, 0);
+	ret = apr_send_pkt(this_afe.apr, (uint32_t *) &config);
+	if (ret < 0) {
+		pr_err("%s: group dev i2s config failed for group_id %d\n",
+			__func__,
+			config.payload.param.group_device_i2s_cfg.group_id);
+		ret = -EINVAL;
+		goto done;
+	}
+
+	ret = wait_event_timeout(this_afe.wait,
+				(atomic_read(&this_afe.state) == 0),
+				msecs_to_jiffies(TIMEOUT_MS));
+
+	if (!ret) {
+		pr_err("%s: wait_event timeout group device config\n",
+			__func__);
+		ret = -EINVAL;
+		goto done;
+	}
+	if (atomic_read(&this_afe.status) != 0) {
+		pr_err("%s: config cmd failed\n", __func__);
+		ret = -EINVAL;
+		goto done;
+	}
+
+done:
+	pr_debug("%s group_id %u group device i2s cfg status %d\n",
+		__func__,
+		config.payload.param.group_device_i2s_cfg.group_id,
+		ret);
+	return ret;
+}
+
+int afe_group_device_enable(u16 group_id, u16 enable)
+{
+	struct afe_service_cmd_set_param config;
+	int ret = 0;
+
+	ret = afe_q6_interface_prepare();
+	if (ret != 0)
+		return ret;
+
+	pr_debug("%s: q6 interface ready\n", __func__);
+
+	config.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
+		APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
+	config.hdr.pkt_size = sizeof(config);
+	config.hdr.src_port = 0;
+	config.hdr.dest_port = 0;
+	config.hdr.token = 0;
+	config.hdr.opcode = AFE_SERVICE_CMD_SET_PARAM_V1;
+
+	config.payload_size = sizeof(struct afe_param_payload_base) +
+		sizeof(struct afe_param_id_group_device_enable);
+	config.payload_address = 0;
+
+	config.payload.base.module_id = AFE_MODULE_GROUP_DEVICE;
+	config.payload.base.param_id = AFE_PARAM_ID_GROUP_DEVICE_ENABLE;
+	config.payload.base.param_size =
+		sizeof(struct afe_param_id_group_device_enable);
+	config.payload.base.reserved = 0;
+
+	config.payload.param.group_device_enable.group_id =
+		group_id;
+	config.payload.param.group_device_enable.enable = enable;
+
+	atomic_set(&this_afe.state, 1);
+	atomic_set(&this_afe.status, 0);
+	ret = apr_send_pkt(this_afe.apr, (uint32_t *) &config);
+	if (ret < 0) {
+		pr_err("%s: AFE group device enable failed for group_id %d\n",
+			__func__,
+			config.payload.param.group_device_enable.group_id);
+		ret = -EINVAL;
+		goto done;
+	}
+
+	ret = wait_event_timeout(this_afe.wait,
+				(atomic_read(&this_afe.state) == 0),
+				msecs_to_jiffies(TIMEOUT_MS));
+
+	if (!ret) {
+		pr_err("%s: wait_event timeout group device enable\n",
+			__func__);
+		ret = -EINVAL;
+		goto done;
+	}
+	if (atomic_read(&this_afe.status) != 0) {
+		pr_err("%s: enable cmd failed\n", __func__);
+		ret = -EINVAL;
+		goto done;
+	}
+
+done:
+	pr_debug("%s group_id %u group device enable status %d\n",
+		__func__,
+		config.payload.param.group_device_enable.group_id,
+		ret);
+	return ret;
+}
+
 #ifdef CONFIG_DEBUG_FS
 static struct dentry *debugfs_afelb;
 static struct dentry *debugfs_afelb_gain;
@@ -1574,7 +2074,7 @@ static ssize_t afe_debug_write(struct file *filp,
 				goto afe_error;
 			}
 
-			if (param[1] < 0 || param[1] > 100) {
+			if (param[1] > 100) {
 				pr_err("%s: Error, volume shoud be 0 to 100"
 					" percentage param = %lu\n",
 					__func__, param[1]);
@@ -1641,7 +2141,7 @@ int afe_sidetone(u16 tx_port_id, u16 rx_port_id, u16 enable, uint16_t gain)
 	ret = wait_event_timeout(this_afe.wait,
 		(atomic_read(&this_afe.state) == 0),
 			msecs_to_jiffies(TIMEOUT_MS));
-	if (ret < 0) {
+	if (!ret) {
 		pr_err("%s: wait_event timeout\n", __func__);
 		ret = -EINVAL;
 		goto fail_cmd;
@@ -1700,6 +2200,35 @@ int afe_close(int port_id)
 		goto fail_cmd;
 	}
 	pr_debug("%s: port_id=%d\n", __func__, port_id);
+
+	if ((port_id == RT_PROXY_DAI_001_RX) ||
+		(port_id == RT_PROXY_DAI_002_TX)) {
+		pr_debug("%s: before decrementing pcm_afe_instance %d\n",
+				__func__, pcm_afe_instance[port_id & 0x1]);
+		port_id = VIRTUAL_ID_TO_PORTID(port_id);
+		pcm_afe_instance[port_id & 0x1]--;
+		if ((!(pcm_afe_instance[port_id & 0x1] == 0 &&
+			proxy_afe_instance[port_id & 0x1] == 0)) ||
+			afe_close_done[port_id & 0x1] == true)
+			return 0;
+		else
+			afe_close_done[port_id & 0x1] = true;
+	}
+
+	if ((port_id == RT_PROXY_DAI_002_RX) ||
+		(port_id == RT_PROXY_DAI_001_TX)) {
+		pr_debug("%s: before decrementing proxy_afe_instance %d\n",
+				__func__, proxy_afe_instance[port_id & 0x1]);
+		port_id = VIRTUAL_ID_TO_PORTID(port_id);
+		proxy_afe_instance[port_id & 0x1]--;
+		if ((!(pcm_afe_instance[port_id & 0x1] == 0 &&
+			proxy_afe_instance[port_id & 0x1] == 0)) ||
+			afe_close_done[port_id & 0x1] == true)
+			return 0;
+		else
+			afe_close_done[port_id & 0x1] = true;
+	}
+
 	port_id = afe_convert_virtual_to_portid(port_id);
 
 	stop.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
@@ -1746,11 +2275,11 @@ static int __init afe_init(void)
 	this_afe.apr = NULL;
 #ifdef CONFIG_DEBUG_FS
 	debugfs_afelb = debugfs_create_file("afe_loopback",
-	S_IFREG | (S_IWUSR|S_IWGRP), NULL, (void *) "afe_loopback",
+	0220, NULL, (void *) "afe_loopback",
 	&afe_debug_fops);
 
 	debugfs_afelb_gain = debugfs_create_file("afe_loopback_gain",
-	S_IFREG | (S_IWUSR|S_IWGRP), NULL, (void *) "afe_loopback_gain",
+	0220, NULL, (void *) "afe_loopback_gain",
 	&afe_debug_fops);
 
 

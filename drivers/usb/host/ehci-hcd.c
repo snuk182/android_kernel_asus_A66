@@ -46,6 +46,7 @@
 #include <asm/io.h>
 #include <asm/irq.h>
 #include <asm/unaligned.h>
+#include "../core/usb.h"
 
 #if defined(CONFIG_PPC_PS3)
 #include <asm/firmware.h>
@@ -94,7 +95,7 @@ static const char	hcd_name [] = "ehci_hcd";
  */
 #define	EHCI_TUNE_FLS		1	/* (medium) 512-frame schedule */
 
-#define EHCI_IAA_MSECS		10		/* arbitrary */
+#define EHCI_IAA_MSECS		100		/* arbitrary */
 #define EHCI_IO_JIFFIES		(HZ/10)		/* io watchdog > irq_thresh */
 #define EHCI_ASYNC_JIFFIES	(HZ/20)		/* async idle timeout */
 #define EHCI_SHRINK_JIFFIES	(DIV_ROUND_UP(HZ, 200) + 1)
@@ -439,6 +440,11 @@ static void ehci_iaa_watchdog(unsigned long param)
 	}
 
 	spin_unlock_irqrestore(&ehci->lock, flags);
+	if (ehci_to_hcd(ehci)->rh_registered) {
+		ehci_vdbg(ehci, "Calling usb_hc_died()\n");
+		usb_atomic_notify_dead_bus(&ehci_to_hcd(ehci)->self);
+		ehci_vdbg(ehci, "eHCI Host Controller is dead.\n");
+	}
 }
 
 static void ehci_watchdog(unsigned long param)
@@ -684,7 +690,9 @@ static int ehci_init(struct usb_hcd *hcd)
 	hw = ehci->async->hw;
 	hw->hw_next = QH_NEXT(ehci, ehci->async->qh_dma);
 	hw->hw_info1 = cpu_to_hc32(ehci, QH_HEAD);
+#if defined(CONFIG_PPC_PS3)
 	hw->hw_info1 |= cpu_to_hc32(ehci, (1 << 7));	/* I = 1 */
+#endif
 	hw->hw_token = cpu_to_hc32(ehci, QTD_STS_HALT);
 	hw->hw_qtd_next = EHCI_LIST_END(ehci);
 	ehci->async->qh_state = QH_STATE_LINKED;

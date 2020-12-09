@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -24,6 +24,11 @@
 #include <mach/peripheral-loader.h>
 #include <mach/subsystem_restart.h>
 #include <mach/subsystem_notif.h>
+
+#if defined(CONFIG_LGE_CRASH_HANDLER)
+#include <mach/restart.h>
+#include <mach/board_lge.h>
+#endif
 
 #include "smd_private.h"
 #include "ramdump.h"
@@ -120,6 +125,10 @@ static void lpass_fatal_fn(struct work_struct *work)
 	pr_err("%s %s: Watchdog bite received from Q6!\n", MODULE_NAME,
 		__func__);
 	lpass_log_failure_reason();
+#if defined(CONFIG_LGE_CRASH_HANDLER)
+	set_ssr_magic_number("lpass");
+	msm_set_restart_mode(0x6d634130);
+#endif
 	panic(MODULE_NAME ": Resetting the SoC");
 }
 
@@ -135,6 +144,10 @@ static void lpass_smsm_state_cb(void *data, uint32_t old_state,
 			" new_state = 0x%x, old_state = 0x%x\n", __func__,
 			new_state, old_state);
 		lpass_log_failure_reason();
+#if defined(CONFIG_LGE_CRASH_HANDLER)
+		set_ssr_magic_number("lpass");
+		msm_set_restart_mode(0x6d634130);
+#endif
 		panic(MODULE_NAME ": Resetting the SoC");
 	}
 }
@@ -152,7 +165,7 @@ static void send_q6_nmi(void)
 	pr_debug("%s: Q6 NMI was sent.\n", __func__);
 }
 
-static int lpass_shutdown(const struct subsys_data *subsys)
+static int lpass_shutdown(const struct subsys_desc *subsys)
 {
 	send_q6_nmi();
 	pil_force_shutdown("q6");
@@ -161,7 +174,7 @@ static int lpass_shutdown(const struct subsys_data *subsys)
 	return 0;
 }
 
-static int lpass_powerup(const struct subsys_data *subsys)
+static int lpass_powerup(const struct subsys_desc *subsys)
 {
 	int ret = pil_force_boot("q6");
 	enable_irq(LPASS_Q6SS_WDOG_EXPIRED);
@@ -170,7 +183,7 @@ static int lpass_powerup(const struct subsys_data *subsys)
 /* RAM segments - address and size for 8960 */
 static struct ramdump_segment q6_segments[] = { {0x8da00000, 0x8f200000 -
 					0x8da00000}, {0x28400000, 0x20000} };
-static int lpass_ramdump(int enable, const struct subsys_data *subsys)
+static int lpass_ramdump(int enable, const struct subsys_desc *subsys)
 {
 	pr_debug("%s: enable[%d]\n", __func__, enable);
 	if (enable)
@@ -181,7 +194,7 @@ static int lpass_ramdump(int enable, const struct subsys_data *subsys)
 		return 0;
 }
 
-static void lpass_crash_shutdown(const struct subsys_data *subsys)
+static void lpass_crash_shutdown(const struct subsys_desc *subsys)
 {
 	q6_crash_shutdown = 1;
 	send_q6_nmi();
@@ -198,7 +211,9 @@ static irqreturn_t lpass_wdog_bite_irq(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
-static struct subsys_data lpass_8960 = {
+static struct subsys_device *lpass_8960_dev;
+
+static struct subsys_desc lpass_8960 = {
 	.name = "lpass",
 	.shutdown = lpass_shutdown,
 	.powerup = lpass_powerup,
@@ -208,7 +223,10 @@ static struct subsys_data lpass_8960 = {
 
 static int __init lpass_restart_init(void)
 {
-	return ssr_register_subsystem(&lpass_8960);
+	lpass_8960_dev = subsys_register(&lpass_8960);
+	if (IS_ERR(lpass_8960_dev))
+		return PTR_ERR(lpass_8960_dev);
+	return 0;
 }
 
 static int __init lpass_fatal_init(void)
@@ -275,6 +293,7 @@ static void __exit lpass_fatal_exit(void)
 {
 	subsys_notif_unregister_notifier(ssr_notif_hdle, &rnb);
 	subsys_notif_unregister_notifier(ssr_modem_notif_hdle, &mnb);
+	subsys_unregister(lpass_8960_dev);
 	free_irq(LPASS_Q6SS_WDOG_EXPIRED, NULL);
 }
 

@@ -210,8 +210,8 @@ static int ehci_bus_suspend (struct usb_hcd *hcd)
 
 	ehci_dbg(ehci, "suspend root hub\n");
 
-	if (time_before (jiffies, ehci->next_statechange))
-		msleep(5);
+	if (time_before_eq(jiffies, ehci->next_statechange))
+		usleep_range(10000, 10000);
 	del_timer_sync(&ehci->watchdog);
 	del_timer_sync(&ehci->iaa_watchdog);
 
@@ -345,8 +345,8 @@ static int ehci_bus_resume (struct usb_hcd *hcd)
 	int			i;
 	unsigned long		resume_needed = 0;
 
-	if (time_before (jiffies, ehci->next_statechange))
-		msleep(5);
+	if (time_before_eq(jiffies, ehci->next_statechange))
+		usleep_range(10000, 10000);
 	spin_lock_irq (&ehci->lock);
 	if (!HCD_HW_ACCESSIBLE(hcd)) {
 		spin_unlock_irq(&ehci->lock);
@@ -639,7 +639,11 @@ ehci_hub_status_data (struct usb_hcd *hcd, char *buf)
 			status = STS_PCD;
 		}
 	}
-	/* FIXME autosuspend idle root hubs */
+
+	/* If a resume is in progress, make sure it can finish */
+	if (ehci->resuming_ports)
+		mod_timer(&hcd->rh_timer, jiffies + msecs_to_jiffies(25));
+
 	spin_unlock_irqrestore (&ehci->lock, flags);
 	return status ? retval : 0;
 }
@@ -766,12 +770,20 @@ static int ehset_single_step_set_feature(struct usb_hcd *hcd, int port)
 	struct usb_device_descriptor *buf;
 	DECLARE_COMPLETION_ONSTACK(done);
 
-	/*Obtain udev of the rhub's child port */
-	udev = hcd->self.root_hub->children[port];
+	/* Obtain udev of the rhub's child port */
+	udev = hcd->self.root_hub->children[0];
+
+	/*
+	 * If DUT is external HUB connected to root-hub port then
+	 * obtain udev of the hubs's child port.
+	 */
+	if (udev->maxchild)
+		udev = udev->children[port];
 	if (!udev) {
-		ehci_err(ehci, "No device attached to the RootHub\n");
+		ehci_err(ehci, "No device attached to the Hub port under test\n");
 		return -ENODEV;
 	}
+
 	buf = kmalloc(USB_DT_DEVICE_SIZE, GFP_KERNEL);
 	if (!buf)
 		return -ENOMEM;
@@ -839,7 +851,7 @@ static int ehci_hub_control (
 	u32 __iomem	*status_reg = &ehci->regs->port_status[
 				(wIndex & 0xff) - 1];
 	u32 __iomem	*hostpc_reg = NULL;
-	u32		temp, temp1, status, cmd = 0;
+	u32		temp, temp1, status;
 	unsigned long	flags;
 	int		retval = 0;
 	unsigned	selector;
@@ -1135,7 +1147,13 @@ static int ehci_hub_control (
 				goto error_exit;
 			}
 		}
-		if (!wIndex || wIndex > ports)
+		/*
+		 * If single step setfeature is for external HUB connected to
+		 * root-hub port then external hub ports are
+		 * greater than HC ports.
+		 */
+		if (!wIndex || (wIndex > ports &&
+			selector != EHSET_TEST_SINGLE_STEP_SET_FEATURE))
 			goto error;
 		wIndex--;
 		temp = ehci_readl(ehci, status_reg);
@@ -1218,31 +1236,13 @@ static int ehci_hub_control (
 				ehci->reset_done [wIndex] = jiffies
 						+ msecs_to_jiffies (50);
 			}
-
-			if (ehci->reset_sof_bug && (temp & PORT_RESET)) {
-				cmd = ehci_readl(ehci, &ehci->regs->command);
-				cmd &= ~CMD_RUN;
-				ehci_writel(ehci, cmd, &ehci->regs->command);
-				if (handshake(ehci, &ehci->regs->status,
-						STS_HALT, STS_HALT, 16 * 125))
-					ehci_info(ehci,
-						"controller halt failed\n");
-			}
-			ehci_writel(ehci, temp, status_reg);
-			if (ehci->reset_sof_bug && (temp & PORT_RESET)
-				&& hcd->driver->enable_ulpi_control) {
-				hcd->driver->enable_ulpi_control(hcd,
-						PORT_RESET);
+			if (ehci->reset_sof_bug && (temp & PORT_RESET) &&
+					hcd->driver->reset_sof_bug_handler) {
 				spin_unlock_irqrestore(&ehci->lock, flags);
-				usleep_range(50000, 55000);
-				if (handshake(ehci, status_reg,
-						PORT_RESET, 0, 10 * 1000))
-					ehci_info(ehci,
-						"failed to clear reset\n");
+				hcd->driver->reset_sof_bug_handler(hcd, temp);
 				spin_lock_irqsave(&ehci->lock, flags);
-				hcd->driver->disable_ulpi_control(hcd);
-				cmd |= CMD_RUN;
-				ehci_writel(ehci, cmd, &ehci->regs->command);
+			} else {
+				ehci_writel(ehci, temp, status_reg);
 			}
 			break;
 

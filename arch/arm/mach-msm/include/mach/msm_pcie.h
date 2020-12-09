@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -19,10 +19,11 @@
 enum msm_pcie_gpio {
 	MSM_PCIE_GPIO_RST_N,
 	MSM_PCIE_GPIO_PWR_EN,
+	MSM_PCIE_GPIO_CLK_SRC,
 	MSM_PCIE_MAX_GPIO
 };
 
-/* gpio info structrue */
+/* gpio info structure */
 struct msm_pcie_gpio_info_t {
 	char      *name;
 	uint32_t   num;
@@ -32,8 +33,11 @@ struct msm_pcie_gpio_info_t {
 /* msm pcie platfrom data */
 struct msm_pcie_platform {
 	struct msm_pcie_gpio_info_t  *gpio;
+
 	uint32_t                      axi_addr;
 	uint32_t                      axi_size;
+	uint32_t                      wake_n;
+	uint32_t                      vreg_n;
 };
 
 #endif
