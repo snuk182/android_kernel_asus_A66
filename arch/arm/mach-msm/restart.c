@@ -296,6 +296,12 @@ void msm_restart(char mode, const char *cmd)
 #endif
 
 	printk(KERN_NOTICE "Going down for restart now\n");
+	
+			{ // jack added to get correct time for last shutdown log +++++++++++
+            void get_last_shutdown_log(void);
+            get_last_shutdown_log();       
+            
+        }// jack added to get correct time for last shutdown log ------------
 
 	pm8xxx_reset_pwr_off(1);
 

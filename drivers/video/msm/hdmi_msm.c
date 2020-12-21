@@ -1215,7 +1215,8 @@ static void hdmi_msm_isr_handle_hpd(uint32 hpd_int_ctrl)
 	DEV_DBG("%s: Queuing work to handle HPD %s event\n", __func__,
 			external_common_state->hpd_state ? "connect" :
 			"disconnect");
-	queue_work(hdmi_work_queue, &hdmi_msm_state->hpd_state_work);
+	//queue_work(hdmi_work_queue, &hdmi_msm_state->hpd_state_work);
+	queue_delayed_work(hdmi_work_queue, &hdmi_msm_state->hpd_state_work, 20);
 }
 #else
 static void hdmi_msm_isr_handle_hpd(uint32 hpd_int_ctrl) {}
@@ -5362,7 +5363,7 @@ static int __devinit hdmi_msm_probe(struct platform_device *pdev)
 	hdmi_msm_state->is_mhl_enabled = hdmi_msm_state->pd->is_mhl_enabled;
 
 	hdmi_msm_state->is_splash_enabled =
-		hdmi_msm_state->pd->splash_is_enabled();
+		hdmi_msm_state->pd->splash_is_enabled && hdmi_msm_state->pd->splash_is_enabled();
 
 	rc = check_hdmi_features();
 	if (rc) {
@@ -5800,7 +5801,9 @@ static int __init hdmi_msm_init(void)
 	hdmi_msm_panel_data.panel_info.pdest = info.dest;
 	init_completion(&hdmi_msm_state->ddc_sw_done);
 	init_completion(&hdmi_msm_state->hpd_event_processed);
-	INIT_WORK(&hdmi_msm_state->hpd_state_work, hdmi_msm_hpd_state_work);
+	//INIT_WORK(&hdmi_msm_state->hpd_state_work, hdmi_msm_hpd_state_work);
+	INIT_DELAYED_WORK(&hdmi_msm_state->hpd_state_work, hdmi_msm_hpd_state_work);
+    
 
 #ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL_CEC_SUPPORT
 	INIT_WORK(&hdmi_msm_state->cec_latch_detect_work,
