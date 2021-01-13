@@ -1332,7 +1332,9 @@ void asus_draw_last_screen(u32 img_color)
     }
 
     mdp4_overlay_vsync_ctrl(fbi, 1);
-    asus_update_screen(&(fbi->var),fbi);
+    if (fbi) {
+		asus_update_screen(&(fbi->var),fbi);
+	}
     mdp4_overlay_vsync_ctrl(fbi, 0);
 
     fbi->var.yoffset = tmp_yoffset;
@@ -1720,7 +1722,9 @@ void printk_lcd_string(int xx, int yy, char* message,  unsigned int color)
         }
     }
     
-    asus_update_screen(&(fbi->var),fbi);
+    if (fbi) {
+		asus_update_screen(&(fbi->var),fbi);
+	}
 #endif
 }
 void printk_bar(int xx, int yy, int width, int height, unsigned int color)
@@ -1758,7 +1762,9 @@ void printk_bar(int xx, int yy, int width, int height, unsigned int color)
         }
 
     }
-    asus_update_screen(&(fbi->var),fbi);
+    if (fbi) {
+		asus_update_screen(&(fbi->var),fbi);
+	}
 #endif
 }
 void printk_lcd_xy(int xx, int yy, unsigned int color, const char *fmt, ...)

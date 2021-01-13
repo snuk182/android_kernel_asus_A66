@@ -1049,6 +1049,7 @@ asmlinkage int vprintk(const char *fmt, va_list args)
 #ifdef	CONFIG_DEBUG_LL
 	printascii(printk_buf);
 #endif
+//	printk_lcd(printk_buf);
 
 	p = printk_buf;
 

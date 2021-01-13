@@ -440,6 +440,8 @@ static int adb_open(struct inode *ip, struct file *fp)
 {
 	static DEFINE_RATELIMIT_STATE(rl, 10*HZ, 1);
 
+pr_info("adb open !!!");
+
 	if (__ratelimit(&rl))
 		pr_info("adb_open\n");
 	if (!_adb_dev)

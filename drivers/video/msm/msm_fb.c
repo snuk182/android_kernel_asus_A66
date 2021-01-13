@@ -409,7 +409,7 @@ static int msm_fb_probe(struct platform_device *pdev)
 			printk(KERN_ERR "fbram ioremap failed!\n");
 			return -ENOMEM;
 		}
-		MSM_FB_DEBUG("msm_fb_probe:  phy_Addr = 0x%x virt = 0x%x\n",
+		MSM_FB_INFO("msm_fb_probe:  phy_Addr = 0x%x virt = 0x%x\n",
 			     (int)fbram_phys, (int)fbram);
 
 		iclient = msm_ion_client_create(-1, pdev->name);
