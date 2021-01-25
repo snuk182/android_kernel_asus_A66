@@ -91,7 +91,7 @@ obj-$(CONFIG_FB_MSM_MIPI_DSI_SIMULATOR) += mipi_simulator.o
 obj-$(CONFIG_FB_MSM_MIPI_DSI_I2C) += mipi_dsi_i2c.o
 
 # ADV7533
-obj-y += adv7533.o
+obj-$(CONFIG_FB_MSM_MIPI_DSI_I2C) += adv7533.o
 
 # MIPI Bridge
 obj-$(CONFIG_FB_MSM_MIPI_DSI_TC358764_DSI2LVDS) += mipi_tc358764_dsi2lvds.o
