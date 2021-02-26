@@ -204,7 +204,6 @@ struct msm_fb_panel_data {
 	int (*clk_func) (int enable);
 	int (*fps_level_change) (struct platform_device *pdev,
 					u32 fps_level);
-	int (*update_panel) (struct platform_device *pdev);
 	int (*low_power_config) (struct platform_device *pdev, int enable);
 };
 
