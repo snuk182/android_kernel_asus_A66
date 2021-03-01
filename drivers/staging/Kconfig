@@ -82,8 +82,6 @@ source "drivers/staging/iio/Kconfig"
 
 source "drivers/staging/zram/Kconfig"
 
-source "drivers/staging/zcache/Kconfig"
-
 source "drivers/staging/qcache/Kconfig"
 
 source "drivers/staging/zsmalloc/Kconfig"
