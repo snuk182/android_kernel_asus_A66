@@ -57,7 +57,7 @@
  *
  *	page->private (union with page->first_page): refers to the
  *		component page after the first page
- *	page->freelist: points to the first free object in zspage.
+z *	page->freelist: points to the first free object in zspage.
  *		Free objects are linked together using in-place
  *		metadata.
  *	page->objects: maximum number of objects we can store in this
@@ -239,7 +239,6 @@ struct mapping_area {
 	char *vm_addr; /* address of kmap_atomic()'ed pages */
 	enum zs_mapmode vm_mm; /* mapping mode */
 };
-
 
 /* per-cpu VM mapping areas for zspage accesses that cross page boundaries */
 static DEFINE_PER_CPU(struct mapping_area, zs_map_area);
