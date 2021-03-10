@@ -153,30 +153,9 @@ int proc_nr_dentry(ctl_table *table, int write, void __user *buffer,
  * In contrast, 'ct' and 'tcount' can be from a pathname, and do
  * need the careful unaligned handling.
  */
-static inline int dentry_cmp(const struct dentry *dentry, const unsigned char *ct, unsigned tcount)
+static inline int dentry_string_cmp(const unsigned char *cs, const unsigned char *ct, unsigned tcount)
 {
 	unsigned long a,b,mask;
-	const unsigned char *cs;
-
-	if (unlikely(dentry->d_name.len != tcount))
-		return 1;
-	/*
-	 * Be careful about RCU walk racing with rename:
-	 * use ACCESS_ONCE to fetch the name pointer.
-	 *
-	 * NOTE! Even if a rename will mean that the length
-	 * was not loaded atomically, we don't care. The
-	 * RCU walk will check the sequence count eventually,
-	 * and catch it. And we won't overrun the buffer,
-	 * because we're reading the name pointer atomically,
-	 * and a dentry name is guaranteed to be properly
-	 * terminated with a NUL byte.
-	 *
-	 * End result: even if 'len' is wrong, we'll exit
-	 * early because the data cannot match (there can
-	 * be no NUL in the ct/tcount data)
-	 */
-	cs = ACCESS_ONCE(dentry->d_name.name);
 
 	for (;;) {
 		a = *(unsigned long *)cs;
@@ -197,13 +176,8 @@ static inline int dentry_cmp(const struct dentry *dentry, const unsigned char *c
 
 #else
 
-static inline int dentry_cmp(const struct dentry *dentry, const unsigned char *ct, unsigned tcount)
+static inline int dentry_string_cmp(const unsigned char *cs, const unsigned char *ct, unsigned tcount)
 {
-	const unsigned char *cs = dentry->d_name.name;
-
-	if (dentry->d_name.len != tcount)
-		return 1;
-
 	do {
 		if (*cs != *ct)
 			return 1;
@@ -227,6 +201,27 @@ struct external_name {
 static inline struct external_name *external_name(struct dentry *dentry)
 {
     return container_of(dentry->d_name.name, struct external_name, name[0]);
+}
+
+static inline int dentry_cmp(const struct dentry *dentry, const unsigned char *ct, unsigned tcount)
+{
+	/*
+	 * Be careful about RCU walk racing with rename:
+	 * use ACCESS_ONCE to fetch the name pointer.
+	 *
+	 * NOTE! Even if a rename will mean that the length
+	 * was not loaded atomically, we don't care. The
+	 * RCU walk will check the sequence count eventually,
+	 * and catch it. And we won't overrun the buffer,
+	 * because we're reading the name pointer atomically,
+	 * and a dentry name is guaranteed to be properly
+	 * terminated with a NUL byte.
+	 *
+	 * End result: even if 'len' is wrong, we'll exit
+	 * early because the data cannot match (there can
+	 * be no NUL in the ct/tcount data)
+	 */
+	return dentry_string_cmp(ACCESS_ONCE(dentry->d_name.name), ct, tcount);
 }
 
 static void __d_free(struct rcu_head *head)
@@ -1550,6 +1545,8 @@ static struct dentry *__d_instantiate_unique(struct dentry *entry,
 			continue;
 		if (alias->d_parent != entry->d_parent)
 			continue;
+		if (alias->d_name.len != len)
+			continue;
 		if (dentry_cmp(alias, name, len))
 			continue;
 		__dget(alias);
@@ -1589,7 +1586,7 @@ struct dentry *d_make_root(struct inode *root_inode)
 	struct dentry *res = NULL;
 
 	if (root_inode) {
-		static const struct qstr name = { .name = "/", .len = 1 };
+		static const struct qstr name = QSTR_INIT("/", 1);
 
 		res = __d_alloc(root_inode->i_sb, &name);
 		if (res)
@@ -1903,10 +1900,9 @@ struct dentry *__d_lookup_rcu(const struct dentry *parent,
 				const struct qstr *name,
 				unsigned *seqp, struct inode *inode)
 {
-	unsigned int len = name->len;
-	unsigned int hash = name->hash;
+	u64 hashlen = name->hash_len;
 	const unsigned char *str = name->name;
-	struct hlist_bl_head *b = d_hash(parent, hash);
+	struct hlist_bl_head *b = d_hash(parent, hashlen_hash(hashlen));
 	struct hlist_bl_node *node;
 	struct dentry *dentry;
 
@@ -1933,9 +1929,6 @@ struct dentry *__d_lookup_rcu(const struct dentry *parent,
 	hlist_bl_for_each_entry_rcu(dentry, node, b, d_hash) {
 		unsigned seq;
 
-		if (dentry->d_name.hash != hash)
-			continue;
-
 seqretry:
 		/*
 		 * The dentry sequence count protects us from concurrent
@@ -1960,6 +1953,8 @@ seqretry:
 		*seqp = seq;
 
 		if (unlikely(parent->d_flags & DCACHE_OP_COMPARE)) {
+			if (dentry->d_name.hash != hashlen_hash(hashlen))
+				continue;
 			switch (slow_dentry_cmp(parent, inode, dentry, seq, name)) {
 			case D_COMP_OK:
 				return dentry;
@@ -1970,7 +1965,9 @@ seqretry:
 			}
 		}
 
-		if (!dentry_cmp(dentry, str, len))
+		if (dentry->d_name.hash_len != hashlen)
+			continue;
+		if (!dentry_cmp(dentry, str, hashlen_len(hashlen)))
 			return dentry;
 	}
 	return NULL;
@@ -2072,6 +2069,8 @@ struct dentry *__d_lookup(const struct dentry *parent, const struct qstr *name)
 						tlen, tname, name))
 				goto next;
 		} else {
+			if (dentry->d_name.len != len)
+				goto next;
 			if (dentry_cmp(dentry, str, len))
 				goto next;
 		}
