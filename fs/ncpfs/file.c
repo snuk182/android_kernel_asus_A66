@@ -256,8 +256,6 @@ ncp_file_write(struct file *file, const char __user *buf, size_t count, loff_t *
 	}
 	vfree(bouncebuffer);
 
-	file_update_time(file);
-
 	*ppos = pos;
 
 	if (pos > i_size_read(inode)) {
