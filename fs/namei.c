@@ -2391,17 +2391,13 @@ static struct file *do_last(struct nameidata *nd, struct path *path,
 			symlink_ok = 1;
 		/* we _can_ be in RCU mode here */
 		error = lookup_fast(nd, &nd->last, path, &inode);
-		if (unlikely(error)) {
-			if (error < 0)
-				goto exit;
+		if (likely(!error))
+			goto finish_lookup;
 
-			error = lookup_slow(nd, &nd->last, path);
-			if (error < 0)
-				goto exit;
+		if (error < 0)
+			goto exit;
 
-			inode = path->dentry->d_inode;
-		}
-		goto finish_lookup;
+		BUG_ON(nd->inode != dir->d_inode);
 	} else {
 		/* create side of things */
 		/*
