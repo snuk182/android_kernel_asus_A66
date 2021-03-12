@@ -1550,8 +1550,8 @@ static int nfs4_create(struct inode *dir, struct dentry *dentry,
 	attr.ia_mode = mode;
 	attr.ia_valid = ATTR_MODE;
 
-	if (nd)
-		open_flags = nd->intent.open.flags;
+	if (nd && !(nd->flags & LOOKUP_EXCL))
+		open_flags = O_CREAT;
 
 	ctx = create_nfs_open_context(dentry, open_flags);
 	error = PTR_ERR(ctx);
