@@ -3219,7 +3219,11 @@ static int asus_bat_probe(struct platform_device *pdev)
     loService = batteryloService;
 // Asus BSP Eason_Chang --- function for AXI_BatteryServiceFacade
 	printk( "[BAT] %s() +++\n", __FUNCTION__);
+	
+	printk("!!!!! loService = %p\n", loService);
+printk("!!!!! loService.forceResume = %p\n", loService->forceResume);
 
+	
 	asus_bat = kzalloc(sizeof(struct asus_bat_all_info), GFP_KERNEL);
 	if (!asus_bat) {
 		printk(KERN_ERR "[BAT] could not allocate memory\n");

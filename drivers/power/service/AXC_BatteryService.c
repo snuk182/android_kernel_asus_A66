@@ -102,7 +102,7 @@ static DECLARE_WAIT_QUEUE_HEAD(cableIn_alarm_wait_queue);
 static uint32_t alarm_enabled;
 static uint32_t batLowAlarm_enabled;
 static uint32_t cableInAlarm_enabled;
-extern void alarm_start_range(struct alarm *alarm, ktime_t start, ktime_t end);
+extern void alarm_start(struct alarm *alarm, ktime_t start);
 #define RTCSetInterval 610
 //Eason: dynamic set Pad alarm +++
 //#define RTCSetIntervalwhenCapLess20  610
@@ -1039,8 +1039,7 @@ static void SetRTCAlarm(void)
     ReportTime();
     spin_lock_irqsave(&bat_alarm_slock, flags);
     alarm_enabled |= alarm_type_mask;
-    alarm_start_range(&bat_alarm,
-    timespec_to_ktime(new_alarm_time),
+    alarm_start(&bat_alarm,
     timespec_to_ktime(new_alarm_time));
     spin_unlock_irqrestore(&bat_alarm_slock, flags);
 
@@ -1093,8 +1092,7 @@ static void SetBatLowRTCAlarm(void)
     ReportTime();
     spin_lock_irqsave(&batLow_alarm_slock, batlowflags);
     batLowAlarm_enabled |= batLowAlarm_type_mask;
-    alarm_start_range(&batLow_alarm,
-    timespec_to_ktime(new_batLowAlarm_time),
+    alarm_start(&batLow_alarm,
     timespec_to_ktime(new_batLowAlarm_time));
     spin_unlock_irqrestore(&batLow_alarm_slock, batlowflags);
 
@@ -1137,8 +1135,7 @@ static void SetCableInRTCAlarm(void)
     ReportTime();
     spin_lock_irqsave(&cableIn_alarm_slock, cableInflags);
     cableInAlarm_enabled |= cableInAlarm_type_mask;
-    alarm_start_range(&cableIn_alarm,
-    timespec_to_ktime(new_cableInAlarm_time),
+    alarm_start(&cableIn_alarm,
     timespec_to_ktime(new_cableInAlarm_time));
     spin_unlock_irqrestore(&cableIn_alarm_slock, cableInflags);
 
@@ -3243,16 +3240,11 @@ static AXC_BatteryService g_AXC_BatteryService={
 
 AXI_BatteryServiceFacade *getBatteryService(AXI_BatteryServiceFacadeCallback *callback)
 {
-    static AXI_BatteryServiceFacade *lpBatteryService = NULL;
-
-    if(NULL == lpBatteryService){
-
-        lpBatteryService = &g_AXC_BatteryService.miParent;
-
+    if(NULL == g_AXC_BatteryService.callback){
+		printk("AXC_BatteryService_constructor() \n");
         AXC_BatteryService_constructor(&g_AXC_BatteryService, callback);
     }
-
-    return lpBatteryService;
+    return &g_AXC_BatteryService.miParent;
 }
 
 AXC_BatteryServiceTest *getBatteryServiceTest(void)
