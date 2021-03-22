@@ -4441,7 +4441,7 @@ static int load_balance(int this_cpu, struct rq *this_rq,
 	int ld_moved, active_balance = 0;
 	struct sched_group *group;
 	unsigned long imbalance;
-	struct rq *busiest;
+	struct rq *busiest = NULL;
 	unsigned long flags;
 	struct cpumask *cpus = __get_cpu_var(load_balance_tmpmask);
 
@@ -4610,6 +4610,10 @@ out_one_pinned:
 
 	ld_moved = 0;
 out:
+	trace_sched_load_balance(this_cpu, idle, *balance,
+				 group ? group->cpumask[0] : 0,
+				 busiest ? busiest->nr_running : 0, imbalance,
+				 env.flags, ld_moved, sd->balance_interval);
 	return ld_moved;
 }
 
@@ -4660,7 +4664,14 @@ void idle_balance(int this_cpu, struct rq *this_rq)
 
 	raw_spin_lock(&this_rq->lock);
 
-	if (pulled_task || time_after(jiffies, this_rq->next_balance)) {
+	/*
+	 * While browsing the domains, we released the rq lock.
+	 * A task could have be enqueued in the meantime
+	 */
+	if (this_rq->nr_running && !pulled_task)
+		return;
+
+	if (!pulled_task || time_after(jiffies, this_rq->next_balance)) {
 		/*
 		 * We are going idle. next_balance may be set based on
 		 * a busy processor. So reset next_balance.
