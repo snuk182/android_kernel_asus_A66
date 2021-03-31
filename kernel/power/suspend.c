@@ -24,6 +24,7 @@
 #include <linux/export.h>
 #include <linux/suspend.h>
 #include <linux/syscore_ops.h>
+#include <linux/ftrace.h>
 #include <linux/rtc.h>
 #include <linux/wakeup_reason.h>
 #include <linux/partialresume.h>
@@ -306,6 +307,7 @@ int suspend_devices_and_enter(suspend_state_t state)
 	printk("[PM]unattended_timer: del_timer(suspend)\n");
 	del_timer(&unattended_timer);
 	suspend_console();
+	ftrace_stop();
 	suspend_test_start();
 	error = dpm_suspend_start(PMSG_SUSPEND);
 	if (error) {
@@ -326,6 +328,7 @@ int suspend_devices_and_enter(suspend_state_t state)
 	if (!resumed)
 		dpm_resume_end(PMSG_RESUME);
 	suspend_test_finish("resume devices");
+	ftrace_start();
 	resume_console();
 //add timer to debug unattended mode wakelock
 	printk("[PM]unattended_timer: mod_timer(resume)\n");
