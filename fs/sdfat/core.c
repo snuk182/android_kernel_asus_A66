@@ -650,8 +650,8 @@ DENTRY_T *get_dentry_in_dir(struct super_block *sb, CHAIN_T *p_dir, s32 entry, u
 {
 	FS_INFO_T *fsi = &(SDFAT_SB(sb)->fsi);
 	u32 dentries_per_page = PAGE_SIZE >> DENTRY_SIZE_BITS;
-	s32 off;
-	u64 sec;
+	s32 off = 0;
+	u64 sec = 0;
 	u8 *buf;
 
 	if (p_dir->dir == DIR_DELETED) {
