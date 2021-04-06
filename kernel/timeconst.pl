@@ -270,7 +270,7 @@ sub outputval($$)
 	my($name, $val) = @_;
 	my $csuf;
 
-	if ($val) {
+	if (defined($val)) {
 	    if ($name !~ /SHR/) {
 		$val = "U64_C($val)";
 	    }
@@ -369,10 +369,8 @@ if ($hz eq '--can') {
 		die "Usage: $0 HZ\n";
 	}
 
-	@val = @{$canned_values{$hz}};
-	if (!@val) {
-		@val = compute_values($hz);
-	}
+	$cv = $canned_values{$hz};
+	@val = defined($cv) ? @$cv : compute_values($hz);
 	output($hz, @val);
 }
 exit 0;
