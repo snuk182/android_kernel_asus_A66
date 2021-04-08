@@ -724,6 +724,7 @@ const char * const vmstat_text[] = {
 	"nr_anon_transparent_hugepages",
 	"nr_free_cma",
 	"nr_swapcache",
+
 	"nr_dirty_threshold",
 	"nr_dirty_background_threshold",
 

@@ -264,7 +264,7 @@ static int hostfs_show_options(struct seq_file *seq, struct dentry *root)
 	size_t offset = strlen(root_ino) + 1;
 
 	if (strlen(root_path) > offset)
-		seq_printf(seq, ",%s", root_path + offset);
+		seq_show_option(seq, root_path + offset, NULL);
 
 	return 0;
 }
@@ -553,7 +553,7 @@ static int read_name(struct inode *ino, char *name)
 }
 
 int hostfs_create(struct inode *dir, struct dentry *dentry, umode_t mode,
-		  struct nameidata *nd)
+		  bool excl)
 {
 	struct inode *inode;
 	char *name;
@@ -595,7 +595,7 @@ int hostfs_create(struct inode *dir, struct dentry *dentry, umode_t mode,
 }
 
 struct dentry *hostfs_lookup(struct inode *ino, struct dentry *dentry,
-			     struct nameidata *nd)
+			     unsigned int flags)
 {
 	struct inode *inode;
 	char *name;

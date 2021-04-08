@@ -79,6 +79,8 @@ extern void mem_cgroup_uncharge_cache_page(struct page *page);
 
 extern void mem_cgroup_out_of_memory(struct mem_cgroup *memcg, gfp_t gfp_mask,
 				     int order);
+bool __mem_cgroup_same_or_subtree(const struct mem_cgroup *root_memcg,
+				  struct mem_cgroup *memcg);
 int task_in_mem_cgroup(struct task_struct *task, const struct mem_cgroup *memcg);
 
 extern struct mem_cgroup *try_get_mem_cgroup_from_page(struct page *page);
@@ -92,10 +94,13 @@ static inline
 int mm_match_cgroup(const struct mm_struct *mm, const struct mem_cgroup *cgroup)
 {
 	struct mem_cgroup *memcg;
+	int match;
+
 	rcu_read_lock();
 	memcg = mem_cgroup_from_task(rcu_dereference((mm)->owner));
+	match = __mem_cgroup_same_or_subtree(cgroup, memcg);
 	rcu_read_unlock();
-	return cgroup == memcg;
+	return match;
 }
 
 extern struct cgroup_subsys_state *mem_cgroup_css(struct mem_cgroup *memcg);
@@ -188,7 +193,6 @@ static inline void mem_cgroup_dec_page_stat(struct page *page,
 unsigned long mem_cgroup_soft_limit_reclaim(struct zone *zone, int order,
 						gfp_t gfp_mask,
 						unsigned long *total_scanned);
-u64 mem_cgroup_get_limit(struct mem_cgroup *memcg);
 
 void mem_cgroup_count_vm_event(struct mm_struct *mm, enum vm_event_item idx);
 #ifdef CONFIG_TRANSPARENT_HUGEPAGE
@@ -393,12 +397,6 @@ static inline
 unsigned long mem_cgroup_soft_limit_reclaim(struct zone *zone, int order,
 					    gfp_t gfp_mask,
 					    unsigned long *total_scanned)
-{
-	return 0;
-}
-
-static inline
-u64 mem_cgroup_get_limit(struct mem_cgroup *memcg)
 {
 	return 0;
 }

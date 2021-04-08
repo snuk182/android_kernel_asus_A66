@@ -1172,15 +1172,25 @@ struct lruvec *mem_cgroup_lru_move_lists(struct zone *zone,
  * Checks whether given mem is same or in the root_mem_cgroup's
  * hierarchy subtree
  */
-static bool mem_cgroup_same_or_subtree(const struct mem_cgroup *root_memcg,
-		struct mem_cgroup *memcg)
+bool __mem_cgroup_same_or_subtree(const struct mem_cgroup *root_memcg,
+				  struct mem_cgroup *memcg)
 {
-	if (root_memcg != memcg) {
-		return (root_memcg->use_hierarchy &&
-			css_is_ancestor(&memcg->css, &root_memcg->css));
-	}
+	if (root_memcg == memcg)
+		return true;
+	if (!root_memcg->use_hierarchy)
+		return false;
+	return css_is_ancestor(&memcg->css, &root_memcg->css);
+}
 
-	return true;
+static bool mem_cgroup_same_or_subtree(const struct mem_cgroup *root_memcg,
+				       struct mem_cgroup *memcg)
+{
+	bool ret;
+
+	rcu_read_lock();
+	ret = __mem_cgroup_same_or_subtree(root_memcg, memcg);
+	rcu_read_unlock();
+	return ret;
 }
 
 int task_in_mem_cgroup(struct task_struct *task, const struct mem_cgroup *memcg)
@@ -1289,7 +1299,7 @@ mem_cgroup_get_reclaim_stat_from_page(struct page *page)
 
 /**
  * mem_cgroup_margin - calculate chargeable space of a memory cgroup
- * @mem: the memory cgroup
+ * @memcg: the memory cgroup
  *
  * Returns the maximum amount of memory @mem can be charged with, in
  * pages.
@@ -1509,7 +1519,7 @@ static int mem_cgroup_count_children(struct mem_cgroup *memcg)
 /*
  * Return the memory (and swap, if configured) limit for a memcg.
  */
-u64 mem_cgroup_get_limit(struct mem_cgroup *memcg)
+static u64 mem_cgroup_get_limit(struct mem_cgroup *memcg)
 {
 	u64 limit;
 	u64 memsw;
@@ -1523,6 +1533,73 @@ u64 mem_cgroup_get_limit(struct mem_cgroup *memcg)
 	 * to this memcg, return that limit.
 	 */
 	return min(limit, memsw);
+}
+
+void mem_cgroup_out_of_memory(struct mem_cgroup *memcg, gfp_t gfp_mask,
+			      int order)
+{
+	struct mem_cgroup *iter;
+	unsigned long chosen_points = 0;
+	unsigned long totalpages;
+	unsigned int points = 0;
+	struct task_struct *chosen = NULL;
+
+	/*
+	 * If current has a pending SIGKILL, then automatically select it.  The
+	 * goal is to allow it to allocate so that it may quickly exit and free
+	 * its memory.
+	 */
+	if (fatal_signal_pending(current)) {
+		set_thread_flag(TIF_MEMDIE);
+		return;
+	}
+
+	check_panic_on_oom(CONSTRAINT_MEMCG, gfp_mask, order, NULL);
+	totalpages = mem_cgroup_get_limit(memcg) >> PAGE_SHIFT ? : 1;
+	for_each_mem_cgroup_tree(iter, memcg) {
+		struct cgroup *cgroup = iter->css.cgroup;
+		struct cgroup_iter it;
+		struct task_struct *task;
+
+		cgroup_iter_start(cgroup, &it);
+		while ((task = cgroup_iter_next(cgroup, &it))) {
+			switch (oom_scan_process_thread(task, totalpages, NULL,
+							false)) {
+			case OOM_SCAN_SELECT:
+				if (chosen)
+					put_task_struct(chosen);
+				chosen = task;
+				chosen_points = ULONG_MAX;
+				get_task_struct(chosen);
+				/* fall through */
+			case OOM_SCAN_CONTINUE:
+				continue;
+			case OOM_SCAN_ABORT:
+				cgroup_iter_end(cgroup, &it);
+				mem_cgroup_iter_break(memcg, iter);
+				if (chosen)
+					put_task_struct(chosen);
+				return;
+			case OOM_SCAN_OK:
+				break;
+			};
+			points = oom_badness(task, memcg, NULL, totalpages);
+			if (points > chosen_points) {
+				if (chosen)
+					put_task_struct(chosen);
+				chosen = task;
+				chosen_points = points;
+				get_task_struct(chosen);
+			}
+		}
+		cgroup_iter_end(cgroup, &it);
+	}
+
+	if (!chosen)
+		return;
+	points = chosen_points * 1000 / totalpages;
+	oom_kill_process(chosen, gfp_mask, order, points, totalpages, memcg,
+			 NULL, "Memory cgroup out of memory");
 }
 
 static unsigned long mem_cgroup_reclaim(struct mem_cgroup *memcg,
@@ -1563,7 +1640,7 @@ static unsigned long mem_cgroup_reclaim(struct mem_cgroup *memcg,
 
 /**
  * test_mem_cgroup_node_reclaimable
- * @mem: the target memcg
+ * @memcg: the target memcg
  * @nid: the node ID to be checked.
  * @noswap : specify true here if the user wants flle only information.
  *

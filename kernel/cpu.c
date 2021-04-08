@@ -89,6 +89,10 @@ void put_online_cpus(void)
 	if (cpu_hotplug.active_writer == current)
 		return;
 	mutex_lock(&cpu_hotplug.lock);
+
+	if (WARN_ON(!cpu_hotplug.refcount))
+		cpu_hotplug.refcount++; /* try to fix things up */
+
 	if (!--cpu_hotplug.refcount && unlikely(cpu_hotplug.active_writer))
 		wake_up_process(cpu_hotplug.active_writer);
 	mutex_unlock(&cpu_hotplug.lock);
@@ -314,6 +318,7 @@ static int __ref _cpu_down(unsigned int cpu, int tasks_frozen)
 
 out_release:
 	cpu_hotplug_done();
+	trace_sched_cpu_hotplug(cpu, err, 0);
 	if (!err)
 		cpu_notify_nofail(CPU_POST_DEAD | mod, hcpu);
 	return err;
@@ -371,7 +376,7 @@ static int __cpuinit _cpu_up(unsigned int cpu, int tasks_frozen)
 	}
 
 	/* Arch-specific enabling code. */
-	ret = __cpu_up(cpu);
+	ret = __cpu_up(cpu, idle);
 	if (ret != 0)
 		goto out_notify;
 	BUG_ON(!cpu_online(cpu));
@@ -387,6 +392,7 @@ out_notify:
 		__cpu_notify(CPU_UP_CANCELED | mod, hcpu, nr_calls, NULL);
 out:
 	cpu_hotplug_done();
+	trace_sched_cpu_hotplug(cpu, ret, 1);
 
 	return ret;
 }

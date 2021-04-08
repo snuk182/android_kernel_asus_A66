@@ -565,7 +565,7 @@ static int hugetlbfs_mkdir(struct inode *dir, struct dentry *dentry, umode_t mod
 	return retval;
 }
 
-static int hugetlbfs_create(struct inode *dir, struct dentry *dentry, umode_t mode, struct nameidata *nd)
+static int hugetlbfs_create(struct inode *dir, struct dentry *dentry, umode_t mode, bool excl)
 {
 	return hugetlbfs_mknod(dir, dentry, mode | S_IFREG, 0);
 }
@@ -919,6 +919,7 @@ static struct file_system_type hugetlbfs_fs_type = {
 	.mount		= hugetlbfs_mount,
 	.kill_sb	= kill_litter_super,
 };
+MODULE_ALIAS_FS("hugetlbfs");
 
 static struct vfsmount *hugetlbfs_vfsmount;
 

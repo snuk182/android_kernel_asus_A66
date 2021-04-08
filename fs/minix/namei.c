@@ -18,7 +18,7 @@ static int add_nondir(struct dentry *dentry, struct inode *inode)
 	return err;
 }
 
-static struct dentry *minix_lookup(struct inode * dir, struct dentry *dentry, struct nameidata *nd)
+static struct dentry *minix_lookup(struct inode * dir, struct dentry *dentry, unsigned int flags)
 {
 	struct inode * inode = NULL;
 	ino_t ino;
@@ -67,7 +67,7 @@ static int minix_tmpfile(struct inode *dir, struct dentry *dentry, umode_t mode)
 }
 
 static int minix_create(struct inode *dir, struct dentry *dentry, umode_t mode,
-		struct nameidata *nd)
+		bool excl)
 {
 	return minix_mknod(dir, dentry, mode, 0);
 }

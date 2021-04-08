@@ -253,7 +253,7 @@ int v9fs_open_to_dotl_flags(int flags)
 
 static int
 v9fs_vfs_create_dotl(struct inode *dir, struct dentry *dentry, umode_t omode,
-		struct nameidata *nd)
+		bool excl)
 {
 	return v9fs_vfs_mknod_dotl(dir, dentry, omode, 0);
 }
@@ -277,7 +277,7 @@ v9fs_vfs_atomic_open_dotl(struct inode *dir, struct dentry *dentry,
 	struct dentry *res = NULL;
 
 	if (d_unhashed(dentry)) {
-		res = v9fs_vfs_lookup(dir, dentry, NULL);
+		res = v9fs_vfs_lookup(dir, dentry, 0);
 		if (IS_ERR(res))
 			return PTR_ERR(res);
 

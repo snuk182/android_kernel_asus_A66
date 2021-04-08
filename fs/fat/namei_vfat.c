@@ -714,7 +714,7 @@ static int vfat_d_anon_disconn(struct dentry *dentry)
 }
 
 static struct dentry *vfat_lookup(struct inode *dir, struct dentry *dentry,
-				  struct nameidata *nd)
+				  unsigned int flags)
 {
 	struct super_block *sb = dir->i_sb;
 	struct fat_slot_info sinfo;
@@ -772,7 +772,7 @@ error:
 }
 
 static int vfat_create(struct inode *dir, struct dentry *dentry, umode_t mode,
-		       struct nameidata *nd)
+		       bool excl)
 {
 	struct super_block *sb = dir->i_sb;
 	struct inode *inode;
@@ -1079,6 +1079,7 @@ static struct file_system_type vfat_fs_type = {
 	.kill_sb	= kill_block_super,
 	.fs_flags	= FS_REQUIRES_DEV,
 };
+MODULE_ALIAS_FS("vfat");
 
 static int __init init_vfat_fs(void)
 {
