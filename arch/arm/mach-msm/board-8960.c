@@ -858,65 +858,9 @@ static struct reserve_info msm8960_reserve_info __initdata = {
 	.paddr_to_memtype = msm8960_paddr_to_memtype,
 };
 
-static int msm8960_memory_bank_size(void)
-{
-	return 1<<29;
-}
-
-static void __init locate_unstable_memory(void)
-{
-	struct membank *mb = &meminfo.bank[meminfo.nr_banks - 1];
-	unsigned long bank_size;
-	unsigned long low, high;
-
-	bank_size = msm8960_memory_bank_size();
-	msm8960_reserve_info.bank_size = bank_size;
-
-	low = meminfo.bank[0].start;
-	high = mb->start + mb->size;
-
-	/* Check if 32 bit overflow occured */
-	if (high < mb->start)
-		high = ~0UL;
-
-	if (high < MAX_FIXED_AREA_SIZE + MSM8960_FIXED_AREA_START)
-		panic("fixed area extends beyond end of memory\n");
-
-	low &= ~(bank_size - 1);
-
-	if (high - low <= bank_size)
-		goto no_dmm;
-
-#ifdef CONFIG_ENABLE_DMM
-	msm8960_reserve_info.low_unstable_address = mb->start -
-					MIN_MEMORY_BLOCK_SIZE + mb->size;
-	msm8960_reserve_info.max_unstable_size = MIN_MEMORY_BLOCK_SIZE;
-	pr_info("low unstable address %lx max size %lx bank size %lx\n",
-		msm8960_reserve_info.low_unstable_address,
-		msm8960_reserve_info.max_unstable_size,
-		msm8960_reserve_info.bank_size);
-	return;
-#endif
-no_dmm:
-	msm8960_reserve_info.low_unstable_address = high;
-	msm8960_reserve_info.max_unstable_size = 0;
-}
-
-static void __init place_movable_zone(void)
-{
-#ifdef CONFIG_ENABLE_DMM
-	movable_reserved_start = msm8960_reserve_info.low_unstable_address;
-	movable_reserved_size = msm8960_reserve_info.max_unstable_size;
-	pr_info("movable zone start %lx size %lx\n",
-		movable_reserved_start, movable_reserved_size);
-#endif
-}
-
 static void __init msm8960_early_memory(void)
 {
 	reserve_info = &msm8960_reserve_info;
-	locate_unstable_memory();
-	place_movable_zone();
 }
 
 // jack for debug message
@@ -952,12 +896,6 @@ static void __init msm8960_reserve(void)
 	msm8960_set_display_params(prim_panel_name, ext_panel_name);
 	msm_reserve();
 	reserve_printk_buffer(); //ASUS_BSP simpson: miniporting	
-}
-
-static int msm8960_change_memory_power(u64 start, u64 size,
-	int change_type)
-{
-	return soc_change_memory_power(start, size, change_type);
 }
 
 static void __init msm8960_allocate_memory_regions(void)
@@ -1459,6 +1397,7 @@ static struct mdm_platform_data sglte_platform_data = {
 	.ramdump_timeout_ms = 600000,
 	.no_powerdown_after_ramdumps = 1,
 	.image_upgrade_supported = 1,
+	.subsys_name = "external_modem"
 };
 
 #define MSM_TSIF0_PHYS			(0x18200000)
@@ -4773,12 +4712,10 @@ static void __init msm8960_cdp_init(void)
 		determine_bat_device();
 #endif /* CONFIG_BATTERY_ASUS */
 //ASUS_BSP --- Josh_Liao "add asus battery driver"
-	change_memory_power = &msm8960_change_memory_power;
 
 #ifdef CONFIG_HALL_SENSOR
 	platform_device_register(&hall_sensor_device);
 #endif
-
 	BUG_ON(msm_pm_boot_init(&msm_pm_boot_pdata));
 	bt_power_init();
 	if (socinfo_get_platform_subtype() == PLATFORM_SUBTYPE_SGLTE) {

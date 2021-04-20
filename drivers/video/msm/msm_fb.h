@@ -262,6 +262,8 @@ int msm_fb_check_frame_rate(struct msm_fb_data_type *mfd,
 int load_565rle_image(char *filename, bool bf_supported);
 #endif
 
+void mdp_restore_rgb(void);
+
 static inline bool mdp_panel_is_power_off(int panel_power_state)
 {
 	return (panel_power_state == MDP_PANEL_POWER_OFF);

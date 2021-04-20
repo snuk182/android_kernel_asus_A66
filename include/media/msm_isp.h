@@ -68,6 +68,10 @@
 #define MSG_ID_RDI0_UPDATE_ACK          49
 #define MSG_ID_RDI1_UPDATE_ACK          50
 #define MSG_ID_RDI2_UPDATE_ACK          51
+#define MSG_ID_PIX0_UPDATE_ACK          52
+#define MSG_ID_PREV_STOP_ACK            53
+#define MSG_ID_OUTPUT_TERTIARY3         54
+
 
 /* ISP command IDs */
 #define VFE_CMD_DUMMY_0                                 0
@@ -328,9 +332,9 @@ struct msm_mctl_pp_divert_pp
   int path;
   int enable;
 };
-struct msm_vpe_clock_rate
-{
-  uint32_t rate;
+
+struct msm_vpe_clock_rate {
+	uint32_t rate;
 };
 
 #define MSM_MCTL_PP_VPE_FRAME_ACK    (1<<0)
@@ -349,6 +353,7 @@ struct msm_vpe_clock_rate
 #define VFE_OUTPUTS_THUMB_AND_JPEG      BIT(10)
 #define VFE_OUTPUTS_RDI0                BIT(11)
 #define VFE_OUTPUTS_RDI1                BIT(12)
+#define VFE_OUTPUTS_RDI2                BIT(13)
 
 struct msm_frame_info
 {

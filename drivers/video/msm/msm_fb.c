@@ -2528,7 +2528,7 @@ static int msm_fb_set_par(struct fb_info *info)
 		mfd->var_pixclock = var->pixclock;
 		blank = 1;
 	}
-//snuk182 - dont trust this ...	
+	
 // ASUS_BSP +++ Tingyi "[A68][DDS] Enable xres_virtual ability in display driver"
 	mfd->fbi->fix.line_length = msm_fb_line_length(mfd->index, var->xres_virtual,
 						       var->bits_per_pixel/8);

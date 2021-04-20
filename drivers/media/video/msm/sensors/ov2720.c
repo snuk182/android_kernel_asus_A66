@@ -681,38 +681,6 @@ static struct msm_sensor_output_info_t ov2720_dimensions[] = {
 #endif
 };
 
-static struct msm_camera_csid_vc_cfg ov2720_cid_cfg[] = {
-	{0, 0x1E, CSI_DECODE_8BIT}, //{0, CSI_RAW10, CSI_DECODE_10BIT},
-	{1, CSI_EMBED_DATA, CSI_DECODE_8BIT},
-};
-
-static struct msm_camera_csi2_params ov2720_csi_params = {
-	.csid_params = {
-		.lane_assign = 0xe4,
-		.lane_cnt = 2,
-		.lut_params = {
-			.num_cid = 2,
-			.vc_cfg = ov2720_cid_cfg,
-		},
-	},
-	.csiphy_params = {
-		.lane_cnt = 2,
-		.settle_cnt = 0x11, //0x1B
-	},
-};
-
-static struct msm_camera_csi2_params *ov2720_csi_params_array[] = {
-	&ov2720_csi_params,
-	&ov2720_csi_params,
-	&ov2720_csi_params,
-#if 0
-	&ov2720_csi_params,
-	&ov2720_csi_params,
-	&ov2720_csi_params,
-#endif
-};
-//ASUS_BSP --- Stimber "[A60K][8M][NA][Others]Full porting for 8M camera with ISP"
-
 static struct msm_sensor_output_reg_addr_t ov2720_reg_addr = {
 	.x_output = 0x3808,
 	.y_output = 0x380a,
@@ -886,8 +854,6 @@ static int32_t ov2720_sensor_setting(struct msm_sensor_ctrl_t *s_ctrl,
 #endif
 // ASUS_BSP --- LiJen "[A66][8M][NA][Others] add workqueue to change ISP mode" 
 
-		s_ctrl->config_csi_flag = 1;
-		s_ctrl->curr_csi_params = NULL;
 #if 0	//LiJen: ISP dosen't  need 
 		msm_sensor_enable_debugfs(s_ctrl);
 		msm_sensor_write_init_settings(s_ctrl);
@@ -898,26 +864,6 @@ static int32_t ov2720_sensor_setting(struct msm_sensor_ctrl_t *s_ctrl,
 #if 0	//LiJen: ISP dosen't  need 
 		msm_sensor_write_res_settings(s_ctrl, rt);
 #endif
-
-            if (s_ctrl->config_csi_flag) {
-		if (s_ctrl->curr_csi_params != s_ctrl->csi_params[0]) {
-			pr_info("config to csi +++\n");
-			s_ctrl->curr_csi_params = s_ctrl->csi_params[0];
-			v4l2_subdev_notify(&s_ctrl->sensor_v4l2_subdev,
-				NOTIFY_CSID_CFG,
-				&s_ctrl->curr_csi_params->csid_params);
-			//v4l2_subdev_notify(&s_ctrl->sensor_v4l2_subdev,
-						//NOTIFY_CID_CHANGE, NULL);
-			mb();
-			v4l2_subdev_notify(&s_ctrl->sensor_v4l2_subdev,
-				NOTIFY_CSIPHY_CFG,
-				&s_ctrl->curr_csi_params->csiphy_params);
-			mb();
-			msleep(20);
-			s_ctrl->config_csi_flag = 0;
-			pr_info("config to csi ---\n");
-		}
-}
 
 		v4l2_subdev_notify(&s_ctrl->sensor_v4l2_subdev,
 			NOTIFY_PCLK_CHANGE, &s_ctrl->msm_sensor_reg->
@@ -1768,6 +1714,12 @@ power_down:
 }
 //ASUS_BSP --- Stimber "[A60K][8M][NA][Others]Full porting for 8M camera with ISP"
 
+static enum msm_camera_vreg_name_t ov2720_veg_seq[] = {
+	CAM_VIO,
+	CAM_VANA,
+	CAM_VDIG,
+};
+
 static int32_t ov2720_write_exp_gain(struct msm_sensor_ctrl_t *s_ctrl,
 		uint16_t gain, uint32_t line)
 {
@@ -1786,9 +1738,15 @@ static int32_t ov2720_write_exp_gain(struct msm_sensor_ctrl_t *s_ctrl,
 	int_time[0] = line >> 12;
 	int_time[1] = line >> 4;
 	int_time[2] = line << 4;
-	msm_camera_i2c_write_seq(s_ctrl->sensor_i2c_client,
+	msm_camera_i2c_write(s_ctrl->sensor_i2c_client,
 		s_ctrl->sensor_exp_gain_info->coarse_int_time_addr-1,
-		&int_time[0], 3);
+		int_time[0], MSM_CAMERA_I2C_BYTE_DATA);
+	msm_camera_i2c_write(s_ctrl->sensor_i2c_client,
+		s_ctrl->sensor_exp_gain_info->coarse_int_time_addr,
+		int_time[1], MSM_CAMERA_I2C_BYTE_DATA);
+	msm_camera_i2c_write(s_ctrl->sensor_i2c_client,
+		s_ctrl->sensor_exp_gain_info->coarse_int_time_addr+1,
+		int_time[2], MSM_CAMERA_I2C_BYTE_DATA);
 	msm_camera_i2c_write(s_ctrl->sensor_i2c_client,
 		s_ctrl->sensor_exp_gain_info->global_gain_addr, gain,
 		MSM_CAMERA_I2C_WORD_DATA);
@@ -1956,11 +1914,12 @@ struct msm_sensor_ctrl_t ov2720_s_ctrl = { //ASUS_BSP Stimber "[A60K][8M][NA][Ot
 	.msm_sensor_reg = &ov2720_regs,
 	.sensor_i2c_client = &ov2720_sensor_i2c_client,
 	.sensor_i2c_addr = (0x3E >> 1),		//ASUS_BSP Stimber "[A60K][8M][NA][Others]Full porting for 8M camera with ISP"
+	.vreg_seq = ov2720_veg_seq,
+	.num_vreg_seq = ARRAY_SIZE(ov2720_veg_seq),
 	.sensor_output_reg_addr = &ov2720_reg_addr,
 	.sensor_id_info = &ov2720_id_info,
 	.sensor_exp_gain_info = &ov2720_exp_gain_info,
 	.cam_mode = MSM_SENSOR_MODE_INVALID,
-	.csi_params = &ov2720_csi_params_array[0],
 	.msm_sensor_mutex = &ov2720_mut,
 	.sensor_i2c_driver = &ov2720_i2c_driver,
 	.sensor_v4l2_subdev_info = ov2720_subdev_info,
