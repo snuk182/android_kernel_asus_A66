@@ -261,7 +261,6 @@ void delete_partition(struct gendisk *disk, int partno)
 	if (!part)
 		return;
 
-	blk_free_devt(part_devt(part));
 	rcu_assign_pointer(ptbl->part[partno], NULL);
 	rcu_assign_pointer(ptbl->last_lookup, NULL);
 	kobject_put(part->holder_dir);
