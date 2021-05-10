@@ -2901,7 +2901,7 @@ finish_lookup:
 	if ((nd->flags & LOOKUP_DIRECTORY) && !can_lookup(nd->inode))
 		goto out;
 	audit_inode(pathname, nd->path.dentry);
-ok:
+finish_open:
 	if (!S_ISREG(nd->inode->i_mode))
 		will_truncate = false;
 
