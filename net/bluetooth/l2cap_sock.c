@@ -32,7 +32,6 @@
 #include <net/bluetooth/bluetooth.h>
 #include <net/bluetooth/hci_core.h>
 #include <net/bluetooth/l2cap.h>
-<<<<<<< HEAD
 #include <net/bluetooth/smp.h>
 #include <net/bluetooth/amp.h>
 
@@ -65,10 +64,6 @@ static void l2cap_sock_timeout(unsigned long arg)
 	__l2cap_sock_close(sk, reason);
 
 	bh_unlock_sock(sk);
-||||||| parent of f1cb9af557d... Bluetooth: Add support for resuming socket when SMP is finished
-=======
-#include <net/bluetooth/smp.h>
->>>>>>> f1cb9af557d... Bluetooth: Add support for resuming socket when SMP is finished
 
 	l2cap_sock_kill(sk);
 	sock_put(sk);
