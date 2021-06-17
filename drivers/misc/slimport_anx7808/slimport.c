@@ -119,32 +119,11 @@ int slimport_read_edid_block(int block, uint8_t *edid_buf)
 }
 EXPORT_SYMBOL(slimport_read_edid_block);
 
-static void sp_tx_power_down_and_init(void)
-{
-	sp_tx_vbus_powerdown();
-	sp_tx_power_down(SP_TX_PWR_REG);
-	sp_tx_power_down(SP_TX_PWR_TOTAL);
-	sp_tx_hardware_powerdown();
-	sp_tx_pd_mode = 1;
-	sp_tx_link_config_done = 0;
-	sp_tx_hw_lt_enable = 0;
-	sp_tx_hw_lt_done = 0;
-	sp_tx_rx_type = RX_NULL;
-	sp_tx_rx_type_backup = RX_NULL;
-	sp_tx_set_sys_state(STATE_CABLE_PLUG);
-}
-
 static void slimport_cable_plug_proc(struct anx7808_data *anx7808)
 {
 	struct anx7808_platform_data *pdata = anx7808->pdata;
 
 	if (gpio_get_value_cansleep(pdata->gpio_cbl_det)) {
-		/* Previously, if sp tx is turned on, turn it off to
-		 * avoid the cable detection erorr.
-		 */
-		if (!sp_tx_pd_mode)
-			sp_tx_power_down_and_init();
-		/* debounce time for avoiding glitch */
 		msleep(50);
 		if (gpio_get_value_cansleep(pdata->gpio_cbl_det)) {
 			if (sp_tx_pd_mode) {
@@ -158,34 +137,45 @@ static void slimport_cable_plug_proc(struct anx7808_data *anx7808)
 				msleep(200);
 				if (!sp_tx_get_cable_type()) {
 					pr_err("%s:AUX ERR\n", __func__);
-					sp_tx_power_down_and_init();
+					sp_tx_vbus_powerdown();
+					sp_tx_power_down(SP_TX_PWR_REG);
+					sp_tx_power_down(SP_TX_PWR_TOTAL);
+					sp_tx_hardware_powerdown();
+					sp_tx_pd_mode = 1;
+					sp_tx_link_config_done = 0;
+					sp_tx_hw_lt_enable = 0;
+					sp_tx_hw_lt_done = 0;
+					sp_tx_rx_anx7730 = 0;
+					sp_tx_rx_mydp = 0;
+					sp_tx_set_sys_state(STATE_CABLE_PLUG);
 					return;
 				}
-				sp_tx_rx_type_backup = sp_tx_rx_type;
 			}
-			switch(sp_tx_rx_type) {
-			case RX_HDMI:
-				if(sp_tx_get_hdmi_connection())
+			if (sp_tx_rx_anx7730) {
+				if (sp_tx_get_hdmi_connection())
 					sp_tx_set_sys_state(STATE_PARSE_EDID);
-				break;
-			case RX_DP:
-				if(sp_tx_get_dp_connection())
+			} else if (sp_tx_rx_mydp) {
+				if (sp_tx_get_dp_connection())
 					sp_tx_set_sys_state(STATE_PARSE_EDID);
-				break;
-			case RX_VGA:
-				if(sp_tx_get_vga_connection()){
+			} else {
+				if (sp_tx_get_vga_connection()) {
 					sp_tx_send_message(MSG_CLEAR_IRQ);
 					sp_tx_set_sys_state(STATE_PARSE_EDID);
 				}
-				break;
-			case RX_NULL:
-			default:
-				break;
 			}
 		}
-	} else { /* dettach cable */
-		if (sp_tx_pd_mode == 0)
-			sp_tx_power_down_and_init();
+	} else if (sp_tx_pd_mode == 0) {
+		sp_tx_vbus_powerdown();
+		sp_tx_power_down(SP_TX_PWR_REG);
+		sp_tx_power_down(SP_TX_PWR_TOTAL);
+		sp_tx_hardware_powerdown();
+		sp_tx_pd_mode = 1;
+		sp_tx_link_config_done = 0;
+		sp_tx_hw_lt_enable = 0;
+		sp_tx_hw_lt_done = 0;
+		sp_tx_rx_anx7730 = 0;
+		sp_tx_rx_mydp = 0;
+		sp_tx_set_sys_state(STATE_CABLE_PLUG);
 	}
 }
 
@@ -243,10 +233,8 @@ static void slimport_main_proc(struct anx7808_data *anx7808)
 		slimport_config_output();
 
 	if (sp_tx_system_state == STATE_HDCP_AUTH) {
-		if (hdcp_enable &&
-			((sp_tx_rx_type == RX_HDMI) ||
-			( sp_tx_rx_type == RX_VGA) ||
-			( sp_tx_rx_type == RX_DP))) {
+		if (hdcp_enable && (sp_tx_rx_anx7730
+			|| sp_tx_rx_mydp)) {
 			sp_tx_hdcp_process();
 		} else {
 			sp_tx_power_down(SP_TX_PWR_HDCP);
@@ -355,6 +343,7 @@ static irqreturn_t anx7808_cbl_det_isr(int irq, void *data)
 {
 	struct anx7808_data *anx7808 = data;
 
+
 	if (gpio_get_value(anx7808->pdata->gpio_cbl_det)) {
 		wake_lock(&anx7808->slimport_lock);
 		pr_info("%s : detect cable insertion\n", __func__);
@@ -415,16 +404,16 @@ static int anx7808_i2c_probe(struct i2c_client *client,
 	ret = anx7808_init_gpio(anx7808);
 	if (ret) {
 		pr_err("%s: failed to initialize gpio\n", __func__);
-		goto err0;
+		goto err1;
 	}
 
 	INIT_DELAYED_WORK(&anx7808->work, anx7808_work_func);
 
 	anx7808->workqueue = create_singlethread_workqueue("anx7808_work");
-	if (!anx7808->workqueue) {
+	if (anx7808->workqueue == NULL) {
 		pr_err("%s: failed to create work queue\n", __func__);
 		ret = -ENOMEM;
-		goto err1;
+		goto err2;
 	}
 
 	anx7808->pdata->avdd_power(1);
@@ -435,9 +424,6 @@ static int anx7808_i2c_probe(struct i2c_client *client,
 		pr_err("%s: failed to initialize anx7808\n", __func__);
 		goto err2;
 	}
-
-	wake_lock_init(&anx7808->slimport_lock, WAKE_LOCK_SUSPEND,
-			"slimport_wake_lock");
 
 	client->irq = gpio_to_irq(anx7808->pdata->gpio_cbl_det);
 	if (client->irq < 0) {
@@ -453,18 +439,24 @@ static int anx7808_i2c_probe(struct i2c_client *client,
 		goto err3;
 	}
 
+	ret = irq_set_irq_wake(client->irq, 1);
+	if (ret  < 0) {
+		pr_err("%s : Request irq for cable detect"
+			"interrupt wake set fail\n", __func__);
+		goto err3;
+	}
+
 	ret = enable_irq_wake(client->irq);
 	if (ret  < 0) {
 		pr_err("%s : Enable irq for cable detect"
 			"interrupt wake enable fail\n", __func__);
-		goto err4;
+		goto err3;
 	}
+	wake_lock_init(&anx7808->slimport_lock, WAKE_LOCK_SUSPEND, "slimport_wake_lock");
 	goto exit;
 
-err4:
-	free_irq(client->irq, anx7808);
 err3:
-	wake_lock_destroy(&anx7808->slimport_lock);
+	free_irq(client->irq, anx7808);
 err2:
 	destroy_workqueue(anx7808->workqueue);
 err1:
@@ -521,10 +513,9 @@ static int anx7808_i2c_remove(struct i2c_client *client)
 	struct anx7808_data *anx7808 = i2c_get_clientdata(client);
 
 	free_irq(client->irq, anx7808);
-	wake_lock_destroy(&anx7808->slimport_lock);
-	destroy_workqueue(anx7808->workqueue);
 	anx7808_free_gpio(anx7808);
-	anx7808_client = NULL;
+	destroy_workqueue(anx7808->workqueue);
+	wake_lock_destroy(&anx7808->slimport_lock);
 	kfree(anx7808);
 	return 0;
 }
