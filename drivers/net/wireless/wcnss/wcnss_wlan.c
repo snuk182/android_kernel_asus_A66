@@ -9,7 +9,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
-//snuk182 !!
+
 #include <linux/module.h>
 #include <linux/firmware.h>
 #include <linux/io.h>
@@ -41,16 +41,6 @@
 #ifdef CONFIG_WCNSS_MEM_PRE_ALLOC
 #include "wcnss_prealloc.h"
 #endif
-
-#include <linux/kernel.h>
-#include <mach/socinfo.h>
-
-//ASUS_BSP+++ "for /data/log/ASUSEvtlog"
-#include <linux/asusdebug.h>
-//ASUS_BSP--- "for /data/log/ASUSEvtlog"
-
-
-#define CPU_VER_8260A 0x10004
 
 #define DEVICE "wcnss_wlan"
 #define CTRL_DEVICE "wcnss_ctrl"
@@ -520,7 +510,6 @@ static struct platform_device wcnss_ready = {
 
 static void wcnss_post_bootup(struct work_struct *work)
 {
-#if 0
 	pr_info("%s: Cancel APPS vote for Iris & Riva\n", __func__);
 
 #if defined(CONFIG_PRIMA_WLAN) && !defined(CONFIG_PRIMA_WLAN_MODULE)
@@ -528,24 +517,8 @@ static void wcnss_post_bootup(struct work_struct *work)
 #endif
 
 	/* Since Riva is up, cancel any APPS vote for Iris & Riva VREGs  */
-	wcnss_wlan_power(&penv->pdev->dev, &penv->wlan_config, WCNSS_WLAN_SWITCH_OFF);
-#else
-    if (strcmp(g_asus_plat_info.pmic_ver, PMIC_VER[PMIC_VER_V1]) == 0) {
-        pr_info("[wcnss]: wcnss_post_bootup, (pmic_ver=%s).\n", g_asus_plat_info.pmic_ver);
-    }
-    else {
-        pr_info("[wcnss]: wcnss_post_bootup, pmic_ver=%s.\n", g_asus_plat_info.pmic_ver);
-
-        pr_info("%s: Cancel APPS vote for Iris & Riva\n", __func__);
-
-        //ASUS_BSP+++ "for /data/log/ASUSEvtlog"
-        ASUSEvtlog("[wcnss]: wcnss_post_bootup, Cancel APPS vote for Iris & Riva.\n");
-        //ASUS_BSP--- "for /data/log/ASUSEvtlog"
-
-        /* Since Riva is up, cancel any APPS vote for Iris & Riva VREGs  */
-	    wcnss_wlan_power(&penv->pdev->dev, &penv->wlan_config, WCNSS_WLAN_SWITCH_OFF);
-    }
-#endif
+	wcnss_wlan_power(&penv->pdev->dev, &penv->wlan_config,
+		WCNSS_WLAN_SWITCH_OFF);
 }
 
 static int
@@ -1204,9 +1177,7 @@ static void wcnss_nvbin_dnld(void)
 	const void *nv_blob_addr = NULL;
 	unsigned int nv_blob_size = 0;
 	const struct firmware *nv = NULL;
-	struct device *dev = NULL;
-
-	dev = wcnss_wlan_get_device();
+	struct device *dev = &penv->pdev->dev;
 
 	ret = request_firmware(&nv, NVBIN_FILE, dev);
 
@@ -1538,35 +1509,8 @@ wcnss_trigger_config(struct platform_device *pdev)
 
 	/* initialize the WCNSS device configuration */
 	pdata = pdev->dev.platform_data;
-	
-#if 0
 	if (WCNSS_CONFIG_UNSPECIFIED == has_48mhz_xo)
 		has_48mhz_xo = pdata->has_48mhz_xo;
-#else
-    if (WCNSS_CONFIG_UNSPECIFIED == has_48mhz_xo) {
-        if( g_A60K_hwID <= A66_HW_ID_SR1_1 ) {
-            has_48mhz_xo = pdata->has_48mhz_xo;
-        }
-        else if( g_A60K_hwID == A66_HW_ID_SR2 ) {
-            if ( (SOCINFO_VERSION_MAJOR(socinfo_get_version()) >= 3) ||(socinfo_get_version() == CPU_VER_8260A) ) {
-                pr_info("[wcnss]: socinfo_get_version=0x%x.\n", socinfo_get_version() );
-                has_48mhz_xo = 0;
-            } 
-            else {
-                has_48mhz_xo = pdata->has_48mhz_xo;
-            }
-        }
-        else if( g_A60K_hwID >= A66_HW_ID_ER1 ) {
-            has_48mhz_xo = 0;
-        }
-        else {
-            has_48mhz_xo = 0;
-        }
-    }
-
-    pr_info("[wcnss]: g_A60K_hwID=0x%x, cpu_ver=%s, has_48mhz_xo=%d.\n", g_A60K_hwID, g_asus_plat_info.cpu_ver, has_48mhz_xo);
-#endif
-
 	penv->wlan_config.use_48mhz_xo = has_48mhz_xo;
 
 	penv->thermal_mitigation = 0;

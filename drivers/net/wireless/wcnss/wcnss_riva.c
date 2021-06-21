@@ -113,12 +113,6 @@ static int configure_iris_xo(struct device *dev, bool use_48mhz_xo, int on)
 		reg |= NVBIN_DLND_BIT;
 		writel_relaxed(reg, RIVA_SPARE_OUT);
 
-		/* Enable IRIS XO */
-		rc = clk_prepare_enable(cxo);
-		if (rc) {
-			pr_err("cxo enable failed\n");
-			goto fail;
-		}
 		writel_relaxed(0, RIVA_PMU_CFG);
 		reg = readl_relaxed(RIVA_PMU_CFG);
 		reg |= RIVA_PMU_CFG_GC_BUS_MUX_SEL_TOP |
