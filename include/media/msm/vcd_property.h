@@ -10,7 +10,6 @@
  * GNU General Public License for more details.
  *
  */
-//snuk182 - copied from a68
 #ifndef _VCD_DRIVER_PROPERTY_H_
 #define _VCD_DRIVER_PROPERTY_H_
 

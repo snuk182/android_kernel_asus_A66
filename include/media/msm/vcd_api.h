@@ -10,7 +10,6 @@
  * GNU General Public License for more details.
  *
  */
-//snuk182 - copied from a68
 #ifndef _VCD_API_H_
 #define _VCD_API_H_
 #include "vcd_property.h"

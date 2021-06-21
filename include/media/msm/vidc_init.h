@@ -10,7 +10,7 @@
  * GNU General Public License for more details.
  *
  */
-//snuk182 - copied from a68
+
 #ifndef VIDC_INIT_H
 #define VIDC_INIT_H
 #include <linux/msm_ion.h>
