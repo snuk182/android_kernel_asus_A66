@@ -1,10 +1,9 @@
 /*
- * Common stats definitions for clients of dongle
- * ports
+ * Time stamps for latency measurements 
  *
- * Copyright (C) 1999-2013, Broadcom Corporation
+ * Copyright (C) 1999-2011, Broadcom Corporation
  * 
- *      Unless you and Broadcom execute a separate written software license
+ *         Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
  * under the terms of the GNU General Public License version 2 (the "GPL"),
  * available at http://www.broadcom.com/licenses/GPLv2.php, with the
@@ -22,22 +21,54 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: dngl_stats.h 241182 2011-02-17 21:50:03Z $
+ * $Id: htsf.h 277737 2011-08-16 17:54:59Z $
  */
+#ifndef _HTSF_H_
+#define _HTSF_H_
 
-#ifndef _dngl_stats_h_
-#define _dngl_stats_h_
+#define HTSFMAGIC       	0xCDCDABAB  /* in network order for tcpdump  */
+#define HTSFENDMAGIC    	0xEFEFABAB  /* to distinguish from RT2 magic */
+#define HTSF_HOSTOFFSET		102
+#define HTSF_DNGLOFFSET		HTSF_HOSTOFFSET	- 4
+#define HTSF_DNGLOFFSET2	HTSF_HOSTOFFSET	+ 106
+#define HTSF_MIN_PKTLEN 	200
+#define ETHER_TYPE_BRCM_PKTDLYSTATS     0x886d
+
+typedef enum htsfts_type {
+	T10,
+	T20,
+	T30,
+	T40,
+	T50,
+	T60,
+	T70,
+	T80,
+	T90,
+	TA0,
+	TE0
+} htsf_timestamp_t;
 
 typedef struct {
-	unsigned long	rx_packets;		/* total packets received */
-	unsigned long	tx_packets;		/* total packets transmitted */
-	unsigned long	rx_bytes;		/* total bytes received */
-	unsigned long	tx_bytes;		/* total bytes transmitted */
-	unsigned long	rx_errors;		/* bad packets received */
-	unsigned long	tx_errors;		/* packet transmit problems */
-	unsigned long	rx_dropped;		/* packets dropped by dongle */
-	unsigned long	tx_dropped;		/* packets dropped by dongle */
-	unsigned long   multicast;      /* multicast packets received */
-} dngl_stats_t;
+	uint32 magic;
+	uint32 prio;
+	uint32 seqnum;
+	uint32 misc;
+	uint32 c10;
+	uint32 t10;
+	uint32 c20;
+	uint32 t20;
+	uint32 t30;
+	uint32 t40;
+	uint32 t50;
+	uint32 t60;
+	uint32 t70;
+	uint32 t80;
+	uint32 t90;
+	uint32 cA0;
+	uint32 tA0;
+	uint32 cE0;
+	uint32 tE0;
+	uint32 endmagic;
+} htsfts_t;
 
-#endif /* _dngl_stats_h_ */
+#endif /* _HTSF_H_ */
