@@ -9,7 +9,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
-//snuk182 !! copied from a68
+
 #include <linux/module.h>
 #include "msm_actuator.h"
 
