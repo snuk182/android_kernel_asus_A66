@@ -311,7 +311,7 @@ static int msm_ctrl_cmd_done(void *arg)
 		goto ctrl_cmd_done_error;
 	}
 
-	if(command->queue_idx < 0 ||
+	if (command->queue_idx < 0 ||
 		command->queue_idx >= MAX_NUM_ACTIVE_CAMERA) {
 		pr_err("%s: Invalid value OR index %d\n", __func__,
 		  command->queue_idx);
@@ -419,7 +419,6 @@ static int msm_server_control(struct msm_cam_server_dev *server_dev,
 		ctrlcmd_data = kzalloc(out->length, GFP_KERNEL);
 		if (!ctrlcmd_data) {
 			rc = -ENOMEM;
-			mutex_unlock(&server_dev->server_queue_lock);
 			goto ctrlcmd_alloc_fail;
 		}
 		memcpy(ctrlcmd_data, out->value, out->length);
@@ -463,8 +462,8 @@ static int msm_server_control(struct msm_cam_server_dev *server_dev,
 			&server_dev->server_queue[out->queue_idx].eventData_q);
 		}
 		if (rc < 0) {
-			server_dev->server_queue[out->queue_idx].evt_id = 0;
-			mutex_unlock(&server_dev->server_queue_lock);
+			if (++server_dev->server_evt_id == 0)
+				server_dev->server_evt_id++;
 			pr_err("%s: wait_event error %d\n", __func__, rc);
 			return rc;
 		} else {
@@ -472,7 +471,6 @@ static int msm_server_control(struct msm_cam_server_dev *server_dev,
 			return -EINVAL;
 		}
 	}
-	mutex_unlock(&server_dev->server_queue_lock);
 
 	rcmd = msm_dequeue(queue, list_control);
 	if (!rcmd) {
@@ -505,6 +503,7 @@ static int msm_server_control(struct msm_cam_server_dev *server_dev,
 	return rc;
 
 ctrlcmd_alloc_fail:
+	mutex_unlock(&server_dev->server_queue_lock);
 	kfree(isp_event);
 isp_event_alloc_fail:
 	kfree(event_qcmd);
@@ -1129,7 +1128,8 @@ int msm_server_v4l2_unsubscribe_event(struct v4l2_fh *fh,
 		struct msm_isp_event_ctrl *isp_event;
 		rc = v4l2_event_dequeue(fh, &ev, O_NONBLOCK);
 		if (rc) {
-			pr_err("%s: v4l2_event_dequeue failed %d", __func__, rc);
+			pr_err("%s: v4l2_event_dequeue failed %d",
+						__func__, rc);
 			break;
 		}
 		isp_event = (struct msm_isp_event_ctrl *)
@@ -1403,8 +1403,9 @@ static long msm_ioctl_server(struct file *file, void *fh,
 
 		mutex_lock(&g_server_dev.server_queue_lock);
 
-		if(u_isp_event.isp_data.ctrl.queue_idx < 0 ||
-		u_isp_event.isp_data.ctrl.queue_idx >= MAX_NUM_ACTIVE_CAMERA) {
+		if (u_isp_event.isp_data.ctrl.queue_idx < 0 ||
+			u_isp_event.isp_data.ctrl.queue_idx >=
+			MAX_NUM_ACTIVE_CAMERA) {
 			pr_err("%s: Invalid index %d\n", __func__,
 				u_isp_event.isp_data.ctrl.queue_idx);
 			rc = -EINVAL;
@@ -2684,7 +2685,7 @@ int msm_server_send_ctrl(struct msm_ctrl_cmd *out,
 	struct msm_isp_event_ctrl *isp_event;
 	void *ctrlcmd_data;
 
-	if(out->queue_idx < 0 || out->queue_idx >= MAX_NUM_ACTIVE_CAMERA) {
+	if (out->queue_idx < 0 || out->queue_idx >= MAX_NUM_ACTIVE_CAMERA) {
 		pr_err("%s: Invalid index %d\n", __func__, out->queue_idx);
 		return -EINVAL;
 	}
@@ -2725,7 +2726,6 @@ int msm_server_send_ctrl(struct msm_ctrl_cmd *out,
 		ctrlcmd_data = kzalloc(out->length, GFP_KERNEL);
 		if (!ctrlcmd_data) {
 			rc = -ENOMEM;
-			mutex_unlock(&server_dev->server_queue_lock);
 			goto ctrlcmd_alloc_fail;
 		}
 		memcpy(ctrlcmd_data, out->value, out->length);
@@ -2750,19 +2750,17 @@ int msm_server_send_ctrl(struct msm_ctrl_cmd *out,
 	rc = wait_event_interruptible_timeout(queue->wait,
 		!list_empty_careful(&queue->list),
 		msecs_to_jiffies(out->timeout_ms));
-	mutex_lock(&server_dev->server_queue_lock);
 	D("Waiting is over for config status\n");
 	if (list_empty_careful(&queue->list)) {
 		if (!rc)
 			rc = -ETIMEDOUT;
 		if (rc < 0) {
-			server_dev->server_queue[out->queue_idx].evt_id = 0;
-			mutex_unlock(&server_dev->server_queue_lock);
+			if (++server_dev->server_evt_id == 0)
+				server_dev->server_evt_id++;
 			pr_err("%s: wait_event error %d\n", __func__, rc);
 			return rc;
 		}
 	}
-	mutex_unlock(&server_dev->server_queue_lock);
 
 	rcmd = msm_dequeue(queue, list_control);
 	BUG_ON(!rcmd);
@@ -2793,6 +2791,7 @@ int msm_server_send_ctrl(struct msm_ctrl_cmd *out,
 	return rc;
 
 ctrlcmd_alloc_fail:
+	mutex_unlock(&server_dev->server_queue_lock);
 	kfree(isp_event);
 isp_event_alloc_fail:
 	kfree(event_qcmd);

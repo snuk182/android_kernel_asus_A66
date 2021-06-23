@@ -9,7 +9,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
-//snuk182 !!
+
 #include <linux/module.h>
 #include <linux/uaccess.h>
 #include <linux/interrupt.h>
@@ -4808,6 +4808,7 @@ static void vfe32_process_output_path_irq_0(
 	struct msm_free_buf *free_buf = NULL;
 	free_buf = vfe32_check_free_buffer(VFE_MSG_OUTPUT_IRQ,
 		VFE_MSG_OUTPUT_PRIMARY, axi_ctrl);
+
 	/* we render frames in the following conditions:
 	1. Continuous mode and the free buffer is avaialable.
 	2. In snapshot shot mode, free buffer is not always available.
