@@ -866,18 +866,15 @@ static int msm_mctl_dev_open(struct file *f)
 	}
 	/* if no instance is available, return error */
 	if (i == MSM_DEV_INST_MAX) {
-		pr_err("%s: no instance is available\n", __func__);
-		goto err_inst;
+		mutex_unlock(&pcam->mctl_node.dev_lock);
+		return rc;
 	}
 	pcam_inst = kzalloc(sizeof(struct msm_cam_v4l2_dev_inst), GFP_KERNEL);
 	if (!pcam_inst) {
-		pr_err("%s: out of memory\n", __func__);
-		rc = -ENOMEM;
-		goto err_inst;
+		mutex_unlock(&pcam->mctl_node.dev_lock);
+		return rc;
 	}
 
-	mutex_init(&pcam_inst->inst_lock);
-	mutex_lock(&pcam_inst->inst_lock);
 	pcam_inst->sensor_pxlcode = pcam->usr_fmts[0].pxlcode;
 	pcam_inst->my_index = i;
 	pcam_inst->pcam = pcam;
@@ -894,13 +891,14 @@ static int msm_mctl_dev_open(struct file *f)
 		&pcam->mctl_node.active);
 	if (rc < 0) {
 		pr_err("%s: mctl session open failed %d", __func__, rc);
-		goto err_session;
+		mutex_unlock(&pcam->mctl_node.dev_lock);
+		return rc;
 	}
 
 	pmctl = msm_cam_server_get_mctl(pcam->mctl_handle);
 	if (!pmctl) {
 		pr_err("%s mctl NULL!\n", __func__);
-		goto err_mctl;
+		return rc;
 	}
 
 	D("%s active %d\n", __func__, pcam->mctl_node.active);
@@ -908,7 +906,6 @@ static int msm_mctl_dev_open(struct file *f)
 			pcam->mctl_node.pvdev);
 
 	pcam_inst->vbqueue_initialized = 0;
-	mutex_unlock(&pcam_inst->inst_lock);
 	kref_get(&pmctl->refcount);
 	f->private_data = &pcam_inst->eventHandle;
 
@@ -918,16 +915,6 @@ static int msm_mctl_dev_open(struct file *f)
 	pcam->mctl_node.use_count++;
 	mutex_unlock(&pcam->mctl_node.dev_lock);
 	D("%s : X ", __func__);
-	return rc;
-
-err_mctl:
-	msm_cam_server_close_mctl_session(pcam);
-err_session:
-	mutex_unlock(&pcam_inst->inst_lock);
-	mutex_destroy(&pcam_inst->inst_lock);
-	kfree(pcam_inst);
-err_inst:
-	mutex_unlock(&pcam->mctl_node.dev_lock);
 	return rc;
 }
 
