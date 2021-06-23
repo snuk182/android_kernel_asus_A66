@@ -1927,95 +1927,85 @@ struct msm_actuator_set_info_t {
 	struct msm_actuator_tuning_params_t af_tuning_params;
 };
 
+struct msm_actuator_get_info_t {
+	uint32_t focal_length_num;
+	uint32_t focal_length_den;
+	uint32_t f_number_num;
+	uint32_t f_number_den;
+	uint32_t f_pix_num;
+	uint32_t f_pix_den;
+	uint32_t total_f_dist_num;
+	uint32_t total_f_dist_den;
+	uint32_t hor_view_angle_num;
+	uint32_t hor_view_angle_den;
+	uint32_t ver_view_angle_num;
+	uint32_t ver_view_angle_den;
+};
+
+enum af_camera_name {
+	ACTUATOR_MAIN_CAM_0,
+	ACTUATOR_MAIN_CAM_1,
+	ACTUATOR_MAIN_CAM_2,
+	ACTUATOR_MAIN_CAM_3,
+	ACTUATOR_MAIN_CAM_4,
+	ACTUATOR_MAIN_CAM_5,
+	ACTUATOR_WEB_CAM_0,
+	ACTUATOR_WEB_CAM_1,
+	ACTUATOR_WEB_CAM_2,
+};
+
+struct msm_actuator_cfg_data {
+	int cfgtype;
+	uint8_t is_af_supported;
+	union {
+		struct msm_actuator_move_params_t move;
+		struct msm_actuator_set_info_t set_info;
+		struct msm_actuator_get_info_t get_info;
+		enum af_camera_name cam_name;
+	} cfg;
+};
+
+struct msm_eeprom_support {
+	uint16_t is_supported;
+	uint16_t size;
+	uint16_t index;
+	uint16_t qvalue;
+};
+
+struct msm_calib_wb {
+	uint16_t r_over_g;
+	uint16_t b_over_g;
+	uint16_t gr_over_gb;
+};
+
+struct msm_calib_af {
+	uint16_t macro_dac;
+	uint16_t inf_dac;
+	uint16_t start_dac;
+};
+
+struct msm_calib_lsc {
+	uint16_t r_gain[221];
+	uint16_t b_gain[221];
+	uint16_t gr_gain[221];
+	uint16_t gb_gain[221];
+};
+
+struct pixel_t {
+	int x;
+	int y;
+};
+
+struct msm_calib_dpc {
+	uint16_t validcount;
+	struct pixel_t snapshot_coord[128];
+	struct pixel_t preview_coord[128];
+	struct pixel_t video_coord[128];
+};
+
 struct msm_calib_raw {
 	uint8_t *data;
 	uint32_t size;
-};
-
-struct msm_actuator_get_info_t
-{
-  uint32_t focal_length_num;
-  uint32_t focal_length_den;
-  uint32_t f_number_num;
-  uint32_t f_number_den;
-  uint32_t f_pix_num;
-  uint32_t f_pix_den;
-  uint32_t total_f_dist_num;
-  uint32_t total_f_dist_den;
-  uint32_t hor_view_angle_num;
-  uint32_t hor_view_angle_den;
-  uint32_t ver_view_angle_num;
-  uint32_t ver_view_angle_den;
-};
-
-enum af_camera_name
-{
-  ACTUATOR_MAIN_CAM_0,
-  ACTUATOR_MAIN_CAM_1,
-  ACTUATOR_MAIN_CAM_2,
-  ACTUATOR_MAIN_CAM_3,
-  ACTUATOR_MAIN_CAM_4,
-  ACTUATOR_MAIN_CAM_5,
-  ACTUATOR_WEB_CAM_0,
-  ACTUATOR_WEB_CAM_1,
-  ACTUATOR_WEB_CAM_2,
-};
-
-struct msm_actuator_cfg_data
-{
-  int cfgtype;
-  uint8_t is_af_supported;
-  union
-  {
-    struct msm_actuator_move_params_t move;
-    struct msm_actuator_set_info_t set_info;
-    struct msm_actuator_get_info_t get_info;
-    enum af_camera_name cam_name;
-  } cfg;
-};
-
-struct msm_eeprom_support
-{
-  uint16_t is_supported;
-  uint16_t size;
-  uint16_t index;
-  uint16_t qvalue;
-};
-
-struct msm_calib_wb
-{
-  uint16_t r_over_g;
-  uint16_t b_over_g;
-  uint16_t gr_over_gb;
-};
-
-struct msm_calib_af
-{
-  uint16_t macro_dac;
-  uint16_t inf_dac;
-  uint16_t start_dac;
-};
-
-struct msm_calib_lsc
-{
-  uint16_t r_gain[221];
-  uint16_t b_gain[221];
-  uint16_t gr_gain[221];
-  uint16_t gb_gain[221];
-};
-
-struct pixel_t
-{
-  int x;
-  int y;
-};
-
-struct msm_calib_dpc
-{
-  uint16_t validcount;
-  struct pixel_t snapshot_coord[128];
-  struct pixel_t preview_coord[128];
-  struct pixel_t video_coord[128];
 };
 
 struct msm_camera_eeprom_info_t {
