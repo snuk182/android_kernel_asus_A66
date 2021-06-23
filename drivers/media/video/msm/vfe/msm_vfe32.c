@@ -1388,7 +1388,6 @@ static int vfe_stats_awb_buf_init(
 		pr_err("%s: dq awb ping buf from free buf queue", __func__);
 		return -ENOMEM;
 	}
-pr_err("%s AWB PING ADDR %x ", __func__, addr);
 	msm_camera_io_w(addr,
 		vfe32_ctrl->share_ctrl->vfebase +
 		VFE_BUS_STATS_AWB_WR_PING_ADDR);
@@ -1400,7 +1399,6 @@ pr_err("%s AWB PING ADDR %x ", __func__, addr);
 			__func__);
 		return -ENOMEM;
 	}
-pr_err("%s AWB PONG ADDR %x ", __func__, addr);
 	msm_camera_io_w(addr,
 		vfe32_ctrl->share_ctrl->vfebase +
 		VFE_BUS_STATS_AWB_WR_PONG_ADDR);
@@ -1425,7 +1423,6 @@ static uint32_t vfe_stats_aec_bg_buf_init(
 			__func__);
 		return -ENOMEM;
 	}
-pr_err("%s AEC PING ADDR %x ", __func__, addr);
 	msm_camera_io_w(addr,
 		vfe32_ctrl->share_ctrl->vfebase +
 		VFE_BUS_STATS_AEC_BG_WR_PING_ADDR);
@@ -1437,7 +1434,6 @@ pr_err("%s AEC PING ADDR %x ", __func__, addr);
 			__func__);
 		return -ENOMEM;
 	}
-pr_err("%s AEC PONG ADDR %x ", __func__, addr);
 	msm_camera_io_w(addr,
 		vfe32_ctrl->share_ctrl->vfebase +
 		VFE_BUS_STATS_AEC_BG_WR_PONG_ADDR);
@@ -1470,7 +1466,6 @@ static int vfe_stats_af_bf_buf_init(
 		pr_err("%s: dq af ping buf from free buf queue", __func__);
 		return -ENOMEM;
 	}
-pr_err("%s AF PING ADDR %x ", __func__, addr);
 	msm_camera_io_w(addr,
 		vfe32_ctrl->share_ctrl->vfebase +
 		VFE_BUS_STATS_AF_BF_WR_PING_ADDR);
@@ -1481,7 +1476,6 @@ pr_err("%s AF PING ADDR %x ", __func__, addr);
 		pr_err("%s: dq af pong buf from free buf queue", __func__);
 		return -ENOMEM;
 	}
-pr_err("%s AF PONG ADDR %x ", __func__, addr);
 	msm_camera_io_w(addr,
 		vfe32_ctrl->share_ctrl->vfebase +
 		VFE_BUS_STATS_AF_BF_WR_PONG_ADDR);
@@ -1502,7 +1496,6 @@ static uint32_t vfe_stats_bhist_buf_init(
 			__func__);
 		return -ENOMEM;
 	}
-pr_err("%s HIST PING ADDR %x ", __func__, addr);
 	msm_camera_io_w(addr,
 		vfe32_ctrl->share_ctrl->vfebase +
 		VFE_BUS_STATS_SKIN_BHIST_WR_PING_ADDR);
@@ -1514,7 +1507,6 @@ pr_err("%s HIST PING ADDR %x ", __func__, addr);
 			__func__);
 		return -ENOMEM;
 	}
-pr_err("%s HIST PONG ADDR %x ", __func__, addr);
 	msm_camera_io_w(addr,
 		vfe32_ctrl->share_ctrl->vfebase +
 		VFE_BUS_STATS_SKIN_BHIST_WR_PONG_ADDR);
@@ -1536,7 +1528,6 @@ static int vfe_stats_ihist_buf_init(
 			__func__);
 		return -ENOMEM;
 	}
-pr_err("%s IHIST PING ADDR %x ", __func__, addr);
 	msm_camera_io_w(addr,
 		vfe32_ctrl->share_ctrl->vfebase +
 		VFE_BUS_STATS_HIST_WR_PING_ADDR);
@@ -1548,7 +1539,6 @@ pr_err("%s IHIST PING ADDR %x ", __func__, addr);
 			__func__);
 		return -ENOMEM;
 	}
-pr_err("%s IHIST PONG ADDR %x ", __func__, addr);
 	msm_camera_io_w(addr,
 		vfe32_ctrl->share_ctrl->vfebase +
 		VFE_BUS_STATS_HIST_WR_PONG_ADDR);
@@ -1569,7 +1559,6 @@ static int vfe_stats_rs_buf_init(
 		pr_err("%s: dq rs ping buf from free buf queue", __func__);
 		return -ENOMEM;
 	}
-pr_err("%s RS PING ADDR %x ", __func__, addr);
 	msm_camera_io_w(addr,
 		vfe32_ctrl->share_ctrl->vfebase +
 		VFE_BUS_STATS_RS_WR_PING_ADDR);
@@ -1580,7 +1569,6 @@ pr_err("%s RS PING ADDR %x ", __func__, addr);
 		pr_err("%s: dq rs pong buf from free buf queue", __func__);
 		return -ENOMEM;
 	}
-pr_err("%s RS PONG ADDR %x ", __func__, addr);
 	msm_camera_io_w(addr,
 		vfe32_ctrl->share_ctrl->vfebase +
 		VFE_BUS_STATS_RS_WR_PONG_ADDR);
@@ -1599,7 +1587,6 @@ static int vfe_stats_cs_buf_init(
 		pr_err("%s: dq cs ping buf from free buf queue", __func__);
 		return -ENOMEM;
 	}
-pr_err("%s CS PING ADDR %x ", __func__, addr);
 	msm_camera_io_w(addr,
 		vfe32_ctrl->share_ctrl->vfebase +
 		VFE_BUS_STATS_CS_WR_PING_ADDR);
@@ -1610,7 +1597,6 @@ pr_err("%s CS PING ADDR %x ", __func__, addr);
 		pr_err("%s: dq cs pong buf from free buf queue", __func__);
 		return -ENOMEM;
 	}
-pr_err("%s CS PONG ADDR %x ", __func__, addr);
 	msm_camera_io_w(addr,
 		vfe32_ctrl->share_ctrl->vfebase +
 		VFE_BUS_STATS_CS_WR_PONG_ADDR);
@@ -6480,8 +6466,9 @@ static int msm_axi_subdev_s_crystal_freq(struct v4l2_subdev *sd,
 	int rc = 0;
 	int round_rate;
 	struct axi_ctrl_t *axi_ctrl = v4l2_get_subdevdata(sd);
-	if(axi_ctrl->share_ctrl->dual_enabled){
-		CDBG("%s Dual camera Enabled hence returning without clock change\n", __func__);
+	if (axi_ctrl->share_ctrl->dual_enabled) {
+		CDBG("%s Dual camera Enabled hence returning "\
+			"without clock change\n", __func__);
 		return rc;
 	}
 	round_rate = clk_round_rate(axi_ctrl->vfe_clk[0], freq);
@@ -6592,11 +6579,11 @@ int msm_axi_subdev_init(struct v4l2_subdev *sd,
 	CDBG("%s: axi_ctrl->share_ctrl->dual_enabled ? = %d\n", __func__,
 			axi_ctrl->share_ctrl->dual_enabled);
 	if (axi_ctrl->share_ctrl->dual_enabled){
-		pr_info("%s: Scaling bus config for dual bus vectors\n", __func__);
+		pr_info("%s: Scaling bus config for dual bus vectors\n",
+			__func__);
 		msm_camio_bus_scale_cfg(
 			mctl->sdata->pdata->cam_bus_scale_table, S_DUAL);
-	}
-	else
+	} else
 		msm_camio_bus_scale_cfg(
 			mctl->sdata->pdata->cam_bus_scale_table, S_PREVIEW);
 
@@ -7723,8 +7710,8 @@ static void msm_axi_process_irq(struct v4l2_subdev *sd, void *arg)
 		}
 	}
 	if (axi_ctrl->share_ctrl->comp_output_mode &
-		VFE32_OUTPUT_MODE_TERTIARY3){
-		pr_err("Before process output path" \
+		VFE32_OUTPUT_MODE_TERTIARY3) {
+		CDBG("Before process output path" \
 			"of RDI2 irqstatus %x\n", irqstatus);
 		if (irqstatus & (0x1 << (axi_ctrl->share_ctrl->outpath.out4.ch0
 			+ VFE_WM_OFFSET)))
