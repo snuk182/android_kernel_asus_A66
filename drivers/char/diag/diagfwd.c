@@ -9,7 +9,6 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
-//snuk182 !!!!
 #include <linux/slab.h>
 #include <linux/init.h>
 #include <linux/module.h>
@@ -1904,6 +1903,7 @@ void diagfwd_init(void)
 	return;
 err:
 	pr_err("diag: Could not initialize diag buffers");
+
 	for (i = 0; i < NUM_SMD_DATA_CHANNELS; i++)
 		diag_smd_destructor(&driver->smd_data[i]);
 
@@ -1938,6 +1938,7 @@ void diagfwd_exit(void)
 	platform_driver_unregister(&msm_smd_ch1_driver);
 	platform_driver_unregister(&msm_diag_dci_driver);
 	platform_driver_unregister(&diag_smd_lite_driver);
+
 	kfree(driver->buf_msg_mask_update);
 	kfree(driver->buf_log_mask_update);
 	kfree(driver->buf_event_mask_update);
