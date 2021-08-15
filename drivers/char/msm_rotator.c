@@ -2429,7 +2429,6 @@ static int msm_rotator_start(unsigned long arg,
 				fast_yuv_en = !fast_yuv_invalid_size_checker(
 						info.rotations,
 						info.src.width,
-						info.src.height,
 						dst_w,
 						info.src.height,
 						dst_h,
