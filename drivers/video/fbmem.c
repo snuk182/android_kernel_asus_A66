@@ -10,7 +10,7 @@
  * License.  See the file COPYING in the main directory of this archive
  * for more details.
  */
-//snuk182 !!
+
 #include <linux/module.h>
 
 #include <linux/compat.h>
