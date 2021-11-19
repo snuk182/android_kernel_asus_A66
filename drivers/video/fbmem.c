@@ -1048,15 +1048,11 @@ fb_blank(struct fb_info *info, int blank)
 {	
  	int ret = -EINVAL;
 
-pr_info("[FB] fb_blank 1");
-
  	if (blank > FB_BLANK_POWERDOWN)
  		blank = FB_BLANK_POWERDOWN;
 
 	if (info->fbops->fb_blank)
  		ret = info->fbops->fb_blank(blank, info);
-
-pr_info("[FB] fb_blank 2");
 
  	if (!ret) {
 		struct fb_event event;
@@ -1065,7 +1061,6 @@ pr_info("[FB] fb_blank 2");
 		event.data = &blank;
 		fb_notifier_call_chain(FB_EVENT_BLANK, &event);
 	}
-pr_info("[FB] fb_blank 3");
 
  	return ret;
 }
@@ -1097,11 +1092,11 @@ static long do_fb_ioctl(struct fb_info *info, unsigned int cmd,
 			return -EFAULT;
 		if (!lock_fb_info(info))
 			return -ENODEV;
-		//console_lock();
+		console_lock();
 		info->flags |= FBINFO_MISC_USEREVENT;
 		ret = fb_set_var(info, &var);
 		info->flags &= ~FBINFO_MISC_USEREVENT;
-		//console_unlock();
+		console_unlock();
 		unlock_fb_info(info);
 		if (!ret && copy_to_user(argp, &var, sizeof(var)))
 			ret = -EFAULT;
@@ -1137,9 +1132,9 @@ static long do_fb_ioctl(struct fb_info *info, unsigned int cmd,
 			return -EFAULT;
 		if (!lock_fb_info(info))
 			return -ENODEV;
-		//console_lock();
+		console_lock();
 		ret = fb_pan_display(info, &var);
-		//console_unlock();
+		console_unlock();
 		unlock_fb_info(info);
 		if (ret == 0 && copy_to_user(argp, &var, sizeof(var)))
 			return -EFAULT;
@@ -1182,18 +1177,14 @@ static long do_fb_ioctl(struct fb_info *info, unsigned int cmd,
 		unlock_fb_info(info);
 		break;
 	case FBIOBLANK:
-		pr_info("[FB] fbioblank 1");
 		if (!lock_fb_info(info))
 			return -ENODEV;
-		//console_lock();
-pr_info("[FB] fbioblank 2");
+		console_lock();
 		info->flags |= FBINFO_MISC_USEREVENT;
 		ret = fb_blank(info, arg);
 		info->flags &= ~FBINFO_MISC_USEREVENT;
-pr_info("[FB] fbioblank 3");
-		//console_unlock();
+		console_unlock();
 		unlock_fb_info(info);
-pr_info("[FB] fbioblank 4");
 		break;
 	default:
 		fb = info->fbops;
