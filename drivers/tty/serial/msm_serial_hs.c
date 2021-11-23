@@ -1015,7 +1015,7 @@ static void msm_hs_set_termios(struct uart_port *uport,
 	msm_hs_write(uport, UARTDM_CR_ADDR, FORCE_STALE_EVENT);
 	mb();
 
-	uport->read_status_mask = (termios->c_cflag & CREAD);
+	msm_uport->rx_discard_flush_issued = true;
 
 	/*
 	 * Wait for above discard flush request for UART RX CMD to be
@@ -1044,7 +1044,8 @@ static void msm_hs_set_termios(struct uart_port *uport,
 		spin_lock_irqsave(&uport->lock, flags);
 	}
 
-	msm_uport->rx_discard_flush_issued = true;
+	/* Start Rx Transfer */
+	msm_hs_start_rx_locked(&msm_uport->uport);
 
 	/*
 	 * Configure HW flow control
