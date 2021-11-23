@@ -185,13 +185,8 @@ struct msm_hs_port {
 	bool rx_discard_flush_issued;
 	enum uart_func_mode func_mode;
 	bool is_shutdown;
-<<<<<<< HEAD
 	bool termios_in_progress;
 	int rx_buf_size;
-||||||| parent of bdb7bf68bfb... msm_serial_hs: Fix synchronization between ADM and UART Cores
-=======
-	bool termios_in_progress;
->>>>>>> bdb7bf68bfb... msm_serial_hs: Fix synchronization between ADM and UART Cores
 };
 
 #define MSM_UARTDM_BURST_SIZE 16   /* DM burst size (in bytes) */
@@ -850,7 +845,6 @@ static void msm_hs_set_termios(struct uart_port *uport,
 	mutex_lock(&msm_uport->clk_mutex);
 	spin_lock_irqsave(&uport->lock, flags);
 
-<<<<<<< HEAD
 	msm_uport->termios_in_progress = true;
 
 	/* Disable RxStale Event Mechanism */
@@ -892,47 +886,11 @@ static void msm_hs_set_termios(struct uart_port *uport,
 	}
 
 	/*
-	 * It is quite possible that previous graceful flush is not
-	 * completed and set_termios() request has been received.
-	 * Hence wait here to make sure that it is completed and
-	 * queued one more UART RX CMD with ADM.
-	 */
-	if (msm_uport->rx.dma_in_flight &&
-			msm_uport->rx.flush == FLUSH_DATA_READY) {
-		spin_unlock_irqrestore(&uport->lock, flags);
-		ret = wait_event_timeout(msm_uport->rx.wait,
-			msm_uport->rx.flush == FLUSH_NONE,
-			RX_FLUSH_COMPLETE_TIMEOUT);
-		if (!ret) {
-			pr_err("%s(): timeout for Rx cmd completion\n",
-							__func__);
-			spin_lock_irqsave(&uport->lock, flags);
-			print_uart_registers(msm_uport);
-			spin_unlock_irqrestore(&uport->lock, flags);
-			BUG_ON(1);
-		}
-
-		spin_lock_irqsave(&uport->lock, flags);
-	}
-
-||||||| parent of bdb7bf68bfb... msm_serial_hs: Fix synchronization between ADM and UART Cores
-=======
-	/* Disable all UART interrupts */
-	msm_hs_write(uport, UARTDM_IMR_ADDR, 0);
-
-	/* Enable RFR so remote UART doesn't send any data. */
-	msm_hs_write(uport, UARTDM_CR_ADDR, RFR_LOW);
-	udelay(5);
-
-	spin_unlock_irqrestore(&uport->lock, flags);
->>>>>>> bdb7bf68bfb... msm_serial_hs: Fix synchronization between ADM and UART Cores
-	/*
 	 * Wait for queued Rx CMD to ADM driver to be programmed
 	 * with ADM hardware before going and changing UART baud rate.
 	 * Below udelay(500) is required as exec_cmd callback is called
 	 * before actually programming ADM hardware with cmd.
 	 */
-<<<<<<< HEAD
 	if (msm_uport->rx.dma_in_flight) {
 		spin_unlock_irqrestore(&uport->lock, flags);
 		ret = wait_event_timeout(msm_uport->rx.wait,
@@ -946,25 +904,6 @@ static void msm_hs_set_termios(struct uart_port *uport,
 
 		spin_lock_irqsave(&uport->lock, flags);
 	}
-||||||| parent of bdb7bf68bfb... msm_serial_hs: Fix synchronization between ADM and UART Cores
-	data = msm_hs_read(uport, UARTDM_DMEN_ADDR);
-	data &= ~UARTDM_RX_DM_EN_BMSK;
-	msm_hs_write(uport, UARTDM_DMEN_ADDR, data);
-=======
-	if (msm_uport->rx.dma_in_flight) {
-		ret = wait_event_timeout(msm_uport->rx.wait,
-		msm_uport->rx.cmd_exec == true,
-		RX_FLUSH_COMPLETE_TIMEOUT);
-		if (!ret)
-			pr_err("%s(): timeout for rx cmd to be program\n",
-								__func__);
-		else
-			udelay(500);
-	}
-
-	spin_lock_irqsave(&uport->lock, flags);
-	msm_uport->termios_in_progress = true;
->>>>>>> bdb7bf68bfb... msm_serial_hs: Fix synchronization between ADM and UART Cores
 
 	/* 300 is the minimum baud support by the driver  */
 	bps = uart_get_baud_rate(uport, termios, oldtermios, 200, 4000000);
@@ -1026,40 +965,12 @@ static void msm_hs_set_termios(struct uart_port *uport,
 
 	uport->read_status_mask = (termios->c_cflag & CREAD);
 
-<<<<<<< HEAD
-	/* Wait for baud rate and UART protocol parameters to set. */
-	udelay(200);
-||||||| parent of bdb7bf68bfb... msm_serial_hs: Fix synchronization between ADM and UART Cores
-	if (c_cflag & CRTSCTS) {
-		data |= UARTDM_MR1_CTS_CTL_BMSK;
-		data |= UARTDM_MR1_RX_RDY_CTL_BMSK;
-	}
-=======
 	/* Wait for baud rate and UART protocol parameters to set. */
 	udelay(200);
 
 	/* Set Transmit software time out */
 	uart_update_timeout(uport, c_cflag, bps);
 
-	/*
-	 * Configure HW flow control
-	 * UART Core would see status of CTS line when it is sending data
-	 * to remote uart to confirm that it can receive or not.
-	 * UART Core would trigger RFR if it is not having any space with
-	 * RX FIFO.
-	 */
-	data = msm_hs_read(uport, UARTDM_MR1_ADDR);
-	data &= ~(UARTDM_MR1_CTS_CTL_BMSK | UARTDM_MR1_RX_RDY_CTL_BMSK);
-	if (c_cflag & CRTSCTS) {
-		data |= UARTDM_MR1_CTS_CTL_BMSK;
-		data |= UARTDM_MR1_RX_RDY_CTL_BMSK;
-	}
->>>>>>> bdb7bf68bfb... msm_serial_hs: Fix synchronization between ADM and UART Cores
-
-	/* Set Transmit software time out */
-	uart_update_timeout(uport, c_cflag, bps);
-
-<<<<<<< HEAD
 	/* Enable previously enabled all UART interrupts. */
 	msm_hs_write(uport, UARTDM_IMR_ADDR, msm_uport->imr_reg);
 
@@ -1073,18 +984,7 @@ static void msm_hs_set_termios(struct uart_port *uport,
 	mb();
 
 	uport->read_status_mask = (termios->c_cflag & CREAD);
-||||||| parent of bdb7bf68bfb... msm_serial_hs: Fix synchronization between ADM and UART Cores
-	uport->ignore_status_mask = termios->c_iflag & INPCK;
-	uport->ignore_status_mask |= termios->c_iflag & IGNPAR;
-	uport->ignore_status_mask |= termios->c_iflag & IGNBRK;
 
-	uport->read_status_mask = (termios->c_cflag & CREAD);
-=======
-	/* Enable previously enabled all UART interrupts. */
-	msm_hs_write(uport, UARTDM_IMR_ADDR, msm_uport->imr_reg);
->>>>>>> bdb7bf68bfb... msm_serial_hs: Fix synchronization between ADM and UART Cores
-
-<<<<<<< HEAD
 	/*
 	 * Wait for above discard flush request for UART RX CMD to be
 	 * completed. completion would be signal from rx_tlet without
@@ -1111,21 +1011,9 @@ static void msm_hs_set_termios(struct uart_port *uport,
 		print_uart_registers(msm_uport);
 		spin_lock_irqsave(&uport->lock, flags);
 	}
-||||||| parent of bdb7bf68bfb... msm_serial_hs: Fix synchronization between ADM and UART Cores
-	msm_hs_write(uport, UARTDM_IMR_ADDR, 0);
-=======
-	/*
-	 * Invoke Force RxStale Interrupt
-	 * On receiving this interrupt, send discard flush request
-	 * to ADM driver and ignore all received data.
-	 */
-	msm_hs_write(uport, UARTDM_CR_ADDR, FORCE_STALE_EVENT);
-	mb();
->>>>>>> bdb7bf68bfb... msm_serial_hs: Fix synchronization between ADM and UART Cores
 
 	msm_uport->rx_discard_flush_issued = true;
 
-<<<<<<< HEAD
 	/*
 	 * Configure HW flow control
 	 * UART Core would see status of CTS line when it is sending data
@@ -1141,63 +1029,6 @@ static void msm_hs_set_termios(struct uart_port *uport,
 	}
 
 	msm_hs_write(uport, UARTDM_MR1_ADDR, data);
-	mb();
-
-	if (msm_uport->rx.flush == FLUSH_NONE) {
-		wake_lock(&msm_uport->rx.wake_lock);
-		msm_uport->rx.flush = FLUSH_IGNORE;
-		/*
-		 * Before using dmov APIs make sure that
-		 * previous writel are completed. Hence
-		 * dsb requires here.
-		 */
-		mb();
-		/* do discard flush */
-		msm_dmov_flush(msm_uport->dma_rx_channel, 0);
-||||||| parent of bdb7bf68bfb... msm_serial_hs: Fix synchronization between ADM and UART Cores
-	if (msm_uport->rx.flush == FLUSH_NONE) {
-		wake_lock(&msm_uport->rx.wake_lock);
-		msm_uport->rx.flush = FLUSH_IGNORE;
-		/*
-		 * Before using dmov APIs make sure that
-		 * previous writel are completed. Hence
-		 * dsb requires here.
-		 */
-		mb();
-		msm_uport->rx_discard_flush_issued = true;
-		/* do discard flush */
-		msm_dmov_flush(msm_uport->dma_rx_channel, 0);
-		spin_unlock_irqrestore(&uport->lock, flags);
-		ret = wait_event_timeout(msm_uport->rx.wait,
-			msm_uport->rx_discard_flush_issued == false,
-			RX_FLUSH_COMPLETE_TIMEOUT);
-		if (!ret)
-			pr_err("%s(): dmov flush callback timed out\n",
-						 __func__);
-		spin_lock_irqsave(&uport->lock, flags);
-=======
-	/*
-	 * Wait for above discard flush request for UART RX CMD to be
-	 * completed. completion would be signal from rx_tlet without
-	 * queueing any next UART RX CMD.
-	 */
-	if (msm_uport->rx.dma_in_flight) {
-		spin_unlock_irqrestore(&uport->lock, flags);
-		ret = wait_event_timeout(msm_uport->rx.wait,
-			msm_uport->rx_discard_flush_issued == false,
-			RX_FLUSH_COMPLETE_TIMEOUT);
-			if (!ret)
-				pr_err("%s(): timeout for rx discard flush\n",
-								__func__);
-		spin_lock_irqsave(&uport->lock, flags);
->>>>>>> bdb7bf68bfb... msm_serial_hs: Fix synchronization between ADM and UART Cores
-	}
-
-	/* Start Rx Transfer */
-	msm_hs_start_rx_locked(&msm_uport->uport);
-
-	/* Disable RFR so remote UART can send data. */
-	msm_hs_write(uport, UARTDM_CR_ADDR, RFR_HIGH);
 	mb();
 
 	msm_uport->termios_in_progress = false;
@@ -1349,21 +1180,12 @@ static void msm_hs_start_rx_locked(struct uart_port *uport)
 	unsigned int buffer_pending = msm_uport->rx.buffer_pending;
 	unsigned int data;
 
-<<<<<<< HEAD
 	if (msm_uport->rx.dma_in_flight) {
 		pr_err("%s(): RX CMD is already queued.\n", __func__);
 		print_uart_registers(msm_uport);
 		BUG_ON(1);
 	}
 
-||||||| parent of bdb7bf68bfb... msm_serial_hs: Fix synchronization between ADM and UART Cores
-=======
-	if (msm_uport->rx.dma_in_flight) {
-		pr_err("%s(): RX CMD is already queued.\n", __func__);
-		BUG_ON(1);
-	}
-
->>>>>>> bdb7bf68bfb... msm_serial_hs: Fix synchronization between ADM and UART Cores
 	msm_uport->rx.buffer_pending = 0;
 	if (buffer_pending && hs_serial_debug_mask)
 		printk(KERN_ERR "Error: rx started in buffer state = %x",
@@ -1390,7 +1212,6 @@ static void msm_hs_start_rx_locked(struct uart_port *uport)
 	mb();
 
 	msm_uport->rx.flush = FLUSH_NONE;
-<<<<<<< HEAD
 	msm_uport->rx.dma_in_flight = true;
 	msm_uport->rx.cmd_exec = false;
 	msm_dmov_enqueue_cmd_ext(msm_uport->dma_rx_channel,
@@ -1403,16 +1224,6 @@ static void msm_hs_start_rx_locked(struct uart_port *uport)
 	 */
 	if (msm_uport->termios_in_progress)
 		wake_up(&msm_uport->rx.wait);
-||||||| parent of bdb7bf68bfb... msm_serial_hs: Fix synchronization between ADM and UART Cores
-	msm_dmov_enqueue_cmd(msm_uport->dma_rx_channel, &msm_uport->rx.xfer);
-
-=======
-	msm_uport->rx.dma_in_flight = true;
-	msm_uport->rx.cmd_exec = false;
-	msm_dmov_enqueue_cmd_ext(msm_uport->dma_rx_channel,
-					&msm_uport->rx.xfer);
-
->>>>>>> bdb7bf68bfb... msm_serial_hs: Fix synchronization between ADM and UART Cores
 }
 
 static void flip_insert_work(struct work_struct *work)
@@ -2252,15 +2063,9 @@ static int msm_hs_startup(struct uart_port *uport)
 	struct msm_hs_tx *tx = &msm_uport->tx;
 	struct msm_hs_rx *rx = &msm_uport->rx;
 
-<<<<<<< HEAD
-||||||| parent of bdb7bf68bfb... msm_serial_hs: Fix synchronization between ADM and UART Cores
-	msm_uport->is_shutdown = false;
-
-=======
 	msm_uport->is_shutdown = false;
 	msm_uport->termios_in_progress = false;
 
->>>>>>> bdb7bf68bfb... msm_serial_hs: Fix synchronization between ADM and UART Cores
 	rfr_level = uport->fifosize;
 	if (rfr_level > 16)
 		rfr_level -= 16;
@@ -2777,26 +2582,10 @@ static void msm_hs_shutdown(struct uart_port *uport)
 
 
 	spin_lock_irqsave(&uport->lock, flags);
-<<<<<<< HEAD
 
 	/* deactivate if any clock off hrtimer is active. */
 	hrtimer_try_to_cancel(&msm_uport->clk_off_timer);
 
-||||||| parent of bdb7bf68bfb... msm_serial_hs: Fix synchronization between ADM and UART Cores
-	/* Disable all UART interrupts */
-	msm_uport->imr_reg = 0;
-	msm_hs_write(uport, UARTDM_IMR_ADDR, msm_uport->imr_reg);
-	msm_uport->is_shutdown = true;
-=======
-
-	/* deactivate if any clock off hrtimer is active. */
-	hrtimer_try_to_cancel(&msm_uport->clk_off_timer);
-
-	/* Disable all UART interrupts */
-	msm_uport->imr_reg = 0;
-	msm_hs_write(uport, UARTDM_IMR_ADDR, msm_uport->imr_reg);
-	msm_uport->is_shutdown = true;
->>>>>>> bdb7bf68bfb... msm_serial_hs: Fix synchronization between ADM and UART Cores
 	/* disable UART TX interface to DM */
 	data = msm_hs_read(uport, UARTDM_DMEN_ADDR);
 	data &= ~UARTDM_TX_DM_EN_BMSK;
