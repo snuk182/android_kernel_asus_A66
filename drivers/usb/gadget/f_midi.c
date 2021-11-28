@@ -764,13 +764,13 @@ f_midi_bind(struct usb_configuration *c, struct usb_function *f)
 	status = usb_interface_id(c, f);
 	if (status < 0)
 		goto fail;
-	midi_ac_interface_desc.bInterfaceNumber = status;
+	ac_interface_desc.bInterfaceNumber = status;
 
 	status = usb_interface_id(c, f);
 	if (status < 0)
 		goto fail;
 	ms_interface_desc.bInterfaceNumber = status;
-	midi_ac_header_desc.baInterfaceNr[0] = status;
+	ac_header_desc.baInterfaceNr[0] = status;
 
 	status = -ENODEV;
 
@@ -800,8 +800,8 @@ f_midi_bind(struct usb_configuration *c, struct usb_function *f)
 	 */
 
 	/* add the headers - these are always the same */
-	midi_function[i++] = (struct usb_descriptor_header *) &midi_ac_interface_desc;
-	midi_function[i++] = (struct usb_descriptor_header *) &midi_ac_header_desc;
+	midi_function[i++] = (struct usb_descriptor_header *) &ac_interface_desc;
+	midi_function[i++] = (struct usb_descriptor_header *) &ac_header_desc;
 	midi_function[i++] = (struct usb_descriptor_header *) &ms_interface_desc;
 
 	/* calculate the header's wTotalLength */
