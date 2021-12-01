@@ -216,7 +216,7 @@ struct binder_fd_array_object {
 
 /*
  * On 64-bit platforms where user code may run in 32-bits the driver must
- * translate the buffer (and local binder) addresses apropriately.
+ * translate the buffer (and local binder) addresses appropriately.
  */
 
 struct binder_write_read {
@@ -231,7 +231,7 @@ struct binder_write_read {
 /* Use with BINDER_VERSION, driver fills in fields. */
 struct binder_version {
 	/* driver protocol version -- increment with incompatible change */
-	signed long	protocol_version;
+	__s32       protocol_version;
 };
 
 /* This is the current protocol version. */
@@ -307,10 +307,10 @@ struct binder_transaction_data {
 		binder_uintptr_t ptr;
 	} target;
 	binder_uintptr_t	cookie;	/* target object cookie */
-	unsigned int	code;		/* transaction command */
+	__u32		code;		/* transaction command */
 
 	/* General information about the transaction. */
-	unsigned int	flags;
+	__u32	        flags;
 	pid_t		sender_pid;
 	uid_t		sender_euid;
 	binder_size_t	data_size;	/* number of bytes of data */
@@ -327,7 +327,7 @@ struct binder_transaction_data {
 			/* offsets from buffer to flat_binder_object structs */
 			binder_uintptr_t	offsets;
 		} ptr;
-		uint8_t	buf[8];
+		__u8	buf[8];
 	} data;
 };
 
@@ -352,18 +352,18 @@ struct binder_handle_cookie {
 } __packed;
 
 struct binder_pri_desc {
-	int priority;
-	int desc;
+	__s32 priority;
+	__u32 desc;
 };
 
 struct binder_pri_ptr_cookie {
-	int priority;
-	void *ptr;
-	void *cookie;
+	__s32 priority;
+	binder_uintptr_t ptr;
+	binder_uintptr_t cookie;
 };
 
-enum BinderDriverReturnProtocol {
-	BR_ERROR = _IOR('r', 0, int),
+enum binder_driver_return_protocol {
+	BR_ERROR = _IOR('r', 0, __s32),
 	/*
 	 * int: error code
 	 */
@@ -382,7 +382,7 @@ enum BinderDriverReturnProtocol {
 	 * binder_transaction_data: the received command.
 	 */
 
-	BR_ACQUIRE_RESULT = _IOR('r', 4, int),
+	BR_ACQUIRE_RESULT = _IOR('r', 4, __s32),
 	/*
 	 * not currently supported
 	 * int: 0 if the last bcATTEMPT_ACQUIRE was not successful.
@@ -428,7 +428,7 @@ enum BinderDriverReturnProtocol {
 	BR_SPAWN_LOOPER = _IO('r', 13),
 	/*
 	 * No parameters.  The driver has determined that a process has no
-	 * threads waiting to service incomming transactions.  When a process
+	 * threads waiting to service incoming transactions.  When a process
 	 * receives this command, it must spawn a new service thread and
 	 * register it via bcENTER_LOOPER.
 	 */
@@ -455,14 +455,14 @@ enum BinderDriverReturnProtocol {
 	 */
 };
 
-enum BinderDriverCommandProtocol {
+enum binder_driver_command_protocol {
 	BC_TRANSACTION = _IOW('c', 0, struct binder_transaction_data),
 	BC_REPLY = _IOW('c', 1, struct binder_transaction_data),
 	/*
 	 * binder_transaction_data: the sent command.
 	 */
 
-	BC_ACQUIRE_RESULT = _IOW('c', 2, int),
+	BC_ACQUIRE_RESULT = _IOW('c', 2, __s32),
 	/*
 	 * not currently supported
 	 * int:  0 if the last BR_ATTEMPT_ACQUIRE was not successful.
@@ -474,10 +474,10 @@ enum BinderDriverCommandProtocol {
 	 * void *: ptr to transaction data received on a read
 	 */
 
-	BC_INCREFS = _IOW('c', 4, int),
-	BC_ACQUIRE = _IOW('c', 5, int),
-	BC_RELEASE = _IOW('c', 6, int),
-	BC_DECREFS = _IOW('c', 7, int),
+	BC_INCREFS = _IOW('c', 4, __u32),
+	BC_ACQUIRE = _IOW('c', 5, __u32),
+	BC_RELEASE = _IOW('c', 6, __u32),
+	BC_DECREFS = _IOW('c', 7, __u32),
 	/*
 	 * int:	descriptor
 	 */
