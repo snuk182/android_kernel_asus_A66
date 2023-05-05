@@ -75,6 +75,7 @@ static int pil_q6v4_init_image(struct pil_desc *pil, const u8 *metadata,
 {
 	const struct elf32_hdr *ehdr = (struct elf32_hdr *)metadata;
 	struct q6v4_data *drv = dev_get_drvdata(pil->dev);
+	pr_info(" ==> pil_q6v4_init_image fw\n");
 	drv->start_addr = ehdr->e_entry;
 	return 0;
 }
@@ -302,6 +303,7 @@ static int pil_q6v4_init_image_trusted(struct pil_desc *pil,
 		const u8 *metadata, size_t size)
 {
 	const struct pil_q6v4_pdata *pdata = pil->dev->platform_data;
+	pr_info(" ==> trusted fw %s / %d\n", pdata->name, pdata->pas_id);
 	return pas_init_image(pdata->pas_id, metadata, size);
 }
 
