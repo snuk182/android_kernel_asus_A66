@@ -2,7 +2,7 @@
 #include <linux/suspend_ioctls.h>
 #include <linux/utsname.h>
 #include <linux/freezer.h>
-//snuk182 !!
+
 struct swsusp_info {
 	struct new_utsname	uts;
 	u32			version_code;
@@ -265,31 +265,6 @@ static inline void suspend_thaw_processes(void)
 }
 #endif
 
-#ifdef CONFIG_WAKELOCK
-/* kernel/power/wakelock.c */
-extern struct workqueue_struct *suspend_work_queue;
-extern struct wake_lock main_wake_lock;
-extern suspend_state_t requested_suspend_state;
-extern void suspend_sys_sync_queue(void);
-extern int suspend_sys_sync_wait(void);
-extern bool b_is_power_manager_lock;//[CY]Add for wakelock workaround
-#else
-static inline void suspend_sys_sync_queue(void) {}
-static inline int suspend_sys_sync_wait(void) { return 0; }
-#endif
-
-
-#ifdef CONFIG_USER_WAKELOCK
-ssize_t wake_lock_show(struct kobject *kobj, struct kobj_attribute *attr,
-			char *buf);
-ssize_t wake_lock_store(struct kobject *kobj, struct kobj_attribute *attr,
-			const char *buf, size_t n);
-ssize_t wake_unlock_show(struct kobject *kobj, struct kobj_attribute *attr,
-			char *buf);
-ssize_t  wake_unlock_store(struct kobject *kobj, struct kobj_attribute *attr,
-			const char *buf, size_t n);
-#endif
-
 #ifdef CONFIG_PM_AUTOSLEEP
 
 /* kernel/power/autosleep.c */
@@ -308,3 +283,11 @@ static inline suspend_state_t pm_autosleep_state(void) { return PM_SUSPEND_ON; }
 
 #endif /* !CONFIG_PM_AUTOSLEEP */
 
+#ifdef CONFIG_PM_WAKELOCKS
+
+/* kernel/power/wakelock.c */
+extern ssize_t pm_show_wakelocks(char *buf, bool show_active);
+extern int pm_wake_lock(const char *buf);
+extern int pm_wake_unlock(const char *buf);
+
+#endif /* !CONFIG_PM_WAKELOCKS */

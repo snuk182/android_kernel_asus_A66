@@ -21,7 +21,7 @@
 #include <linux/device.h>
 #include <linux/interrupt.h>
 #include <linux/delay.h>
-#include <linux/wakelock.h>
+#include <linux/pm.h>
 #include <linux/platform_device.h>
 #include <linux/sched.h>
 #include <linux/pm_qos.h>
@@ -39,6 +39,7 @@
 
 #define MAX_SMD_TTYS 37
 #define MAX_TTY_BUF_SIZE 2048
+#define TTY_PUSH_WS_DELAY 500
 #define TTY_PUSH_WS_POST_SUSPEND_DELAY 100
 #define MAX_RA_WAKE_LOCK_NAME_LEN 32
 
@@ -52,10 +53,35 @@ static bool smd_tty_in_suspend;
 static bool smd_tty_read_in_suspend;
 static struct wakeup_source read_in_suspend_ws;
 
+/**
+ * struct smd_tty_info - context for an individual SMD TTY device
+ *
+ * @ch:  SMD channel handle
+ * @port:  TTY port context structure
+ * @device_ptr:  TTY device pointer
+ * @pending_ws:  pending-data wakeup source
+ * @tty_tsklt:  read tasklet
+ * @buf_req_timer:  RX buffer retry timer
+ * @ch_allocated:  completion set when SMD channel is allocated
+ * @driver:  SMD channel platform driver context structure
+ * @pil:  Peripheral Image Loader handle
+ * @in_reset:  True if SMD channel is closed / in SSR
+ * @in_reset_updated:  reset state changed
+ * @is_open:  True if SMD port is open
+ * @open_wait:  Timeout in seconds to wait for SMD port to be created / opened
+ * @ch_opened_wait_queue:  SMD port open/close wait queue
+ * @reset_lock: lock for reset and open state
+ * @ra_lock:  Read-available lock - used to synchronize reads from SMD
+ * @ra_wakeup_source_name: Name of the read-available wakeup source
+ * @ra_wakeup_source:  Read-available wakeup source
+ * @edge:  SMD edge associated with port
+ * @ch_name:  SMD channel name associated with port
+ * @dev_name:  SMD platform device name associated with port
+ */
 struct smd_tty_info {
 	smd_channel_t *ch;
 	struct tty_struct *tty;
-	struct wake_lock wake_lock;
+	struct wakeup_source pending_ws;
 	int open_count;
 	struct tasklet_struct tty_tsklt;
 	struct timer_list buf_req_timer;
@@ -68,8 +94,8 @@ struct smd_tty_info {
 	wait_queue_head_t ch_opened_wait_queue;
 	spinlock_t reset_lock;
 	spinlock_t ra_lock;		/* Read Available Lock*/
-	char ra_wake_lock_name[MAX_RA_WAKE_LOCK_NAME_LEN];
-	struct wake_lock ra_wake_lock;	/* Read Available Wakelock */
+	char ra_wakeup_source_name[MAX_RA_WAKE_LOCK_NAME_LEN];
+	struct wakeup_source ra_wakeup_source;
 	struct smd_config *smd;
 };
 
@@ -166,7 +192,7 @@ static void smd_tty_read(unsigned long param)
 		spin_lock_irqsave(&info->ra_lock, flags);
 		avail = smd_read_avail(info->ch);
 		if (avail == 0) {
-			wake_unlock(&info->ra_wake_lock);
+			__pm_relax(&info->ra_wakeup_source);
 			spin_unlock_irqrestore(&info->ra_lock, flags);
 			break;
 		}
@@ -190,10 +216,12 @@ static void smd_tty_read(unsigned long param)
 			printk(KERN_ERR "OOPS - smd_tty_buffer mismatch?!");
 		}
 
-#ifdef CONFIG_HAS_WAKELOCK
-		pr_debug("%s: lock wakelock %s\n", __func__, info->wake_lock.name);
-#endif
-		wake_lock_timeout(&info->wake_lock, HZ / 2);
+		/*
+		 * Keep system awake long enough to allow the TTY
+		 * framework to pass the flip buffer to any waiting
+		 * userspace clients.
+		 */
+		__pm_wakeup_event(&info->pending_ws, TTY_PUSH_WS_DELAY);
 
 		if (smd_tty_in_suspend)
 			smd_tty_read_in_suspend = true;
@@ -237,7 +265,7 @@ static void smd_tty_notify(void *priv, unsigned event)
 		}
 		spin_lock_irqsave(&info->ra_lock, flags);
 		if (smd_read_avail(info->ch)) {
-			wake_lock(&info->ra_wake_lock);
+			__pm_stay_awake(&info->ra_wakeup_source);
 			tasklet_hi_schedule(&info->tty_tsklt);
 		}
 		spin_unlock_irqrestore(&info->ra_lock, flags);
@@ -359,13 +387,11 @@ static int smd_tty_open(struct tty_struct *tty, struct file *f)
 		info->tty = tty;
 		tasklet_init(&info->tty_tsklt, smd_tty_read,
 			     (unsigned long)info);
-		wake_lock_init(&info->wake_lock, WAKE_LOCK_SUSPEND,
-				smd_tty[n].smd->port_name);
-		scnprintf(info->ra_wake_lock_name,
-			  MAX_RA_WAKE_LOCK_NAME_LEN,
+		wakeup_source_init(&info->pending_ws, smd_tty[n].smd->port_name);
+		scnprintf(info->ra_wakeup_source_name, MAX_RA_WAKE_LOCK_NAME_LEN,
 			  "SMD_TTY_%s_RA", smd_tty[n].smd->port_name);
-		wake_lock_init(&info->ra_wake_lock, WAKE_LOCK_SUSPEND,
-				info->ra_wake_lock_name);
+		wakeup_source_init(&info->ra_wakeup_source,
+				info->ra_wakeup_source_name);
 		if (!info->ch) {
 			res = smd_named_open_on_edge(smd_tty[n].smd->port_name,
 							smd_tty[n].smd->edge,
@@ -405,7 +431,7 @@ out:
 
 static void smd_tty_close(struct tty_struct *tty, struct file *f)
 {
-	struct smd_tty_info *info = tty->driver_data;
+	struct smd_tty_info *info = smd_tty + tty->index;
 	unsigned long flags;
 
 	if (info == 0)
@@ -418,7 +444,8 @@ static void smd_tty_close(struct tty_struct *tty, struct file *f)
 		spin_unlock_irqrestore(&info->reset_lock, flags);
 		if (info->tty) {
 			tasklet_kill(&info->tty_tsklt);
-			wake_lock_destroy(&info->wake_lock);
+			wakeup_source_trash(&info->pending_ws);
+			wakeup_source_trash(&info->ra_wakeup_source);
 			info->tty = 0;
 		}
 		tty->driver_data = 0;
@@ -426,7 +453,6 @@ static void smd_tty_close(struct tty_struct *tty, struct file *f)
 		if (info->ch) {
 			smd_close(info->ch);
 			info->ch = 0;
-			wake_lock_destroy(&info->ra_wake_lock);
 			pil_put(info->pil);
 		}
 	}
