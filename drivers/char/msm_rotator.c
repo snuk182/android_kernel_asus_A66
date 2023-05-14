@@ -10,7 +10,6 @@
  * GNU General Public License for more details.
  *
  */
-//snuk182 !!
 #include <linux/platform_device.h>
 #include <linux/cdev.h>
 #include <linux/list.h>
