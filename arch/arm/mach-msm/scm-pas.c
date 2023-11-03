@@ -49,7 +49,7 @@ int pas_init_image(enum pas_id id, const u8 *metadata, size_t size)
 			sizeof(request), &scm_ret, sizeof(scm_ret));
 	kfree(mdata_buf);
 
-	pr_info(" ==> PAS %d %d\n", id, ret);
+	pr_info(" ==> PAS 0x%x %d %d\n", request.image_addr, id, ret);
 	if (ret)
 		return ret;
 	return scm_ret;

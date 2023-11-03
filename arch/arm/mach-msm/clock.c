@@ -42,8 +42,8 @@ int find_vdd_level(struct clk *clk, unsigned long rate)
 			break;
 
 	if (level == clk->num_fmax) {
-		pr_err("Rate %lu for %s is greater than highest Fmax\n", rate,
-			clk->dbg_name);
+		pr_err("Rate %lu for %s is greater than highest Fmax %d\n", rate,
+			clk->dbg_name, clk->num_fmax);
 		return -EINVAL;
 	}
 
