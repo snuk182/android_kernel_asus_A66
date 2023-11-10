@@ -1574,7 +1574,13 @@ wcnss_trigger_config(struct platform_device *pdev)
 		ret = PTR_ERR(penv->pil);
 		penv->pil = NULL;
 		goto fail_pil;
-	}
+	} else {
+		printk("[wcnss]: Load WCNSS image ok.\n");
+
+		//ASUS_BSP+++ "for /data/log/ASUSEvtlog"
+		ASUSEvtlog("[wcnss]: Load WCNSS image ok.\n");
+		//ASUS_BSP--- "for /data/log/ASUSEvtlog"
+    	}
 
 	return 0;
 
@@ -1839,6 +1845,8 @@ static int __init wcnss_wlan_init(void)
 {
 	int ret = 0;
 
+        pr_info("[wcnss]: wcnss_wlan_init +.\n");
+
 	platform_driver_register(&wcnss_wlan_driver);
 	platform_driver_register(&wcnss_wlan_ctrl_driver);
 	platform_driver_register(&wcnss_ctrl_driver);
@@ -1849,11 +1857,15 @@ static int __init wcnss_wlan_init(void)
 		pr_err("wcnss: pre-allocation failed\n");
 #endif
 
+	pr_info("[wcnss]: wcnss_wlan_init -.\n");
 	return ret;
 }
 
 static void __exit wcnss_wlan_exit(void)
 {
+
+	pr_info("[wcnss]: wcnss_wlan_exit +.\n");
+
 	if (penv) {
 		if (penv->pil)
 			pil_put(penv->pil);
@@ -1869,6 +1881,7 @@ static void __exit wcnss_wlan_exit(void)
 #ifdef CONFIG_WCNSS_MEM_PRE_ALLOC
 	wcnss_prealloc_deinit();
 #endif
+	pr_info("[wcnss]: wcnss_wlan_exit -.\n");
 }
 
 module_init(wcnss_wlan_init);
