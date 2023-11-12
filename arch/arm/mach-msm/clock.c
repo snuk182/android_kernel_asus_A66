@@ -252,9 +252,11 @@ void clk_disable(struct clk *clk)
 		return;
 
 	spin_lock_irqsave(&clk->lock, flags);
-	WARN(!clk->prepare_count,
-			"%s: Never called prepare or calling disable after unprepare\n",
-			name);
+	if (WARN(!clk->warned && !clk->prepare_count,
+				"%s: Never called prepare or calling disable "
+				"after unprepare\n",
+				name))
+		clk->warned = true;
 	if (WARN(clk->count == 0, "%s is unbalanced", name))
 		goto out;
 	if (clk->count == 1) {
@@ -280,14 +282,19 @@ void clk_unprepare(struct clk *clk)
 		return;
 
 	mutex_lock(&clk->prepare_lock);
-	if (WARN(!clk->prepare_count, "%s is unbalanced (prepare)", name))
+	if (!clk->prepare_count) {
+		if (WARN(!clk->warned, "%s is unbalanced (prepare)",
+				name))
+			clk->warned = true;
 		goto out;
+	}
 	if (clk->prepare_count == 1) {
 		struct clk *parent = clk_get_parent(clk);
 
-		WARN(clk->count,
+		if (WARN(!clk->warned && clk->count,
 			"%s: Don't call unprepare when the clock is enabled\n",
-			name);
+				name))
+			clk->warned = true;
 
 		if (clk->ops->unprepare)
 			clk->ops->unprepare(clk);
