@@ -110,7 +110,7 @@ struct msm_hdmi_mode_timing_info {
 #define HDMI_VFRMT_1920x1080p120_16_9	63
 #define HDMI_VFRMT_1920x1080p100_16_9	64
 #define HDMI_VFRMT_1280x800p60_16_10    65 //Mickey
-/* Video Identification Codes from 65-127 are reserved for the future */
+/* Video Identification Codes from 66-127 are reserved for the future */
 #define HDMI_VFRMT_END			127
 
 /* extended video formats */
