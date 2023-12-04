@@ -4570,9 +4570,9 @@ static void __init msm8960_cdp_init(void)
 	platform_add_devices(cdp_devices, ARRAY_SIZE(cdp_devices));
 	msm8960_init_smsc_hub();
 	msm8960_init_hsic();
-//#ifdef CONFIG_MSM_CAMERA
+#ifdef CONFIG_MSM_CAMERA
 	msm8960_init_cam();
-//#endif
+#endif
 	msm8960_init_mmc();
 	//+++ASUS_BSP : miniporting
 	#if 0

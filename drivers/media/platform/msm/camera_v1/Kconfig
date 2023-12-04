@@ -1,7 +1,7 @@
 config MSM_CAMERA_V4L2
         bool "MSM Camera V4L2 Interface"
         depends on MSM_CAMERA
-        default y
+        default n
         ---help---
           This flag enables V4L2 interface of MSM
           camera driver. If enabled, application interacts
