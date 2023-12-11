@@ -520,6 +520,110 @@ struct msm_camera_led_cfg_t {
 	enum msm_camera_led_config_t cfgtype;
 };
 
+//ASUS_BSP +++ LiJen "[A60K][8M][NA][Spec]implement set focus mode"
+//Copy from vendor\qcom\proprietary\mm-camera\common\Camera.h
+/* Auto focus mode, used for CAMERA_PARM_AF_MODE */
+typedef enum {
+  AF_MODE_UNCHANGED = -1,
+  AF_MODE_NORMAL    = 0,
+  AF_MODE_MACRO,
+  AF_MODE_AUTO,
+  AF_MODE_CAF,
+  AF_MODE_INFINITY,
+  AF_MODE_MAX
+} isp3a_af_mode_t;
+//ASUS_BSP --- LiJen "[A60K][8M][NA][Spec]implement set focus mode"
+
+//ASUS_BSP +++ LiJen "[A60K][8M][NA][Others]implement LED/Flash mode in 8M camera with ISP"
+//Copy from vendor\qcom\proprietary\mm-camera\common\Camera.h
+typedef enum {
+  LED_MODE_OFF,
+  LED_MODE_AUTO,
+  LED_MODE_ON,
+  LED_MODE_TORCH,
+
+  /*new mode above should be added above this line*/
+  LED_MODE_MAX
+} led_mode_t;
+//ASUS_BSP --- LiJen "[A60K][8M][NA][Others]implement LED/Flash mode in 8M camera with ISP"
+
+//ASUS_BSP +++ LiJen "[A60K][8M][NA][Others]implement WB mode in 8M camera with ISP"
+//Copy from vendor\qcom\proprietary\mm-camera\common\Camera.h
+typedef enum {
+  CAMERA_WB_MIN_MINUS_1,
+  CAMERA_WB_AUTO = 1,  /* This list must match aeecamera.h */
+  CAMERA_WB_CUSTOM,
+  CAMERA_WB_INCANDESCENT,
+  CAMERA_WB_FLUORESCENT,
+  CAMERA_WB_DAYLIGHT,
+  CAMERA_WB_CLOUDY_DAYLIGHT,
+  CAMERA_WB_TWILIGHT,
+  CAMERA_WB_SHADE,
+  CAMERA_WB_OFF,
+  CAMERA_WB_MAX_PLUS_1
+} config3a_wb_t;
+//ASUS_BSP --- LiJen "[A60K][8M][NA][Others]implement WB mode in 8M camera with ISP"
+
+//ASUS_BSP +++ LiJen "[ov2720] porting Qcamera server for 8M camera"
+// Copy from vendor\qcom\proprietary\mm-camera\server\hardware\sensor\Sensor_interface.h
+typedef enum {
+  SENSOR_MODE_SNAPSHOT,
+  SENSOR_MODE_RAW_SNAPSHOT,
+  SENSOR_MODE_PREVIEW,
+  SENSOR_MODE_VIDEO,
+  SENSOR_MODE_VIDEO_FULL_HD,	//ASUS_BSP +++ Stimber "Add Full HD resolution for recording"
+  SENSOR_MODE_HFR_60FPS,
+  SENSOR_MODE_HFR_90FPS,
+  SENSOR_MODE_HFR_120FPS,
+  SENSOR_MODE_HFR_150FPS,
+  SENSOR_MODE_ZSL,
+  SENSOR_MODE_INVALID,
+} sensor_mode_t;
+
+// this define only for target
+#define SENSOR_PREVIEW_MODE		SENSOR_MODE_PREVIEW
+#define SENSOR_SNAPSHOT_MODE		SENSOR_MODE_SNAPSHOT
+#define SENSOR_VIDEO_MODE			SENSOR_MODE_VIDEO
+#define SENSOR_RAW_SNAPSHOT_MODE	SENSOR_MODE_RAW_SNAPSHOT
+#define SENSOR_HFR_60FPS_MODE 	SENSOR_MODE_HFR_60FPS
+#define SENSOR_HFR_90FPS_MODE 	SENSOR_MODE_HFR_90FPS
+#define SENSOR_HFR_120FPS_MODE 	SENSOR_MODE_HFR_120FPS
+//ASUS_BSP --- LiJen "[ov2720] porting Qcamera server for 8M camera"
+
+ //ASUS_BSP +++ LiJen "[A60K][8M][NA][Others]implement Scene mode in 8M camera with ISP"
+//Copy from vendor\qcom\proprietary\mm-camera\common\Camera.h
+typedef enum {
+  CAMERA_BESTSHOT_OFF = 0,
+  CAMERA_BESTSHOT_AUTO = 1,
+  CAMERA_BESTSHOT_LANDSCAPE = 2,
+  CAMERA_BESTSHOT_SNOW,
+  CAMERA_BESTSHOT_BEACH,
+  CAMERA_BESTSHOT_SUNSET,
+  CAMERA_BESTSHOT_NIGHT,
+  CAMERA_BESTSHOT_PORTRAIT,
+  CAMERA_BESTSHOT_BACKLIGHT,
+  CAMERA_BESTSHOT_SPORTS,
+  CAMERA_BESTSHOT_ANTISHAKE,
+  CAMERA_BESTSHOT_FLOWERS,
+  CAMERA_BESTSHOT_CANDLELIGHT,
+  CAMERA_BESTSHOT_FIREWORKS,
+  CAMERA_BESTSHOT_PARTY,
+  CAMERA_BESTSHOT_NIGHT_PORTRAIT,
+  CAMERA_BESTSHOT_THEATRE,
+  CAMERA_BESTSHOT_ACTION,
+  CAMERA_BESTSHOT_AR,
+  CAMERA_BESTSHOT_MAX
+} camera_bestshot_mode_type;
+//ASUS_BSP --- LiJen "[A60K][8M][NA][Others]implement Scene mode in 8M camera with ISP"
+
+//ASUS_BSP +++ Stimber "[A60K][8M][NA][Other] Implement EXIF info for 8M camera with ISP"
+struct exif_cfg {
+	uint16_t iso;
+	uint32_t  exp_time_num;    // Numerator
+    uint32_t  exp_time_denom;  // Denominator
+};
+//ASUS_BSP --- Stimber "[A60K][8M][NA][Other] Implement EXIF info for 8M camera with ISP"
+
 #define VIDIOC_MSM_SENSOR_CFG \
 	_IOWR('V', BASE_VIDIOC_PRIVATE + 1, struct sensorb_cfg_data)
 

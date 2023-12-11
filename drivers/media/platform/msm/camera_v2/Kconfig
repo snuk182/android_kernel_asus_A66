@@ -135,6 +135,11 @@ config MI1040
        ---help---
           Aptina 1.2M YUV Sensor
 
+config OV2720
+	bool "Sensor ov2720 (Omnivision 2MP)"
+	depends on MSMB_CAMERA
+        default y
+
 config MSM_V4L2_VIDEO_OVERLAY_DEVICE
 	tristate "Qualcomm MSM V4l2 video overlay device"
 	---help---

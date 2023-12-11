@@ -1,6 +1,7 @@
 ccflags-y += -Idrivers/media/platform/msm/camera_v2
 ccflags-y += -Idrivers/media/platform/msm/camera_v2/msm_vb2
 ccflags-y += -Idrivers/media/platform/msm/camera_v2/camera
+ccflags-y += -Idrivers/media/platform/msm/camera_v2/ispif
 ccflags-y += -Idrivers/media/platform/msm/camera_v2/sensor/io
 ccflags-y += -Idrivers/media/platform/msm/camera_v2/sensor/cci
 obj-$(CONFIG_MSMB_CAMERA) += cci/ io/ csiphy/ csid/ actuator/ flash/ eeprom/
@@ -10,3 +11,4 @@ obj-$(CONFIG_IMX111) += imx111.o
 obj-$(CONFIG_IMX119) += imx119.o
 obj-$(CONFIG_OV5693) += ov5693.o
 obj-$(CONFIG_MI1040) += mi1040.o
+obj-$(CONFIG_OV2720) += ov2720.o
