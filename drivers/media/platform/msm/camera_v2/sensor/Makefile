@@ -11,4 +11,4 @@ obj-$(CONFIG_IMX111) += imx111.o
 obj-$(CONFIG_IMX119) += imx119.o
 obj-$(CONFIG_OV5693) += ov5693.o
 obj-$(CONFIG_MI1040) += mi1040.o
-obj-$(CONFIG_OV2720) += ov2720.o
+obj-$(CONFIG_OV2720) += ov2720.o fjm6mo.o
