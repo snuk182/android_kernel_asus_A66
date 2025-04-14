@@ -1511,6 +1511,11 @@ int soc_dpcm_be_dai_trigger(struct snd_soc_pcm_runtime *fe, int stream, int cmd)
 	struct snd_soc_dpcm_params *dpcm_params;
 	int ret = 0;
 
+	//QC:[PATCH] ASoC: pcm: allow backend hardware to be freed in pause state
+	//if ((cmd == SNDRV_PCM_TRIGGER_PAUSE_RELEASE) ||
+	//			(cmd == SNDRV_PCM_TRIGGER_PAUSE_PUSH))
+	//	return ret;
+	
 	list_for_each_entry(dpcm_params, &fe->dpcm[stream].be_clients, list_be) {
 
 		struct snd_soc_pcm_runtime *be = dpcm_params->be;

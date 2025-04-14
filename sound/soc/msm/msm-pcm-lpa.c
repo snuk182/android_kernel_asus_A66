@@ -118,6 +118,10 @@ static void event_handler(uint32_t opcode,
 			pr_debug("%s:lpa driver underrun\n", __func__);
 			break;
 		}
+	//QC
+        if (runtime->status->state != SNDRV_PCM_STATE_RUNNING)
+           break;
+	//QC
 
 		pr_debug("%s:writing %d bytes of buffer[%d] to dsp 2\n",
 				__func__, prtd->pcm_count, prtd->out_head);
@@ -179,6 +183,10 @@ static void event_handler(uint32_t opcode,
 					 __func__);
 				break;
 			}
+//QC
+            if (runtime->status->state != SNDRV_PCM_STATE_RUNNING)
+                break;
+//QC
 			pr_debug("%s:writing %d bytes"
 				" of buffer to dsp\n",
 				__func__, prtd->pcm_count);

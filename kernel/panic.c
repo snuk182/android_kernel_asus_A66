@@ -83,6 +83,7 @@ void panic(const char *fmt, ...)
 	int state = 0;
 
 	coresight_abort();
+
 	/*
 	 * Disable local interrupts. This will prevent panic_smp_self_stop
 	 * from deadlocking the first cpu that invokes the panic, since
@@ -161,6 +162,7 @@ void panic(const char *fmt, ...)
 			mdelay(PANIC_TIMER_STEP);
 		}
 	}
+save_phone_hang_log_(true); //snuk182
 	if (panic_timeout != 0) {
 		/*
 		 * This will not be a clean reboot, with everything

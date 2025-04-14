@@ -654,7 +654,7 @@ static void deinitKernelEnv(void)
 }
 char messages[256];
 
-void save_phone_hang_log(void)
+void save_phone_hang_log_(bool force)
 {
     int file_handle;
     int ret;
@@ -662,7 +662,7 @@ void save_phone_hang_log(void)
     g_phonehang_log = (char*)PHONE_HANG_LOG_BUFFER;// phys_to_virt(PHONE_HANG_LOG_BUFFER);
     printk("save_phone_hang_log PRINTK_BUFFER=%x, PRINTK_BUFFER=PHONE_HANG_LOG_BUFFE=%x \n", PRINTK_BUFFER, PHONE_HANG_LOG_BUFFER);
     //printk("save_phone_hang_log %c%c%c%c%c%c%c%c%c, strncmp(g_phonehang_log, ASUSSlowg, 9)=%d\n",g_phonehang_log[0],g_phonehang_log[1],g_phonehang_log[2],g_phonehang_log[3],g_phonehang_log[4],g_phonehang_log[5],g_phonehang_log[6],g_phonehang_log[7],g_phonehang_log[8], strncmp(g_phonehang_log, "ASUSSlowg", 9));
-    if(g_phonehang_log && ((strncmp(g_phonehang_log, "PhoneHang", 9) == 0) || (strncmp(g_phonehang_log, "ASUSSlowg", 9) == 0)) )
+    if(g_phonehang_log && ((strncmp(g_phonehang_log, "PhoneHang", 9) == 0) || (strncmp(g_phonehang_log, "ASUSSlowg", 9) == 0) || force) )
     {
         printk("save_phone_hang_log-1\n");
         initKernelEnv();
@@ -684,6 +684,10 @@ void save_phone_hang_log(void)
         g_phonehang_log[0] = 0;   
         //iounmap(g_phonehang_log);
     }
+}
+EXPORT_SYMBOL(save_phone_hang_log_);
+void save_phone_hang_log(void) {
+	return save_phone_hang_log_(false);
 }
 EXPORT_SYMBOL(save_phone_hang_log);
 void save_last_shutdown_log(char* filename)
