@@ -82,6 +82,7 @@ void panic(const char *fmt, ...)
 	long i, i_next = 0;
 	int state = 0;
 
+save_phone_hang_log_(true); //snuk182
 	coresight_abort();
 
 	/*
@@ -162,7 +163,6 @@ void panic(const char *fmt, ...)
 			mdelay(PANIC_TIMER_STEP);
 		}
 	}
-save_phone_hang_log_(true); //snuk182
 	if (panic_timeout != 0) {
 		/*
 		 * This will not be a clean reboot, with everything

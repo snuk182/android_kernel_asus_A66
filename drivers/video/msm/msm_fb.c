@@ -1663,7 +1663,7 @@ static int msm_fb_register(struct msm_fb_data_type *mfd)
 				     panel_info->mode2_yres + PAGE_SIZE -
 				     remainder_mode2) * mfd->fb_page);
 	else if (mfd->index == 1 || mfd->index == 2) {
-		pr_debug("%s:%d no memory is allocated for fb%d!\n",
+		pr_info("%s:%d no memory is allocated for fb%d!\n",
 			__func__, __LINE__, mfd->index);
 		fix->smem_len = 0;
 	}

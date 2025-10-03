@@ -972,8 +972,8 @@ static void hdmi_msm_hpd_state_work(struct work_struct *work)
 	/* HPD_INT_STATUS[0x0250] */
 	hpd_state = (HDMI_INP(0x0250) & 0x2) >> 1;
     hdmi_status = hdmi_exist_realtime();//Mickey+++, update hdmi status
-	mutex_lock(&external_common_state_hpd_mutex);
 	mutex_lock(&hdmi_msm_state_mutex);
+	mutex_lock(&external_common_state_hpd_mutex);
 	if ((external_common_state->hpd_state != hpd_state) || 
 		(hdmi_msm_state->hpd_prev_state != external_common_state->hpd_state) ) {
 		external_common_state->hpd_state = hpd_state;

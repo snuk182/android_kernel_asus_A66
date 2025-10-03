@@ -840,6 +840,9 @@ asmlinkage int printk(const char *fmt, ...)
 	va_list args;
 	int r;
 	unsigned char *p;
+#ifdef CONFIG_MSM_RTB
+	void *caller = NULL;
+#endif	
 	
 // +++ ASUS_BSP : add for user build
 #ifdef ASUS_SHIP_BUILD
@@ -850,7 +853,7 @@ asmlinkage int printk(const char *fmt, ...)
 	
 
 #ifdef CONFIG_MSM_RTB
-	void *caller = __builtin_return_address(0);
+	caller = __builtin_return_address(0);
 
 	uncached_logk_pc(LOGK_LOGBUF, caller, (void *)log_end);
 #endif

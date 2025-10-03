@@ -2858,7 +2858,7 @@ static void msm_otg_sm_work(struct work_struct *w)
 	bool work = 0, srp_reqd;
 
 	pm_runtime_resume(otg->phy->dev);
-	pr_debug("%s work\n", otg_state_string(otg->phy->state));
+	printk("%s work\n", otg_state_string(otg->phy->state));
 	switch (otg->phy->state) {
 	case OTG_STATE_UNDEFINED:
 		msm_otg_reset(otg->phy);
@@ -2973,8 +2973,9 @@ static void msm_otg_sm_work(struct work_struct *w)
 			pr_debug("chg_work cancel");
 			clear_bit(A_BUS_REQ, &motg->inputs);
 			cancel_delayed_work_sync(&motg->chg_work);
-//ASUS_BSP+++ "[USB][NA][Spec] Add ASUS charger mode support"
-#ifdef CONFIG_CHARGER_ASUS
+			cancel_delayed_work_sync(&motg->check_ta_work);
+			//ASUS_BSP+++ "[USB][NA][Spec] Add ASUS charger mode support"
+			#ifdef CONFIG_CHARGER_ASUS
 			cancel_delayed_work_sync(&asus_chg_work);
 			g_charger_mode = ASUS_CHG_SRC_NONE;
 			asus_chg_set_chg_mode(ASUS_CHG_SRC_NONE);
@@ -2982,11 +2983,8 @@ static void msm_otg_sm_work(struct work_struct *w)
 			ASUSEvtlog("[USB] set_chg_mode: None\n");
 			//ASUS_BSP--- "[USB][NA][Other] Add USB event log"
 			printk("[USB] set_chg_mode: None\n");
-#else			
-			cancel_delayed_work_sync(&motg->check_ta_work);
-#endif
-//ASUS_BSP--- "[USB][NA][Spec] Add ASUS charger mode support"			
-			
+			#endif
+			//ASUS_BSP--- "[USB][NA][Spec] Add ASUS charger mode support"
 			motg->chg_state = USB_CHG_STATE_UNDEFINED;
 			motg->chg_type = USB_INVALID_CHARGER;
 			msm_otg_notify_charger(motg, 0);
